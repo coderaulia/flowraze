@@ -6,7 +6,7 @@ export default {
       colors: {
         primary: {
           DEFAULT: '#1E2A78',
-          container: '#E8EAF6',
+          container: '#2A3BB0',
           text: '#BCC3FF',
         },
         secondary: '#22C55E',
@@ -16,7 +16,7 @@ export default {
         'on-surface': '#191C1E',
         'on-surface-variant': '#464555',
         'surface': '#f7f9fb',
-        'surface-container': '#171f33',
+        'surface-container': '#eceef0',
         'surface-container-lowest': '#FFFFFF',
         'surface-container-low': '#F2F4F6',
         'surface-container-high': '#E6E8EA',
@@ -38,7 +38,7 @@ export default {
         'editorial': '0 12px 32px -4px rgba(79, 70, 229, 0.08)',
       },
       backgroundImage: {
-        'cta-gradient': 'linear-gradient(135deg, #3525cd 0%, #4f46e5 100%)',
+        'cta-gradient': 'linear-gradient(135deg, #1E2A78 0%, #2A3BB0 100%)',
       },
     },
   },

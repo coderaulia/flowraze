@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
-  Users,
-  Briefcase,
   TrendingUp,
-  Percent,
   BarChart3,
   PieChart as PieChartIcon,
+  DollarSign,
+  UserPlus,
+  FolderOpen,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { get } from '@/lib/api';
@@ -62,7 +62,7 @@ export function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-on_surface_variant">Loading dashboard...</div>
+        <div className="text-on-surface-variant">Loading dashboard...</div>
       </div>
     );
   }
@@ -82,73 +82,69 @@ export function DashboardPage() {
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
-        <p className="text-on_surface_variant mt-1">
-          Overview of your sales performance
+        <h1 className="text-3xl font-bold tracking-tight text-on-surface">Architectural Overview</h1>
+        <p className="text-on-surface-variant mt-1">
+          Status of your high-value pipeline as of today.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-on_surface_variant">
-              Total Leads
-            </CardTitle>
-            <Users className="h-4 w-4 text-primary" />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="group hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-start justify-between pb-4">
+            <div className="p-3 rounded-lg bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+              <DollarSign className="h-5 w-5" />
+            </div>
+            <span className="text-xs font-bold text-secondary bg-secondary/10 px-2 py-1 rounded">+12.4%</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {stats?.totalLeads ?? 0}
-            </div>
+            <p className="text-sm font-medium text-on-surface-variant uppercase tracking-wider">Won Revenue</p>
+            <h3 className="text-2xl font-black mt-1 text-on-surface">{formatCurrency(stats?.wonRevenue ?? 0)}</h3>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-on_surface_variant">
-              Total Deals
-            </CardTitle>
-            <Briefcase className="h-4 w-4 text-primary" />
+        <Card className="group hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-start justify-between pb-4">
+            <div className="p-3 rounded-lg bg-secondary/5 text-secondary group-hover:bg-secondary group-hover:text-white transition-colors duration-500">
+              <UserPlus className="h-5 w-5" />
+            </div>
+            <span className="text-xs font-bold text-secondary bg-secondary/10 px-2 py-1 rounded">+8.1%</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {stats?.totalDeals ?? 0}
-            </div>
+            <p className="text-sm font-medium text-on-surface-variant uppercase tracking-wider">New Leads</p>
+            <h3 className="text-2xl font-black mt-1 text-on-surface">{stats?.totalLeads ?? 0}</h3>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-on_surface_variant">
-              Won Revenue
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-secondary" />
+        <Card className="group hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-start justify-between pb-4">
+            <div className="p-3 rounded-lg bg-tertiary/5 text-tertiary group-hover:bg-tertiary group-hover:text-white transition-colors duration-500">
+              <FolderOpen className="h-5 w-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">Stable</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-secondary">
-              {formatCurrency(stats?.wonRevenue ?? 0)}
-            </div>
+            <p className="text-sm font-medium text-on-surface-variant uppercase tracking-wider">Open Deals</p>
+            <h3 className="text-2xl font-black mt-1 text-on-surface">{stats?.totalDeals ?? 0}</h3>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-on_surface_variant">
-              Conversion Rate
-            </CardTitle>
-            <Percent className="h-4 w-4 text-tertiary" />
+        <Card className="group hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-start justify-between pb-4">
+            <div className="p-3 rounded-lg bg-primary/10 text-primary-container group-hover:bg-primary-container group-hover:text-white transition-colors duration-500">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded">-2.4%</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-tertiary">
-              {((stats?.conversionRate ?? 0) * 100).toFixed(1)}%
-            </div>
+            <p className="text-sm font-medium text-on-surface-variant uppercase tracking-wider">Conversion Rate</p>
+            <h3 className="text-2xl font-black mt-1 text-on-surface">{((stats?.conversionRate ?? 0) * 100).toFixed(1)}%</h3>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -160,17 +156,17 @@ export function DashboardPage() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={leadsBySourceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#454651" opacity={0.3} />
-                  <XAxis dataKey="name" stroke="#c6c5d3" fontSize={12} />
-                  <YAxis stroke="#c6c5d3" fontSize={12} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
+                  <YAxis stroke="#6b7280" fontSize={12} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#171f33',
-                      border: '1px solid #454651',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e5e7eb',
                       borderRadius: '8px',
                     }}
                   />
-                  <Bar dataKey="value" fill="#bcc3ff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="value" fill="#1E2A78" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -191,8 +187,8 @@ export function DashboardPage() {
                   <PieChart>
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: '#171f33',
-                        border: '1px solid #454651',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e5e7eb',
                         borderRadius: '8px',
                       }}
                     />
@@ -217,7 +213,7 @@ export function DashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="text-on_surface_variant">No deals data</div>
+                <div className="text-on-surface-variant">No deals data</div>
               )}
             </div>
           </CardContent>
@@ -235,17 +231,17 @@ export function DashboardPage() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats?.revenueOverTime || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#454651" opacity={0.3} />
-                <XAxis dataKey="month" stroke="#c6c5d3" fontSize={12} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
                 <YAxis
-                  stroke="#c6c5d3"
+                  stroke="#6b7280"
                   fontSize={12}
                   tickFormatter={(value: number) => `$${value / 1000}k`}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#171f33',
-                    border: '1px solid #454651',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
                     borderRadius: '8px',
                   }}
                   formatter={(value: number) => [formatCurrency(value), 'Revenue']}
@@ -253,9 +249,9 @@ export function DashboardPage() {
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#4ae176"
+                  stroke="#22C55E"
                   strokeWidth={2}
-                  dot={{ fill: '#4ae176', strokeWidth: 2 }}
+                  dot={{ fill: '#22C55E', strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
