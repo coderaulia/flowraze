@@ -4,33 +4,39 @@ export default {
   theme: {
     extend: {
       colors: {
-        surface: {
-          DEFAULT: '#0b1326',
-          container: '#171f33',
-          'container-high': '#222a3d',
-          'container-lowest': '#060e20',
-        },
         primary: {
-          DEFAULT: '#bcc3ff',
-          container: '#1e2a78',
+          DEFAULT: '#4F46E5',
+          container: '#4338CA',
         },
-        secondary: '#4ae176',
-        tertiary: '#ffb595',
-        on_surface_variant: '#c6c5d3',
-        outline_variant: '#454651',
-        error: '#ffb4ab',
+        secondary: '#22C55E',
+        tertiary: '#7E3000',
+        error: '#BA1A1A',
+        'on-primary': '#FFFFFF',
+        'on-surface': '#191C1E',
+        'on-surface-variant': '#464555',
+        'surface-container-lowest': '#FFFFFF',
+        'surface-container-low': '#F2F4F6',
+        'surface-container': '#ECEEF0',
+        'surface-container-high': '#E6E8EA',
+        'surface-container-highest': '#E0E3E5',
+        'outline-variant': '#C7C4D8',
+        'secondary-container': '#E2E1FF',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
-        'round-eight': '0.5rem',
-      },
-      backdropBlur: {
-        'glass': '20px',
+        DEFAULT: '0.25rem',
+        lg: '0.5rem',
+        xl: '0.75rem',
+        '2xl': '1rem',
+        '3xl': '1.5rem',
       },
       boxShadow: {
-        'ambient': '0 48px 48px rgba(0, 0, 0, 0.04)',
+        'editorial': '0 12px 32px -4px rgba(79, 70, 229, 0.08)',
+      },
+      backgroundImage: {
+        'cta-gradient': 'linear-gradient(135deg, #3525cd 0%, #4f46e5 100%)',
       },
     },
   },

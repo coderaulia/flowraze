@@ -11,10 +11,16 @@
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
     "lint:fix": "npm run lint:fix --workspaces",
-    "typecheck": "npm run typecheck --workspaces"
+    "typecheck": "npm run typecheck --workspaces",
+    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "db:setup": "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
+    "prisma": "^5.10.0",
+    "tsx": "^4.7.1",
     "typescript": "^5.4.0"
   },
   "engines": {
