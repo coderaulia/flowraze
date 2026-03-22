@@ -121,7 +121,7 @@ export function UsersPage() {
         <div className="text-center">
           <Shield className="h-12 w-12 text-error mx-auto mb-4" />
           <h2 className="text-xl font-bold text-primary mb-2">Access Denied</h2>
-          <p className="text-on_surface_variant">
+          <p className="text-on-surface-variant">
             You need superadmin privileges to access this page.
           </p>
         </div>
@@ -134,7 +134,7 @@ export function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">User Management</h1>
-          <p className="text-on_surface_variant mt-1">
+          <p className="text-on-surface-variant mt-1">
             Manage team members and their access levels
           </p>
         </div>
@@ -144,9 +144,9 @@ export function UsersPage() {
         </Button>
       </div>
 
-      <div className="rounded-round-eight bg-surface-container overflow-hidden">
+      <div className="rounded-lg bg-white border border-gray-200 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-on_surface_variant">
+          <div className="flex items-center justify-center h-64 text-on-surface-variant">
             Loading users...
           </div>
         ) : (

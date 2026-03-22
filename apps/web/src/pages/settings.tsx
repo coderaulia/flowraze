@@ -8,7 +8,7 @@ export function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-primary">Settings</h1>
-        <p className="text-on_surface_variant mt-1">
+          <p className="text-on-surface-variant mt-1">
           Manage your account settings
         </p>
       </div>
@@ -41,7 +41,7 @@ export function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-on_surface_variant text-sm">
+          <p className="text-on-surface-variant text-sm">
             Notification settings coming soon...
           </p>
         </CardContent>

@@ -117,7 +117,7 @@ export function CampaignsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Campaigns</h1>
-          <p className="text-on_surface_variant mt-1">
+          <p className="text-on-surface-variant mt-1">
             Track your marketing campaigns and their performance
           </p>
         </div>
@@ -129,7 +129,7 @@ export function CampaignsPage() {
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-on_surface_variant" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search campaigns..."
             value={search}
@@ -139,13 +139,13 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      <div className="rounded-round-eight bg-surface-container overflow-hidden">
+      <div className="rounded-lg bg-white border border-gray-200 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-on_surface_variant">
+          <div className="flex items-center justify-center h-64 text-on-surface-variant">
             Loading campaigns...
           </div>
         ) : filteredCampaigns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-on_surface_variant">
+          <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant">
             <p>No campaigns found</p>
             <Button variant="link" onClick={() => setIsModalOpen(true)}>
               Add your first campaign

@@ -33,7 +33,7 @@ export function TeamPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-on_surface_variant">Loading team performance...</div>
+        <div className="text-on-surface-variant">Loading team performance...</div>
       </div>
     );
   }
@@ -41,8 +41,8 @@ export function TeamPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-primary">Team Performance</h1>
-        <p className="text-on_surface_variant mt-1">
+          <h1 className="text-2xl font-bold text-primary">Team Performance</h1>
+          <p className="text-on-surface-variant mt-1">
           Track your team's sales performance
         </p>
       </div>
@@ -51,7 +51,7 @@ export function TeamPage() {
         {teamPerformance.map((member) => (
           <Card key={member.userId}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-on_surface_variant">
+              <CardTitle className="text-sm font-medium text-on-surface-variant">
                 {member.userName}
               </CardTitle>
               <Users className="h-4 w-4 text-primary" />
