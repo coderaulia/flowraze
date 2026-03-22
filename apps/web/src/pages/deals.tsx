@@ -112,7 +112,7 @@ export function DealsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-on_surface_variant">Loading deals...</div>
+        <div className="text-on-surface-variant">Loading deals...</div>
       </div>
     );
   }
@@ -122,7 +122,7 @@ export function DealsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Deals</h1>
-          <p className="text-on_surface_variant mt-1">
+          <p className="text-on-surface-variant mt-1">
             Track your sales pipeline
           </p>
         </div>
@@ -140,7 +140,7 @@ export function DealsPage() {
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, stage.id)}
           >
-            <div className="rounded-round-eight bg-surface-container p-3">
+            <div className="rounded-lg bg-gray-100 p-3">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div
@@ -162,21 +162,21 @@ export function DealsPage() {
                     key={deal.id}
                     draggable
                     onDragStart={() => handleDragStart(deal)}
-                    className={`p-3 rounded-round-eight bg-surface cursor-move hover:bg-surface-container-high transition-colors ${
+                    className={`p-3 rounded-lg bg-white cursor-move hover:bg-gray-50 transition-colors ${
                       draggedDeal?.id === deal.id ? 'opacity-50' : ''
                     }`}
                   >
                     <h4 className="font-medium text-primary text-sm truncate">
                       {deal.title}
                     </h4>
-                    <p className="text-xs text-on_surface_variant mt-1 truncate">
+                    <p className="text-xs text-on-surface-variant mt-1 truncate">
                       {getLeadName(deal.leadId)}
                     </p>
                     <p className="text-sm font-semibold text-secondary mt-2">
                       {formatCurrency(deal.value)}
                     </p>
                     {deal.expectedCloseDate && (
-                      <p className="text-xs text-on_surface_variant mt-1">
+                      <p className="text-xs text-on-surface-variant mt-1">
                         Close: {new Date(deal.expectedCloseDate).toLocaleDateString()}
                       </p>
                     )}
@@ -184,7 +184,7 @@ export function DealsPage() {
                 ))}
 
                 {getDealsByStage(stage.id).length === 0 && (
-                  <div className="flex items-center justify-center h-32 border border-dashed border-outline-variant/15 rounded-round-eight text-sm text-on_surface_variant">
+                  <div className="flex items-center justify-center h-32 border border-dashed border-gray-300 rounded-lg text-sm text-on-surface-variant">
                     No deals
                   </div>
                 )}
