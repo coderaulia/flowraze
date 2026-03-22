@@ -3,6 +3,8 @@ import { useAuthStore } from './hooks/useAuthStore';
 import { Layout } from './components/layout';
 import { LoginPage } from './pages/login';
 import { LandingPage } from './pages/landing';
+import { SolutionsPage } from './pages/solutions';
+import { PricingPage } from './pages/pricing';
 import { DashboardPage } from './pages/dashboard';
 import { LeadsPage } from './pages/leads';
 import { DealsPage } from './pages/deals';
@@ -27,6 +29,8 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/solutions" element={<SolutionsPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
         <Route path="/login" element={<LoginPage />} />
         
         {/* Protected dashboard routes */}
