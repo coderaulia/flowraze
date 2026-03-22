@@ -6,5 +6,9 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts"
+  },
+  "scripts": {
+    "lint": "echo 'No lint needed for types package'",
+    "typecheck": "echo 'No typecheck needed for types package'"
   }
 }

@@ -40,12 +40,12 @@ export function Layout() {
     <div className="flex h-full">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface-container transition-transform lg:static lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#171f33] transition-transform lg:static lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex h-16 items-center justify-between px-6">
-          <h1 className="text-xl font-bold text-primary tracking-tight">
+          <h1 className="text-xl font-bold text-white tracking-tight">
             Flow<span className="text-secondary">Raze</span>
           </h1>
           <button
@@ -63,10 +63,10 @@ export function Layout() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-round-eight px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-primary-container text-primary'
-                    : 'text-on_surface_variant hover:bg-surface-container-high hover:text-primary'
+                    ? 'bg-primary text-white'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 )
               }
             >
@@ -78,12 +78,12 @@ export function Layout() {
 
         <div className="border-t border-outline-variant/15 p-3">
           <div className="px-3 py-2 mb-2">
-            <p className="text-sm font-medium text-primary truncate">{user?.name}</p>
-            <p className="text-xs text-on_surface_variant truncate">{user?.email}</p>
+            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+            <p className="text-xs text-gray-400 truncate">{user?.email}</p>
           </div>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 text-on_surface_variant hover:text-error"
+            className="w-full justify-start gap-3 text-gray-400 hover:text-red-400"
             onClick={handleLogout}
           >
             <LogOut className="h-5 w-5" />
@@ -93,19 +93,19 @@ export function Layout() {
       </aside>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-outline-variant/15 bg-surface px-6 lg:hidden">
+        <header className="flex h-16 items-center justify-between border-b border-gray-800 bg-[#0b1326] px-6 lg:hidden">
           <button
             className="text-on_surface_variant hover:text-primary"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-6 w-6" />
           </button>
-          <h1 className="text-lg font-semibold text-primary">
+          <h1 className="text-lg font-semibold text-white">
             Flow<span className="text-secondary">Raze</span>
           </h1>
         </header>
 
-        <main className="flex-1 overflow-auto bg-surface p-6">
+        <main className="flex-1 overflow-auto bg-[#0b1326] p-6">
           <Outlet />
         </main>
       </div>

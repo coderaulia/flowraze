@@ -45,10 +45,6 @@ export function CampaignsPage() {
     endDate: '',
   });
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
-
   const fetchCampaigns = async () => {
     const response = await get<Campaign[]>('/campaigns');
     if (response.success && response.data) {
@@ -56,6 +52,10 @@ export function CampaignsPage() {
     }
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

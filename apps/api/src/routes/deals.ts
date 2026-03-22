@@ -57,7 +57,7 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
 
 router.post('/', async (req: AuthRequest, res, next) => {
   try {
-    const { leadId, title, value, stage, expectedCloseDate, notes } = req.body;
+    const { leadId, title, value, stage, expectedCloseDate, notes: _notes } = req.body;
 
     if (!leadId || !title || value === undefined) {
       throw new AppError(400, 'Lead, title, and value are required');

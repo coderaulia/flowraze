@@ -8,11 +8,11 @@ export function SolutionsPage() {
       {/* TopNavBar */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-outline-variant/10">
         <div className="max-w-7xl mx-auto flex justify-between items-center px-8 h-20">
-          <h1 className="text-2xl font-extrabold tracking-tighter text-primary">FlowRaze</h1>
+          <Link to="/" className="text-2xl font-extrabold tracking-tighter text-primary">FlowRaze</Link>
           <div className="hidden md:flex items-center gap-8">
-            <a className="text-on-surface-variant font-medium hover:text-primary transition-all" href="#">Features</a>
-            <a className="text-primary font-bold border-b-2 border-primary pb-1" href="#">Solutions</a>
-            <a className="text-on-surface-variant font-medium hover:text-primary transition-all" href="#">Pricing</a>
+            <Link to="/" className="text-on-surface-variant font-medium hover:text-primary transition-all">Features</Link>
+            <Link to="/solutions" className="text-primary font-bold border-b-2 border-primary pb-1">Solutions</Link>
+            <Link to="/pricing" className="text-on-surface-variant font-medium hover:text-primary transition-all">Pricing</Link>
             <a className="text-on-surface-variant font-medium hover:text-primary transition-all" href="#">Resources</a>
           </div>
           <div className="flex items-center gap-4">

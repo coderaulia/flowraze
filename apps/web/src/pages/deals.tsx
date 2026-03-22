@@ -42,10 +42,6 @@ export function DealsPage() {
     notes: '',
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     const [dealsRes, leadsRes] = await Promise.all([
       get<Deal[]>('/deals'),
@@ -55,6 +51,10 @@ export function DealsPage() {
     if (leadsRes.success && leadsRes.data) setLeads(leadsRes.data);
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

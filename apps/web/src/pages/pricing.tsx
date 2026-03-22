@@ -8,11 +8,11 @@ export function PricingPage() {
       {/* TopNavBar */}
       <nav className="fixed top-0 w-full z-50 bg-white">
         <div className="flex items-center justify-between px-8 py-4 max-w-7xl mx-auto">
-          <h1 className="text-xl font-bold tracking-tighter text-on-surface">FlowRaze</h1>
+          <Link to="/" className="text-xl font-bold tracking-tighter text-primary">FlowRaze</Link>
           <div className="hidden md:flex items-center gap-8">
-            <a className="text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">Features</a>
-            <a className="text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">Solutions</a>
-            <a className="text-primary font-semibold border-b-2 border-primary pb-1" href="#">Pricing</a>
+            <Link to="/" className="text-on-surface-variant font-medium hover:text-primary transition-colors">Features</Link>
+            <Link to="/solutions" className="text-on-surface-variant font-medium hover:text-primary transition-colors">Solutions</Link>
+            <Link to="/pricing" className="text-primary font-semibold border-b-2 border-primary pb-1">Pricing</Link>
           </div>
           <div className="flex items-center gap-4">
             <Link to="/login">

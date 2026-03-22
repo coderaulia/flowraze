@@ -8,7 +8,7 @@ router.use(authenticate);
 
 router.get('/', async (_req: AuthRequest, res, next) => {
   try {
-    const [totalLeads, totalDeals, wonDeals, allDeals] = await Promise.all([
+    const [totalLeads, totalDeals, wonDeals, _allDeals] = await Promise.all([
       prisma.lead.count(),
       prisma.deal.count(),
       prisma.deal.findMany({ where: { stage: 'won' } }),

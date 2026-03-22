@@ -8,11 +8,11 @@ export function LandingPage() {
       {/* TopNavBar */}
       <nav className="fixed top-0 w-full z-50 bg-white border-b border-outline-variant/10">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tighter text-primary">FlowRaze</h1>
+          <Link to="/" className="text-2xl font-bold tracking-tighter text-primary">FlowRaze</Link>
           <div className="hidden md:flex items-center space-x-8">
-            <a className="text-primary font-semibold border-b-2 border-primary pb-1" href="#">Features</a>
-            <a className="text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">Solutions</a>
-            <a className="text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">Pricing</a>
+            <span className="text-primary font-semibold border-b-2 border-primary pb-1">Features</span>
+            <Link to="/solutions" className="text-on-surface-variant font-medium hover:text-primary transition-colors">Solutions</Link>
+            <Link to="/pricing" className="text-on-surface-variant font-medium hover:text-primary transition-colors">Pricing</Link>
             <a className="text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">Resources</a>
           </div>
           <div className="flex items-center space-x-4">
