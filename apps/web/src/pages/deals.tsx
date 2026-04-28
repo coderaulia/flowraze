@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FieldError } from '@/components/ui/field-error';
-import { get, post, put } from '@/lib/api';
+import { get, post, put, del } from '@/lib/api';
 import {
   hasFormErrors,
   isPositiveNumber,
@@ -70,6 +70,9 @@ export function DealsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<Deal | null>(null);
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  const [deletingDeal, setDeletingDeal] = useState<Deal | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState('');
 
@@ -113,12 +116,15 @@ export function DealsPage() {
       expectedCloseDate: formData.expectedCloseDate || undefined,
       notes: formData.notes.trim(),
     };
-    const response = await post<Deal>('/deals', payload);
+    const response = editingDeal
+      ? await put<Deal>(`/deals/${editingDeal.id}`, payload)
+      : await post<Deal>('/deals', payload);
+
     if (response.success) {
       fetchData();
       closeModal();
     } else {
-      setFormError(response.error || 'Unable to add deal');
+      setFormError(response.error || `Unable to ${editingDeal ? 'save' : 'add'} deal`);
     }
   };
 
@@ -143,6 +149,7 @@ export function DealsPage() {
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setEditingDeal(null);
     setFormData({
       leadId: '',
       title: '',
@@ -155,8 +162,41 @@ export function DealsPage() {
     setFormError('');
   };
 
+  const openEditModal = (deal: Deal) => {
+    setEditingDeal(deal);
+    setFormData({
+      leadId: deal.leadId,
+      title: deal.title,
+      value: deal.value,
+      stage: deal.stage,
+      expectedCloseDate: deal.expectedCloseDate
+        ? new Date(deal.expectedCloseDate).toISOString().split('T')[0]
+        : '',
+      notes: '',
+    });
+    setFormErrors({});
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingDeal) {
+      return;
+    }
+
+    const response = await del<void>(`/deals/${deletingDeal.id}`);
+    if (response.success) {
+      fetchData();
+      setIsDeleteModalOpen(false);
+      setDeletingDeal(null);
+    }
+  };
+
   const getDealsByStage = (stage: DealStage) =>
     deals.filter((d) => d.stage === stage);
+
+  const getStageValue = (stage: DealStage) =>
+    getDealsByStage(stage).reduce((sum, deal) => sum + deal.value, 0);
 
   const getLeadName = (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
@@ -205,9 +245,14 @@ export function DealsPage() {
                     {stage.label}
                   </span>
                 </div>
-                <Badge variant="default">
-                  {getDealsByStage(stage.id).length}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-on-surface-variant">
+                    {formatCurrency(getStageValue(stage.id))}
+                  </span>
+                  <Badge variant="default">
+                    {getDealsByStage(stage.id).length}
+                  </Badge>
+                </div>
               </div>
 
               <div className="space-y-2 min-h-[200px]">
@@ -220,9 +265,32 @@ export function DealsPage() {
                       draggedDeal?.id === deal.id ? 'opacity-50' : ''
                     }`}
                   >
-                    <h4 className="font-medium text-primary text-sm truncate">
-                      {deal.title}
-                    </h4>
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-medium text-primary text-sm truncate">
+                        {deal.title}
+                      </h4>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          aria-label={`Edit ${deal.title}`}
+                          className="rounded p-1 text-slate-500 hover:bg-gray-100 hover:text-primary"
+                          type="button"
+                          onClick={() => openEditModal(deal)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          aria-label={`Delete ${deal.title}`}
+                          className="rounded p-1 text-slate-500 hover:bg-gray-100 hover:text-error"
+                          type="button"
+                          onClick={() => {
+                            setDeletingDeal(deal);
+                            setIsDeleteModalOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
                     <p className="text-xs text-on-surface-variant mt-1 truncate">
                       {getLeadName(deal.leadId)}
                     </p>
@@ -251,7 +319,7 @@ export function DealsPage() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Deal</DialogTitle>
+            <DialogTitle>{editingDeal ? 'Edit Deal' : 'Add New Deal'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             {formError && (
@@ -358,9 +426,35 @@ export function DealsPage() {
               <Button type="button" variant="secondary" onClick={closeModal}>
                 Cancel
               </Button>
-              <Button type="submit">Add Deal</Button>
+              <Button type="submit">{editingDeal ? 'Save Changes' : 'Add Deal'}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Deal</DialogTitle>
+          </DialogHeader>
+          <p className="text-on-surface-variant">
+            Are you sure you want to delete {deletingDeal?.title || 'this deal'}?
+            This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setDeletingDeal(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button variant="default" onClick={handleDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

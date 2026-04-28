@@ -240,12 +240,12 @@ NODE_ENV=development
 - [x] Dashboard UI supports range controls, chart empty states, and persisted revenue trends
 - [x] Frontend forms show inline validation and API error feedback before writes
 - [x] Layout shell supports mobile navigation and responsive table scrolling
+- [x] Deals Kanban board supports stage totals, drag updates, edit, and delete
 
 ### In Progress
 - None
 
 ### Placeholder/Todo
-- [ ] Deals Kanban Board
 - [ ] Activity Feed UI
 - [ ] Team Performance real integration
 - [ ] Settings Page (Profile/Security)
