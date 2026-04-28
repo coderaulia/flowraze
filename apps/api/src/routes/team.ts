@@ -1,23 +1,30 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 
 const router = Router();
 
 router.use(authenticate);
 
-router.get('/performance', async (_req: AuthRequest, res, next) => {
+router.get('/performance', async (req: AuthRequest, res, next) => {
   try {
-    const users = await prisma.user.findMany({
-      include: {
-        leads: { select: { id: true } },
-        deals: {
-          where: { stage: 'won' },
-          select: { id: true, value: true },
+    const pagination = getPagination(req.query);
+    const [users, total] = await prisma.$transaction([
+      prisma.user.findMany({
+        include: {
+          leads: { select: { id: true } },
+          deals: {
+            where: { stage: 'won' },
+            select: { id: true, value: true },
+          },
+          activities: { select: { id: true } },
         },
-        activities: { select: { id: true } },
-      },
-    });
+        orderBy: { createdAt: 'desc' },
+        ...getPaginationArgs(pagination),
+      }),
+      prisma.user.count(),
+    ]);
 
     const performance = users.map((user) => ({
       userId: user.id,
@@ -28,7 +35,7 @@ router.get('/performance', async (_req: AuthRequest, res, next) => {
       activitiesLogged: user.activities.length,
     }));
 
-    res.json({ success: true, data: performance });
+    res.json(paginatedResponse(performance, pagination, total));
   } catch (error) {
     next(error);
   }

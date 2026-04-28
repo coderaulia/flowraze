@@ -22,22 +22,20 @@ A modern CRM + Operations Analytics web app for growing teams. Built with React,
 
 ```
 flowraze/
-├── apps/
-│   ├── web/              # React frontend
-│   │   ├── src/
-│   │   │   ├── components/   # UI components
-│   │   │   ├── pages/        # Route pages
-│   │   │   ├── lib/          # Utilities & API client
-│   │   │   └── hooks/        # Custom React hooks
-│   │   └── ...
-│   └── api/              # Express backend
-│       ├── src/
-│       │   ├── routes/       # API routes
-│       │   ├── middleware/    # Auth & error handling
-│       │   └── prisma/        # Database client
-│       └── ...
-├── prisma/               # Database schema & seed
-└── shared/               # Shared TypeScript types
++-- apps/
+|   +-- web/              # React frontend
+|   |   +-- src/
+|   |   |   +-- components/   # UI components
+|   |   |   +-- pages/        # Route pages
+|   |   |   +-- lib/          # Utilities & API client
+|   |   |   +-- hooks/        # Custom React hooks
+|   +-- api/              # Express backend
+|       +-- src/
+|       |   +-- routes/       # API routes
+|       |   +-- middleware/   # Auth & error handling
+|       |   +-- prisma/       # Database client
++-- prisma/               # Database schema & seed
++-- shared/               # Shared TypeScript types
 ```
 
 ## Getting Started
@@ -110,7 +108,7 @@ After seeding the database:
 ### Frontend (apps/web)
 - `npm run dev` - Vite dev server
 - `npm run build` - Production build
-- `npm run test` - Run tests
+- No frontend test script exists yet
 
 ### Backend (apps/api)
 - `npm run dev` - Start dev server
@@ -121,6 +119,8 @@ After seeding the database:
 - `npm run prisma:seed` - Seed database
 
 ## API Endpoints
+
+List endpoints support optional `page` and `limit` query params and return pagination metadata when those params are present.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|

@@ -1,19 +1,27 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
+import { optionalDate, requiredDate, requireAtLeastOneField, requireObjectBody, setIfPresent } from '../utils/request.js';
 
 const router = Router();
 
 router.use(authenticate);
 
-router.get('/', async (_req: AuthRequest, res, next) => {
+router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const campaigns = await prisma.campaign.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    const pagination = getPagination(req.query);
+    const [campaigns, total] = await prisma.$transaction([
+      prisma.campaign.findMany({
+        orderBy: { createdAt: 'desc' },
+        ...getPaginationArgs(pagination),
+      }),
+      prisma.campaign.count(),
+    ]);
 
-    res.json({ success: true, data: campaigns });
+    res.json(paginatedResponse(campaigns, pagination, total));
   } catch (error) {
     next(error);
   }
@@ -64,17 +72,19 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
 router.put('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const { name, channel, cost, startDate, endDate } = req.body;
+    const body = requireObjectBody(req.body);
+    const data: Record<string, unknown> = {};
+
+    setIfPresent(data, body, 'name');
+    setIfPresent(data, body, 'channel');
+    setIfPresent(data, body, 'cost');
+    setIfPresent(data, body, 'startDate', requiredDate);
+    setIfPresent(data, body, 'endDate', optionalDate);
+    requireAtLeastOneField(data);
 
     const campaign = await prisma.campaign.update({
       where: { id: req.params.id },
-      data: {
-        name,
-        channel,
-        cost,
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-      },
+      data: data as Prisma.CampaignUpdateInput,
     });
 
     res.json({ success: true, data: campaign });

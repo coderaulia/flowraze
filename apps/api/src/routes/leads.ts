@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
+import { requireAtLeastOneField, requireObjectBody, setIfPresent } from '../utils/request.js';
 
 const router = Router();
 
@@ -28,16 +31,21 @@ router.get('/', async (req: AuthRequest, res, next) => {
       ];
     }
 
-    const leads = await prisma.lead.findMany({
-      where,
-      include: {
-        owner: { select: { id: true, name: true } },
-        campaign: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const pagination = getPagination(req.query);
+    const [leads, total] = await prisma.$transaction([
+      prisma.lead.findMany({
+        where,
+        include: {
+          owner: { select: { id: true, name: true } },
+          campaign: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        ...getPaginationArgs(pagination),
+      }),
+      prisma.lead.count({ where }),
+    ]);
 
-    res.json({ success: true, data: leads });
+    res.json(paginatedResponse(leads, pagination, total));
   } catch (error) {
     next(error);
   }
@@ -98,20 +106,22 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
 router.put('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const { fullName, email, phone, companyName, source, campaignId, status, notes } = req.body;
+    const body = requireObjectBody(req.body);
+    const data: Record<string, unknown> = {};
+
+    setIfPresent(data, body, 'fullName');
+    setIfPresent(data, body, 'email');
+    setIfPresent(data, body, 'phone');
+    setIfPresent(data, body, 'companyName');
+    setIfPresent(data, body, 'source');
+    setIfPresent(data, body, 'campaignId');
+    setIfPresent(data, body, 'status');
+    setIfPresent(data, body, 'notes');
+    requireAtLeastOneField(data);
 
     const lead = await prisma.lead.update({
       where: { id: req.params.id },
-      data: {
-        fullName,
-        email,
-        phone,
-        companyName,
-        source,
-        campaignId,
-        status,
-        notes,
-      },
+      data: data as Prisma.LeadUncheckedUpdateInput,
       include: {
         owner: { select: { id: true, name: true } },
       },

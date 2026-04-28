@@ -8,11 +8,10 @@ router.use(authenticate);
 
 router.get('/', async (_req: AuthRequest, res, next) => {
   try {
-    const [totalLeads, totalDeals, wonDeals, _allDeals] = await Promise.all([
+    const [totalLeads, totalDeals, wonDeals] = await Promise.all([
       prisma.lead.count(),
       prisma.deal.count(),
       prisma.deal.findMany({ where: { stage: 'won' } }),
-      prisma.deal.findMany(),
     ]);
 
     const wonRevenue = wonDeals.reduce((sum, d) => sum + d.value, 0);
@@ -61,13 +60,16 @@ router.get('/', async (_req: AuthRequest, res, next) => {
     for (let i = 0; i < 6; i++) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
-      revenueMap[months[d.getMonth()]] = 0;
+      const monthName = months[d.getMonth()];
+      if (monthName) {
+        revenueMap[monthName] = 0;
+      }
     }
 
     monthlyRevenue.forEach((deal) => {
       const monthName = months[deal.createdAt.getMonth()];
-      if (revenueMap[monthName] !== undefined) {
-        revenueMap[monthName] += deal.value;
+      if (monthName && revenueMap[monthName] !== undefined) {
+        revenueMap[monthName] = revenueMap[monthName] + deal.value;
       }
     });
 

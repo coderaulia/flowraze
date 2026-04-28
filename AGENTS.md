@@ -8,34 +8,37 @@ This document provides guidelines and instructions for AI agents working on the 
 
 ```
 flowraze/
-├── apps/
-│   ├── web/              # React + Vite + TypeScript frontend
-│   │   ├── src/
-│   │   │   ├── components/   # Reusable UI components (shadcn/ui style)
-│   │   │   ├── pages/        # Route pages
-│   │   │   ├── lib/          # Utilities, API client, helpers
-│   │   │   ├── hooks/        # Custom React hooks
-│   │   │   └── types/        # Frontend-specific types
-│   │   └── ...
-│   └── api/              # Node.js + Express + TypeScript backend
-│       ├── src/
-│       │   ├── routes/       # Express route definitions
-│       │   ├── controllers/  # Request handlers
-│       │   ├── services/      # Business logic
-│       │   ├── middleware/    # Auth, validation, error handling
-│       │   ├── prisma/        # Prisma client
-│       │   └── utils/         # Helper functions
-│       └── ...
-├── shared/               # Shared TypeScript types
-│   └── types/
-├── prisma/               # Database schema
-│   └── seed.ts           # Seed data
-├── package.json         # Root workspace (npm workspaces)
-└── turbo.json           # Turborepo config
++-- apps/
+|   +-- web/              # React + Vite + TypeScript frontend
+|   |   +-- src/
+|   |   |   +-- components/   # Reusable UI components (shadcn/ui style)
+|   |   |   +-- pages/        # Route pages
+|   |   |   +-- lib/          # Utilities, API client, helpers
+|   |   |   +-- hooks/        # Custom React hooks
+|   |   |   +-- types/        # Frontend-specific types
+|   |   |   +-- App.tsx       # Router setup
+|   |   |   +-- main.tsx      # React entry point
+|   |   |   +-- index.css     # Global Tailwind/design tokens
+|   |   +-- package.json
+|   +-- api/              # Node.js + Express + TypeScript backend
+|       +-- src/
+|       |   +-- routes/       # Express route definitions
+|       |   +-- middleware/   # Auth and error handling
+|       |   +-- prisma/       # Prisma client singleton
+|       |   +-- index.ts      # Express app entry point
+|       +-- package.json
++-- shared/               # Shared TypeScript workspace packages
+|   +-- types/
++-- prisma/               # Database schema, migrations, and seed data
+|   +-- schema.prisma
+|   +-- seed.ts
+|   +-- migrations/
++-- package.json          # Root npm workspace
++-- package-lock.json
 ```
 
 ### Tech Stack
-- **Frontend:** React 18+, Vite, TypeScript, Tailwind CSS, shadcn/ui, Recharts
+- **Frontend:** React 18+, Vite, TypeScript, Tailwind CSS, shadcn/ui-style components, Recharts
 - **Backend:** Node.js, Express, TypeScript, Prisma, PostgreSQL
 - **Auth:** Email/password with bcryptjs + JWT (MVP); betterauth planned for later
 - **Package Manager:** npm ONLY
@@ -63,16 +66,14 @@ npm run preview          # Preview build
 npm run lint             # ESLint
 npm run lint:fix         # Fix lint
 npm run typecheck        # TSC check
-npm run test             # Run tests (Vitest)
-npm run test -- src/some.test.ts    # Single test file
-npm run test -- --watch   # Watch mode
+# No test script exists yet for apps/web
 ```
 
 ### Backend (apps/api)
 ```bash
 cd apps/api
 npm run dev              # Express dev (localhost:3000)
-npm run build            # Compile TS → dist/
+npm run build            # Compile TS to dist/
 npm run start            # Production server
 npm run lint             # ESLint
 npm run lint:fix         # Fix lint
@@ -221,16 +222,22 @@ NODE_ENV=development
 ## 7. Feature Status
 
 ### Completed
-- [x] Project scaffolding & Workspace setup
-- [x] Database schema (Prisma) & Seed data
-- [x] JWT Authentication (Login/Register)
-- [x] CRUD APIs (Leads, Deals, Campaigns, Activities)
-- [x] Core Design System implementation
+- [x] Project scaffolding & workspace setup
+- [x] Database schema (Prisma) & seed data
+- [x] JWT authentication (login/register)
+- [x] CRUD APIs (leads, deals, campaigns, activities)
+- [x] Core design system implementation
 - [x] Frontend route scaffolding
+- [x] Dashboard API uses persisted deal revenue data
+- [x] Auth storage key cleanup on 401 uses `flowraze-auth`
+- [x] Production hardening for JWT secret and CORS origin handling
+- [x] API list endpoints support opt-in `page`/`limit` pagination metadata
+- [x] Update endpoints reject empty payloads and only mutate provided fields
+- [x] README script docs match the current frontend package
 
 ### In Progress
-- [ ] Dashboard refinement (switching from mock to real data)
-- [ ] Form validation hardening (Zod integration)
+- [ ] Dashboard UI refinement around charts, empty states, and date ranges
+- [ ] Form validation hardening (choose schema strategy before adding deps)
 - [ ] Layout mobile responsiveness
 
 ### Placeholder/Todo
@@ -244,20 +251,18 @@ NODE_ENV=development
 
 ---
 
-## 8. Technical Debt & Critical Fixes
+## 8. Technical Debt & Next Fixes
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| 🔴 CRITICAL | Auth interceptor clears wrong key (`token` vs `flowraze-auth`) | `apps/web/src/lib/api.ts` |
-| 🔴 CRITICAL | Dashboard revenue uses `Math.random()` | `apps/api/src/routes/dashboard.ts` |
-| 🔴 CRITICAL | Wildcard CORS and hardcoded JWT secret fallback | `apps/api/src/index.ts` / `auth.ts` |
-| 🟠 HIGH | No input validation (Zod) on API routes | All API routes |
-| 🟠 HIGH | No pagination on list endpoints | All GET list routes |
-| 🟠 HIGH | `PUT` endpoints risk data corruption (patch vs put) | `apps/api/src/routes/*.ts` |
+| HIGH | No centralized input validation on API routes | All API routes |
+| HIGH | Frontend table views do not expose API pagination controls yet | `apps/web/src/pages/*.tsx` |
+| MEDIUM | No frontend test runner/script exists yet | `apps/web/package.json` |
+| MEDIUM | Global search input is present but not wired to API queries | `apps/web/src/components/layout/index.tsx` |
 
 ---
 
-## 8. Git Conventions
+## 9. Git Conventions
 
 ### Commits
 ```
@@ -277,7 +282,7 @@ bugfix/auth-logout-issue
 
 ---
 
-## 9. Important Notes
+## 10. Important Notes
 
 1. **NEVER** commit secrets/API keys
 2. **DO** use `.env` files (gitignored)

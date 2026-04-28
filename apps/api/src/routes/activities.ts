@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 
 const router = Router();
 
@@ -16,16 +17,21 @@ router.get('/', async (req: AuthRequest, res, next) => {
       where.leadId = String(leadId);
     }
 
-    const activities = await prisma.activity.findMany({
-      where,
-      include: {
-        lead: { select: { id: true, fullName: true } },
-        creator: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const pagination = getPagination(req.query);
+    const [activities, total] = await prisma.$transaction([
+      prisma.activity.findMany({
+        where,
+        include: {
+          lead: { select: { id: true, fullName: true } },
+          creator: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        ...getPaginationArgs(pagination),
+      }),
+      prisma.activity.count({ where }),
+    ]);
 
-    res.json({ success: true, data: activities });
+    res.json(paginatedResponse(activities, pagination, total));
   } catch (error) {
     next(error);
   }

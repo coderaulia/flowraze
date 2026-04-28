@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
+import { optionalDate, requireAtLeastOneField, requireObjectBody, setIfPresent } from '../utils/request.js';
 
 const router = Router();
 
@@ -20,16 +23,21 @@ router.get('/', async (req: AuthRequest, res, next) => {
       where.status = status;
     }
 
-    const deals = await prisma.deal.findMany({
-      where,
-      include: {
-        lead: { select: { id: true, fullName: true, companyName: true } },
-        owner: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const pagination = getPagination(req.query);
+    const [deals, total] = await prisma.$transaction([
+      prisma.deal.findMany({
+        where,
+        include: {
+          lead: { select: { id: true, fullName: true, companyName: true } },
+          owner: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        ...getPaginationArgs(pagination),
+      }),
+      prisma.deal.count({ where }),
+    ]);
 
-    res.json({ success: true, data: deals });
+    res.json(paginatedResponse(deals, pagination, total));
   } catch (error) {
     next(error);
   }
@@ -86,17 +94,19 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
 router.put('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const { title, value, stage, expectedCloseDate, status } = req.body;
+    const body = requireObjectBody(req.body);
+    const data: Record<string, unknown> = {};
+
+    setIfPresent(data, body, 'title');
+    setIfPresent(data, body, 'value');
+    setIfPresent(data, body, 'stage');
+    setIfPresent(data, body, 'expectedCloseDate', optionalDate);
+    setIfPresent(data, body, 'status');
+    requireAtLeastOneField(data);
 
     const deal = await prisma.deal.update({
       where: { id: req.params.id },
-      data: {
-        title,
-        value,
-        stage,
-        expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : undefined,
-        status,
-      },
+      data: data as Prisma.DealUncheckedUpdateInput,
       include: {
         lead: { select: { id: true, fullName: true, companyName: true } },
         owner: { select: { id: true, name: true } },
