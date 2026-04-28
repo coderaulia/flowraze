@@ -21,7 +21,14 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
+import { FieldError } from '@/components/ui/field-error';
 import { get, post, put } from '@/lib/api';
+import {
+  hasFormErrors,
+  isNonNegativeNumber,
+  isValidDateValue,
+  type FormErrors,
+} from '@/lib/form-validation';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { Campaign } from '@/types';
 
@@ -33,6 +40,46 @@ const CHANNEL_COLORS: Record<string, 'default' | 'secondary' | 'warning'> = {
   paid: 'warning',
   organic: 'default',
 };
+
+type CampaignFormData = {
+  name: string;
+  channel: string;
+  cost: number;
+  startDate: string;
+  endDate: string;
+};
+
+function validateCampaignForm(data: CampaignFormData): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!data.name.trim()) {
+    errors.name = 'Campaign name is required';
+  }
+
+  if (!data.channel.trim()) {
+    errors.channel = 'Channel is required';
+  }
+
+  if (!isNonNegativeNumber(data.cost)) {
+    errors.cost = 'Cost cannot be negative';
+  }
+
+  if (!isValidDateValue(data.startDate)) {
+    errors.startDate = 'Start date is required';
+  }
+
+  if (data.endDate && !isValidDateValue(data.endDate)) {
+    errors.endDate = 'Enter a valid end date';
+  } else if (
+    data.endDate &&
+    data.startDate &&
+    new Date(data.endDate).getTime() < new Date(data.startDate).getTime()
+  ) {
+    errors.endDate = 'End date cannot be before start date';
+  }
+
+  return errors;
+}
 
 export function CampaignsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,8 +94,10 @@ export function CampaignsPage() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [formError, setFormError] = useState('');
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
     channel: '',
     cost: 0,
@@ -79,8 +128,18 @@ export function CampaignsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationErrors = validateCampaignForm(formData);
+    setFormErrors(validationErrors);
+    setFormError('');
+
+    if (hasFormErrors(validationErrors)) {
+      return;
+    }
+
     const payload = {
       ...formData,
+      name: formData.name.trim(),
+      channel: formData.channel.trim(),
       cost: Number(formData.cost) || undefined,
       startDate: new Date(formData.startDate),
       endDate: formData.endDate ? new Date(formData.endDate) : undefined,
@@ -91,12 +150,16 @@ export function CampaignsPage() {
       if (response.success) {
         fetchCampaigns();
         closeModal();
+      } else {
+        setFormError(response.error || 'Unable to save campaign');
       }
     } else {
       const response = await post<Campaign>('/campaigns', payload);
       if (response.success) {
         fetchCampaigns();
         closeModal();
+      } else {
+        setFormError(response.error || 'Unable to add campaign');
       }
     }
   };
@@ -112,6 +175,8 @@ export function CampaignsPage() {
         ? new Date(campaign.endDate).toISOString().split('T')[0]
         : '',
     });
+    setFormErrors({});
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -125,6 +190,8 @@ export function CampaignsPage() {
       startDate: '',
       endDate: '',
     });
+    setFormErrors({});
+    setFormError('');
   };
 
   const handleSearchChange = (value: string) => {
@@ -243,6 +310,11 @@ export function CampaignsPage() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div className="rounded-lg bg-error/10 px-3 py-2 text-sm font-medium text-error">
+                {formError}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="name">Campaign Name</Label>
               <Input
@@ -253,6 +325,7 @@ export function CampaignsPage() {
                 }
                 required
               />
+              <FieldError message={formErrors.name} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -267,6 +340,7 @@ export function CampaignsPage() {
                   placeholder="e.g., Email, Social, Paid"
                   required
                 />
+                <FieldError message={formErrors.channel} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cost">Cost (IDR)</Label>
@@ -278,6 +352,7 @@ export function CampaignsPage() {
                     setFormData({ ...formData, cost: Number(e.target.value) })
                   }
                 />
+                <FieldError message={formErrors.cost} />
               </div>
             </div>
 
@@ -293,6 +368,7 @@ export function CampaignsPage() {
                   }
                   required
                 />
+                <FieldError message={formErrors.startDate} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="endDate">End Date</Label>
@@ -304,6 +380,7 @@ export function CampaignsPage() {
                     setFormData({ ...formData, endDate: e.target.value })
                   }
                 />
+                <FieldError message={formErrors.endDate} />
               </div>
             </div>
 

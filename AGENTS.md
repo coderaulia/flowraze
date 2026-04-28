@@ -238,9 +238,9 @@ NODE_ENV=development
 - [x] Frontend table views expose API-backed pagination controls
 - [x] API write routes use shared validation helpers for strings, numbers, enums, and dates
 - [x] Dashboard UI supports range controls, chart empty states, and persisted revenue trends
+- [x] Frontend forms show inline validation and API error feedback before writes
 
 ### In Progress
-- [ ] Frontend form validation hardening
 - [ ] Layout mobile responsiveness
 
 ### Placeholder/Todo

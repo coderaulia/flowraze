@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { FieldError } from '@/components/ui/field-error';
 import { post } from '@/lib/api';
+import { hasFormErrors, isValidEmail, type FormErrors } from '@/lib/form-validation';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type { User } from '@/types';
 
@@ -14,14 +16,35 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors: FormErrors = {};
+    if (!email.trim()) {
+      nextErrors.email = 'Email is required';
+    } else if (!isValidEmail(email)) {
+      nextErrors.email = 'Enter a valid email address';
+    }
+
+    if (!password) {
+      nextErrors.password = 'Password is required';
+    }
+
+    setFormErrors(nextErrors);
     setError('');
+
+    if (hasFormErrors(nextErrors)) {
+      return;
+    }
+
     setIsLoading(true);
 
-    const response = await post<{ token: string; user: User }>('/auth/login', { email, password });
+    const response = await post<{ token: string; user: User }>('/auth/login', {
+      email: email.trim(),
+      password,
+    });
 
     if (response.success && response.data) {
       setAuth(response.data.user, response.data.token);
@@ -60,6 +83,7 @@ export function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+              <FieldError message={formErrors.email} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -71,6 +95,7 @@ export function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <FieldError message={formErrors.password} />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign in'}

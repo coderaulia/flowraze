@@ -13,7 +13,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FieldError } from '@/components/ui/field-error';
 import { get, post, put } from '@/lib/api';
+import {
+  hasFormErrors,
+  isPositiveNumber,
+  isValidDateValue,
+  type FormErrors,
+} from '@/lib/form-validation';
 import { formatCurrency } from '@/lib/utils';
 import type { Deal, DealStage, Lead } from '@/types';
 
@@ -26,14 +33,47 @@ const STAGES: { id: DealStage; label: string; color: string }[] = [
   { id: 'lost', label: 'Lost', color: '#ffb4ab' },
 ];
 
+type DealFormData = {
+  leadId: string;
+  title: string;
+  value: number;
+  stage: DealStage;
+  expectedCloseDate: string;
+  notes: string;
+};
+
+function validateDealForm(data: DealFormData): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!data.leadId) {
+    errors.leadId = 'Lead is required';
+  }
+
+  if (!data.title.trim()) {
+    errors.title = 'Deal title is required';
+  }
+
+  if (!isPositiveNumber(data.value)) {
+    errors.value = 'Value must be greater than zero';
+  }
+
+  if (data.expectedCloseDate && !isValidDateValue(data.expectedCloseDate)) {
+    errors.expectedCloseDate = 'Enter a valid close date';
+  }
+
+  return errors;
+}
+
 export function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<Deal | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [formError, setFormError] = useState('');
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<DealFormData>({
     leadId: '',
     title: '',
     value: 0,
@@ -58,15 +98,27 @@ export function DealsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationErrors = validateDealForm(formData);
+    setFormErrors(validationErrors);
+    setFormError('');
+
+    if (hasFormErrors(validationErrors)) {
+      return;
+    }
+
     const payload = {
       ...formData,
+      title: formData.title.trim(),
       value: Number(formData.value),
       expectedCloseDate: formData.expectedCloseDate || undefined,
+      notes: formData.notes.trim(),
     };
     const response = await post<Deal>('/deals', payload);
     if (response.success) {
       fetchData();
       closeModal();
+    } else {
+      setFormError(response.error || 'Unable to add deal');
     }
   };
 
@@ -99,6 +151,8 @@ export function DealsPage() {
       expectedCloseDate: '',
       notes: '',
     });
+    setFormErrors({});
+    setFormError('');
   };
 
   const getDealsByStage = (stage: DealStage) =>
@@ -200,6 +254,11 @@ export function DealsPage() {
             <DialogTitle>Add New Deal</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div className="rounded-lg bg-error/10 px-3 py-2 text-sm font-medium text-error">
+                {formError}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="leadId">Lead</Label>
               <Select
@@ -219,6 +278,7 @@ export function DealsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError message={formErrors.leadId} />
             </div>
 
             <div className="space-y-2">
@@ -231,6 +291,7 @@ export function DealsPage() {
                 }
                 required
               />
+              <FieldError message={formErrors.title} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -245,6 +306,7 @@ export function DealsPage() {
                   }
                   required
                 />
+                <FieldError message={formErrors.value} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="stage">Stage</Label>
@@ -278,6 +340,7 @@ export function DealsPage() {
                   setFormData({ ...formData, expectedCloseDate: e.target.value })
                 }
               />
+              <FieldError message={formErrors.expectedCloseDate} />
             </div>
 
             <div className="space-y-2">

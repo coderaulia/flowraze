@@ -29,7 +29,9 @@ import {
 } from '@/components/ui/select';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { useAuthStore, type UserRole } from '@/hooks/useAuthStore';
+import { FieldError } from '@/components/ui/field-error';
 import { get, post, put, del } from '@/lib/api';
+import { hasFormErrors, isValidEmail, type FormErrors } from '@/lib/form-validation';
 import type { User } from '@/types';
 
 const PAGE_LIMIT = 10;
@@ -39,6 +41,35 @@ const ROLE_COLORS: Record<UserRole, 'default' | 'secondary' | 'warning'> = {
   admin: 'secondary',
   staff: 'default',
 };
+
+type UserFormData = {
+  email: string;
+  password: string;
+  name: string;
+  role: UserRole;
+};
+
+function validateUserForm(data: UserFormData, isEditing: boolean): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!data.name.trim()) {
+    errors.name = 'Name is required';
+  }
+
+  if (!data.email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!isValidEmail(data.email)) {
+    errors.email = 'Enter a valid email address';
+  }
+
+  if (!isEditing && !data.password) {
+    errors.password = 'Password is required';
+  } else if (data.password && data.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters';
+  }
+
+  return errors;
+}
 
 export function UsersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -56,8 +87,10 @@ export function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [formError, setFormError] = useState('');
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<UserFormData>({
     email: '',
     password: '',
     name: '',
@@ -85,17 +118,35 @@ export function UsersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationErrors = validateUserForm(formData, Boolean(editingUser));
+    setFormErrors(validationErrors);
+    setFormError('');
+
+    if (hasFormErrors(validationErrors)) {
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      email: formData.email.trim(),
+      name: formData.name.trim(),
+    };
+
     if (editingUser) {
-      const response = await put<User>(`/users/${editingUser.id}`, formData);
+      const response = await put<User>(`/users/${editingUser.id}`, payload);
       if (response.success) {
         fetchUsers();
         closeModal();
+      } else {
+        setFormError(response.error || 'Unable to save user');
       }
     } else {
-      const response = await post<User>('/users', formData);
+      const response = await post<User>('/users', payload);
       if (response.success) {
         fetchUsers();
         closeModal();
+      } else {
+        setFormError(response.error || 'Unable to add user');
       }
     }
   };
@@ -125,6 +176,8 @@ export function UsersPage() {
       name: user.name,
       role: user.role,
     });
+    setFormErrors({});
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -137,6 +190,8 @@ export function UsersPage() {
       name: '',
       role: 'staff',
     });
+    setFormErrors({});
+    setFormError('');
   };
 
   if (!canManageUsers) {
@@ -235,6 +290,11 @@ export function UsersPage() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div className="rounded-lg bg-error/10 px-3 py-2 text-sm font-medium text-error">
+                {formError}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input
@@ -245,6 +305,7 @@ export function UsersPage() {
                 }
                 required
               />
+              <FieldError message={formErrors.name} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -257,6 +318,7 @@ export function UsersPage() {
                 }
                 required
               />
+              <FieldError message={formErrors.email} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">
@@ -271,6 +333,7 @@ export function UsersPage() {
                 }
                 required={!editingUser}
               />
+              <FieldError message={formErrors.password} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>

@@ -23,7 +23,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
+import { FieldError } from '@/components/ui/field-error';
 import { get, post, put, del } from '@/lib/api';
+import { hasFormErrors, isValidEmail, type FormErrors } from '@/lib/form-validation';
 import type { Lead } from '@/types';
 
 const PAGE_LIMIT = 10;
@@ -34,6 +36,36 @@ const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'warning' | 'error
   qualified: 'secondary',
   unqualified: 'error',
 };
+
+type LeadFormData = {
+  fullName: string;
+  email: string;
+  phone: string;
+  companyName: string;
+  source: string;
+  status: Lead['status'];
+  notes: string;
+};
+
+function validateLeadForm(data: LeadFormData): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!data.fullName.trim()) {
+    errors.fullName = 'Full name is required';
+  }
+
+  if (!data.email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!isValidEmail(data.email)) {
+    errors.email = 'Enter a valid email address';
+  }
+
+  if (!data.source.trim()) {
+    errors.source = 'Source is required';
+  }
+
+  return errors;
+}
 
 export function LeadsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,8 +82,10 @@ export function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [formError, setFormError] = useState('');
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LeadFormData>({
     fullName: '',
     email: '',
     phone: '',
@@ -94,17 +128,39 @@ export function LeadsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationErrors = validateLeadForm(formData);
+    setFormErrors(validationErrors);
+    setFormError('');
+
+    if (hasFormErrors(validationErrors)) {
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      fullName: formData.fullName.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      companyName: formData.companyName.trim(),
+      source: formData.source.trim(),
+      notes: formData.notes.trim(),
+    };
+
     if (editingLead) {
-      const response = await put<Lead>(`/leads/${editingLead.id}`, formData);
+      const response = await put<Lead>(`/leads/${editingLead.id}`, payload);
       if (response.success) {
         fetchLeads();
         closeModal();
+      } else {
+        setFormError(response.error || 'Unable to save lead');
       }
     } else {
-      const response = await post<Lead>('/leads', formData);
+      const response = await post<Lead>('/leads', payload);
       if (response.success) {
         fetchLeads();
         closeModal();
+      } else {
+        setFormError(response.error || 'Unable to add lead');
       }
     }
   };
@@ -131,6 +187,8 @@ export function LeadsPage() {
       status: lead.status,
       notes: lead.notes || '',
     });
+    setFormErrors({});
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -146,6 +204,8 @@ export function LeadsPage() {
       status: 'new',
       notes: '',
     });
+    setFormErrors({});
+    setFormError('');
   };
 
   const handleSearchChange = (value: string) => {
@@ -272,6 +332,11 @@ export function LeadsPage() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div className="rounded-lg bg-error/10 px-3 py-2 text-sm font-medium text-error">
+                {formError}
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>
@@ -283,6 +348,7 @@ export function LeadsPage() {
                   }
                   required
                 />
+                <FieldError message={formErrors.fullName} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -295,6 +361,7 @@ export function LeadsPage() {
                   }
                   required
                 />
+                <FieldError message={formErrors.email} />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -331,6 +398,7 @@ export function LeadsPage() {
                   placeholder="e.g., Website, Referral"
                   required
                 />
+                <FieldError message={formErrors.source} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
