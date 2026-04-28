@@ -30,7 +30,6 @@ export function Layout() {
     { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
     { to: '/team', icon: UserCircle, label: 'Team' },
     ...(isSuperadmin() ? [{ to: '/users', icon: Shield, label: 'Users' }] : []),
-    { to: '/settings', icon: Settings, label: 'Settings' },
   ];
 
   return (
@@ -71,7 +70,10 @@ export function Layout() {
         </nav>
 
         <div className="px-4 py-4">
-          <button className="w-full py-3 px-4 bg-gradient-to-br from-primary to-[#2A3BB0] text-white rounded-xl font-semibold shadow-md flex items-center justify-center gap-2">
+          <button 
+            className="w-full py-3 px-4 bg-gradient-to-br from-primary to-[#2A3BB0] text-white rounded-xl font-semibold shadow-md flex items-center justify-center gap-2"
+            onClick={() => navigate('/leads?new=true')}
+          >
             <Plus className="h-4 w-4" />
             Add Lead
           </button>

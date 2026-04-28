@@ -13,10 +13,20 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
 
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('CRITICAL: JWT_SECRET must be set in production');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.ALLOWED_ORIGINS?.split(',') 
+    : ['http://localhost:5173'],
+  credentials: true
+}));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);

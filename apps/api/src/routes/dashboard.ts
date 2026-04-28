@@ -38,14 +38,42 @@ router.get('/', async (_req: AuthRequest, res, next) => {
       dealsByStageMap[item.stage] = item._count.id;
     }
 
-    const revenueOverTime = [
-      { month: 'Jan', revenue: Math.random() * 50000000 + 10000000 },
-      { month: 'Feb', revenue: Math.random() * 50000000 + 10000000 },
-      { month: 'Mar', revenue: Math.random() * 50000000 + 10000000 },
-      { month: 'Apr', revenue: Math.random() * 50000000 + 10000000 },
-      { month: 'May', revenue: Math.random() * 50000000 + 10000000 },
-      { month: 'Jun', revenue: Math.random() * 50000000 + 10000000 },
-    ];
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const monthlyRevenue = await prisma.deal.findMany({
+      where: {
+        stage: 'won',
+        createdAt: { gte: sixMonthsAgo },
+      },
+      select: {
+        value: true,
+        createdAt: true,
+      },
+    });
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const revenueMap: Record<string, number> = {};
+    
+    // Initialize last 6 months with 0
+    for (let i = 0; i < 6; i++) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      revenueMap[months[d.getMonth()]] = 0;
+    }
+
+    monthlyRevenue.forEach((deal) => {
+      const monthName = months[deal.createdAt.getMonth()];
+      if (revenueMap[monthName] !== undefined) {
+        revenueMap[monthName] += deal.value;
+      }
+    });
+
+    const revenueOverTime = Object.entries(revenueMap)
+      .map(([month, revenue]) => ({ month, revenue }))
+      .reverse();
 
     res.json({
       success: true,

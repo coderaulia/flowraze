@@ -62,8 +62,10 @@ Forbid the use of divider lines between list items. Instead:
 1.  Use `8` (2rem) vertical whitespace.
 2.  Or, use alternating subtle background shifts (`surface-container` vs `surface-container-low`).
 
-### Data Visualization (Signature Component)
-B2B requires data. Use `secondary` (#4ae176) for "Growth/Positive" metrics and `tertiary` (#ffb595) for "Warning/Neutral" metrics. All charts should exist on a `surface_container_high` background to make the colors pop.
+### Data Visualization & Pipeline (Signature Components)
+*   **Charts:** Use `secondary` (#4ae176) for growth and `tertiary` (#ffb595) for neutral metrics. All charts must use a `surface_container_high` background.
+*   **Tooltips:** Tooltips must match the dark theme: `surface-container-high` background with `on_surface` text. Avoid default light-mode tooltips.
+*   **Kanban Board:** The Deal Pipeline uses a horizontal scrolling board. Columns are separated by tonal shifts (`surface-container`), not borders. Cards utilize "Tonal Lift" to indicate interactivity.
 
 ---
 
@@ -79,3 +81,5 @@ B2B requires data. Use `secondary` (#4ae176) for "Growth/Positive" metrics and `
 *   **DON'T** use 1px solid borders to separate the sidebar from the main content. Use a background shift from `surface` to `surface-container`.
 *   **DON'T** use standard "drop shadows" on cards. Rely on the surface color hierarchy to indicate elevation.
 *   **DON'T** crowd the navigation. A premium experience feels unhurried.
+*   **DON'T** ignore mobile constraints. Fixed sidebars must collapse into a hamburger menu on screens < 1024px.
+*   **DON'T** mix editorial whitespace with cluttered headers. Keep the global search and user profile minimalist.

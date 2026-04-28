@@ -5,7 +5,7 @@ import prisma from '../prisma/index.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 router.post('/login', async (req, res, next) => {
   try {

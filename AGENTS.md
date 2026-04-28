@@ -221,18 +221,39 @@ NODE_ENV=development
 ## 7. Feature Status
 
 ### Completed
-- [x] AGENTS.md created
+- [x] Project scaffolding & Workspace setup
+- [x] Database schema (Prisma) & Seed data
+- [x] JWT Authentication (Login/Register)
+- [x] CRUD APIs (Leads, Deals, Campaigns, Activities)
+- [x] Core Design System implementation
+- [x] Frontend route scaffolding
 
 ### In Progress
-- [ ] Project scaffolding
+- [ ] Dashboard refinement (switching from mock to real data)
+- [ ] Form validation hardening (Zod integration)
+- [ ] Layout mobile responsiveness
 
 ### Placeholder/Todo
-- [ ] Auth implementation (JWT)
-- [ ] Database schema (Prisma)
-- [ ] Seed data
-- [ ] CRUD APIs (leads, deals, campaigns, activities)
-- [ ] Dashboard with real data
-- [ ] All frontend pages
+- [ ] Deals Kanban Board
+- [ ] Activity Feed UI
+- [ ] Team Performance real integration
+- [ ] Settings Page (Profile/Security)
+- [ ] Global Search functionality
+- [ ] Pagination for all tables
+- [ ] CSV/PDF Export
+
+---
+
+## 8. Technical Debt & Critical Fixes
+
+| Priority | Issue | Location |
+|----------|-------|----------|
+| 🔴 CRITICAL | Auth interceptor clears wrong key (`token` vs `flowraze-auth`) | `apps/web/src/lib/api.ts` |
+| 🔴 CRITICAL | Dashboard revenue uses `Math.random()` | `apps/api/src/routes/dashboard.ts` |
+| 🔴 CRITICAL | Wildcard CORS and hardcoded JWT secret fallback | `apps/api/src/index.ts` / `auth.ts` |
+| 🟠 HIGH | No input validation (Zod) on API routes | All API routes |
+| 🟠 HIGH | No pagination on list endpoints | All GET list routes |
+| 🟠 HIGH | `PUT` endpoints risk data corruption (patch vs put) | `apps/api/src/routes/*.ts` |
 
 ---
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,7 @@ const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'warning' | 'error
 };
 
 export function LeadsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -52,7 +54,13 @@ export function LeadsPage() {
 
   useEffect(() => {
     fetchLeads();
-  }, []);
+    if (searchParams.get('new') === 'true') {
+      setIsModalOpen(true);
+      // Remove the param so it doesn't reopen on refresh
+      searchParams.delete('new');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const fetchLeads = async () => {
     const response = await get<Lead[]>('/leads');
