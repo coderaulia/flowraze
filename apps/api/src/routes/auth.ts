@@ -3,17 +3,16 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/index.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { requireObjectBody, requireString } from '../utils/request.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      throw new AppError(400, 'Email and password are required');
-    }
+    const body = requireObjectBody(req.body);
+    const email = requireString(body, 'email', 'Email');
+    const password = requireString(body, 'password', 'Password');
 
     const user = await prisma.user.findUnique({ where: { email } });
 
@@ -52,11 +51,10 @@ router.post('/login', async (req, res, next) => {
 
 router.post('/register', async (req, res, next) => {
   try {
-    const { email, password, name } = req.body;
-
-    if (!email || !password || !name) {
-      throw new AppError(400, 'Email, password, and name are required');
-    }
+    const body = requireObjectBody(req.body);
+    const email = requireString(body, 'email', 'Email');
+    const password = requireString(body, 'password', 'Password');
+    const name = requireString(body, 'name', 'Name');
 
     const existing = await prisma.user.findUnique({ where: { email } });
 

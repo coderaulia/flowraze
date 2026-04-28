@@ -329,6 +329,7 @@ export function LeadsPage() {
                     setFormData({ ...formData, source: e.target.value })
                   }
                   placeholder="e.g., Website, Referral"
+                  required
                 />
               </div>
               <div className="space-y-2">

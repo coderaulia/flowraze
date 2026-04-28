@@ -4,9 +4,20 @@ import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
-import { optionalDate, requireAtLeastOneField, requireObjectBody, setIfPresent } from '../utils/request.js';
+import {
+  optionalDate,
+  optionalEnum,
+  optionalNonEmptyString,
+  requireAtLeastOneField,
+  requireNumber,
+  requireObjectBody,
+  requireString,
+  setIfPresent,
+} from '../utils/request.js';
 
 const router = Router();
+const DEAL_STAGES = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
+const DEAL_STATUSES = ['active', 'closed'] as const;
 
 router.use(authenticate);
 
@@ -65,19 +76,18 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
 
 router.post('/', async (req: AuthRequest, res, next) => {
   try {
-    const { leadId, title, value, stage, expectedCloseDate, notes: _notes } = req.body;
-
-    if (!leadId || !title || value === undefined) {
-      throw new AppError(400, 'Lead, title, and value are required');
-    }
+    const body = requireObjectBody(req.body);
+    const leadId = requireString(body, 'leadId', 'Lead');
+    const title = requireString(body, 'title', 'Title');
+    const value = requireNumber(body, 'value', 'Value');
 
     const deal = await prisma.deal.create({
       data: {
         leadId,
         title,
         value,
-        stage: stage || 'new',
-        expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : undefined,
+        stage: optionalEnum(DEAL_STAGES, 'Stage')(body.stage) || 'new',
+        expectedCloseDate: optionalDate(body.expectedCloseDate) ?? undefined,
         ownerId: req.userId!,
       },
       include: {
@@ -97,11 +107,11 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     const body = requireObjectBody(req.body);
     const data: Record<string, unknown> = {};
 
-    setIfPresent(data, body, 'title');
-    setIfPresent(data, body, 'value');
-    setIfPresent(data, body, 'stage');
+    setIfPresent(data, body, 'title', optionalNonEmptyString);
+    setIfPresent(data, body, 'value', (value) => requireNumber({ value }, 'value', 'Value'));
+    setIfPresent(data, body, 'stage', optionalEnum(DEAL_STAGES, 'Stage'));
     setIfPresent(data, body, 'expectedCloseDate', optionalDate);
-    setIfPresent(data, body, 'status');
+    setIfPresent(data, body, 'status', optionalEnum(DEAL_STATUSES, 'Status'));
     requireAtLeastOneField(data);
 
     const deal = await prisma.deal.update({

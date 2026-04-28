@@ -236,10 +236,11 @@ NODE_ENV=development
 - [x] README script docs match the current frontend package
 - [x] Header search is wired to lead search via `/leads?search=...`
 - [x] Frontend table views expose API-backed pagination controls
+- [x] API write routes use shared validation helpers for strings, numbers, enums, and dates
 
 ### In Progress
 - [ ] Dashboard UI refinement around charts, empty states, and date ranges
-- [ ] Form validation hardening (choose schema strategy before adding deps)
+- [ ] Frontend form validation hardening
 - [ ] Layout mobile responsiveness
 
 ### Placeholder/Todo
@@ -257,7 +258,6 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| HIGH | No centralized input validation on API routes | All API routes |
 | MEDIUM | No frontend test runner/script exists yet | `apps/web/package.json` |
 | MEDIUM | Search is lead-only; cross-entity search still needs a dedicated API/UI flow | `apps/web/src/components/layout/index.tsx` |
 

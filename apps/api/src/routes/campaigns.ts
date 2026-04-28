@@ -4,7 +4,16 @@ import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
-import { optionalDate, requiredDate, requireAtLeastOneField, requireObjectBody, setIfPresent } from '../utils/request.js';
+import {
+  optionalDate,
+  optionalNonEmptyString,
+  optionalNumber,
+  requiredDate,
+  requireAtLeastOneField,
+  requireObjectBody,
+  requireString,
+  setIfPresent,
+} from '../utils/request.js';
 
 const router = Router();
 
@@ -59,19 +68,17 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
 
 router.post('/', async (req: AuthRequest, res, next) => {
   try {
-    const { name, channel, cost, startDate, endDate } = req.body;
-
-    if (!name || !channel || !startDate) {
-      throw new AppError(400, 'Name, channel, and start date are required');
-    }
+    const body = requireObjectBody(req.body);
+    const name = requireString(body, 'name', 'Name');
+    const channel = requireString(body, 'channel', 'Channel');
 
     const campaign = await prisma.campaign.create({
       data: {
         name,
         channel,
-        cost,
-        startDate: new Date(startDate),
-        endDate: endDate ? new Date(endDate) : undefined,
+        cost: optionalNumber(body.cost),
+        startDate: requiredDate(body.startDate),
+        endDate: optionalDate(body.endDate),
       },
     });
 
@@ -86,9 +93,9 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     const body = requireObjectBody(req.body);
     const data: Record<string, unknown> = {};
 
-    setIfPresent(data, body, 'name');
-    setIfPresent(data, body, 'channel');
-    setIfPresent(data, body, 'cost');
+    setIfPresent(data, body, 'name', optionalNonEmptyString);
+    setIfPresent(data, body, 'channel', optionalNonEmptyString);
+    setIfPresent(data, body, 'cost', optionalNumber);
     setIfPresent(data, body, 'startDate', requiredDate);
     setIfPresent(data, body, 'endDate', optionalDate);
     requireAtLeastOneField(data);

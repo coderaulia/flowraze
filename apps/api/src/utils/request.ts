@@ -31,7 +31,116 @@ export function setIfPresent(
   target[key] = transform ? transform(value) : value;
 }
 
-export function optionalDate(value: unknown) {
+export function requireString(
+  source: Record<string, unknown>,
+  key: string,
+  label = key
+) {
+  const value = source[key];
+
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new AppError(400, `${label} is required`);
+  }
+
+  return value.trim();
+}
+
+export function optionalString(value: unknown) {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    throw new AppError(400, 'Value must be a string');
+  }
+
+  return value;
+}
+
+export function optionalNonEmptyString(value: unknown) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new AppError(400, 'Value must be a non-empty string');
+  }
+
+  return value.trim();
+}
+
+export function requireNumber(
+  source: Record<string, unknown>,
+  key: string,
+  label = key
+) {
+  const value = source[key];
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(400, `${label} must be a number`);
+  }
+
+  return parsed;
+}
+
+export function optionalNumber(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return value === null ? null : undefined;
+  }
+
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(400, 'Value must be a number');
+  }
+
+  return parsed;
+}
+
+export function optionalEnum<T extends string>(
+  values: readonly T[],
+  label: string
+) {
+  return (value: unknown): T | undefined => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (typeof value !== 'string' || !values.includes(value as T)) {
+      throw new AppError(400, `${label} is invalid`);
+    }
+
+    return value as T;
+  };
+}
+
+export function requireEnum<T extends string>(
+  source: Record<string, unknown>,
+  key: string,
+  values: readonly T[],
+  label = key
+) {
+  const value = optionalEnum(values, label)(source[key]);
+
+  if (!value) {
+    throw new AppError(400, `${label} is required`);
+  }
+
+  return value;
+}
+
+export function optionalDate(value: unknown): Date | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
   if (value === null || value === '') {
     return null;
   }
@@ -48,10 +157,15 @@ export function optionalDate(value: unknown) {
   return date;
 }
 
-export function requiredDate(value: unknown) {
+export function requiredDate(value: unknown): Date {
   if (value === null || value === '') {
     throw new AppError(400, 'Date value is required');
   }
 
-  return optionalDate(value);
+  const date = optionalDate(value);
+  if (!date) {
+    throw new AppError(400, 'Date value is required');
+  }
+
+  return date;
 }

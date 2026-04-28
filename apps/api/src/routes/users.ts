@@ -5,9 +5,17 @@ import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest, requireRole } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
-import { requireAtLeastOneField, requireObjectBody, setIfPresent } from '../utils/request.js';
+import {
+  optionalEnum,
+  optionalNonEmptyString,
+  requireAtLeastOneField,
+  requireObjectBody,
+  requireString,
+  setIfPresent,
+} from '../utils/request.js';
 
 const router = Router();
+const USER_ROLES = ['superadmin', 'admin', 'staff'] as const;
 
 router.use(authenticate);
 
@@ -62,11 +70,10 @@ router.get('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next
 
 router.post('/', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
   try {
-    const { email, password, name, role } = req.body;
-
-    if (!email || !password || !name) {
-      throw new AppError(400, 'Email, password, and name are required');
-    }
+    const body = requireObjectBody(req.body);
+    const email = requireString(body, 'email', 'Email');
+    const password = requireString(body, 'password', 'Password');
+    const name = requireString(body, 'name', 'Name');
 
     const existing = await prisma.user.findUnique({ where: { email } });
 
@@ -81,7 +88,7 @@ router.post('/', requireRole('superadmin'), async (req: AuthRequest, res, next) 
         email,
         password: hashedPassword,
         name,
-        role: role || 'staff',
+        role: optionalEnum(USER_ROLES, 'Role')(body.role) || 'staff',
       },
       select: {
         id: true,
@@ -104,9 +111,9 @@ router.put('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next
     const body = requireObjectBody(req.body);
     const updateData: Record<string, unknown> = {};
 
-    setIfPresent(updateData, body, 'email');
-    setIfPresent(updateData, body, 'name');
-    setIfPresent(updateData, body, 'role');
+    setIfPresent(updateData, body, 'email', optionalNonEmptyString);
+    setIfPresent(updateData, body, 'name', optionalNonEmptyString);
+    setIfPresent(updateData, body, 'role', optionalEnum(USER_ROLES, 'Role'));
     if (Object.prototype.hasOwnProperty.call(body, 'password')) {
       const password = body.password;
       if (typeof password !== 'string') {

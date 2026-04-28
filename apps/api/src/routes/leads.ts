@@ -4,9 +4,18 @@ import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
-import { requireAtLeastOneField, requireObjectBody, setIfPresent } from '../utils/request.js';
+import {
+  optionalEnum,
+  optionalNonEmptyString,
+  optionalString,
+  requireAtLeastOneField,
+  requireObjectBody,
+  requireString,
+  setIfPresent,
+} from '../utils/request.js';
 
 const router = Router();
+const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified'] as const;
 
 router.use(authenticate);
 
@@ -75,22 +84,21 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
 
 router.post('/', async (req: AuthRequest, res, next) => {
   try {
-    const { fullName, email, phone, companyName, source, campaignId, status, notes } = req.body;
-
-    if (!fullName || !email) {
-      throw new AppError(400, 'Full name and email are required');
-    }
+    const body = requireObjectBody(req.body);
+    const fullName = requireString(body, 'fullName', 'Full name');
+    const email = requireString(body, 'email', 'Email');
+    const source = requireString(body, 'source', 'Source');
 
     const lead = await prisma.lead.create({
       data: {
         fullName,
         email,
-        phone,
-        companyName,
+        phone: optionalString(body.phone),
+        companyName: optionalString(body.companyName),
         source,
-        campaignId,
-        status: status || 'new',
-        notes,
+        campaignId: optionalString(body.campaignId),
+        status: optionalEnum(LEAD_STATUSES, 'Status')(body.status) || 'new',
+        notes: optionalString(body.notes),
         ownerId: req.userId!,
       },
       include: {
@@ -109,14 +117,14 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     const body = requireObjectBody(req.body);
     const data: Record<string, unknown> = {};
 
-    setIfPresent(data, body, 'fullName');
-    setIfPresent(data, body, 'email');
-    setIfPresent(data, body, 'phone');
-    setIfPresent(data, body, 'companyName');
-    setIfPresent(data, body, 'source');
-    setIfPresent(data, body, 'campaignId');
-    setIfPresent(data, body, 'status');
-    setIfPresent(data, body, 'notes');
+    setIfPresent(data, body, 'fullName', optionalNonEmptyString);
+    setIfPresent(data, body, 'email', optionalNonEmptyString);
+    setIfPresent(data, body, 'phone', optionalString);
+    setIfPresent(data, body, 'companyName', optionalString);
+    setIfPresent(data, body, 'source', optionalNonEmptyString);
+    setIfPresent(data, body, 'campaignId', optionalString);
+    setIfPresent(data, body, 'status', optionalEnum(LEAD_STATUSES, 'Status'));
+    setIfPresent(data, body, 'notes', optionalString);
     requireAtLeastOneField(data);
 
     const lead = await prisma.lead.update({

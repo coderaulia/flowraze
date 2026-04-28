@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
-import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
+import { requireEnum, requireObjectBody, requireString } from '../utils/request.js';
 
 const router = Router();
+const ACTIVITY_TYPES = ['note', 'call', 'follow_up'] as const;
 
 router.use(authenticate);
 
@@ -39,11 +40,10 @@ router.get('/', async (req: AuthRequest, res, next) => {
 
 router.post('/', async (req: AuthRequest, res, next) => {
   try {
-    const { leadId, type, content } = req.body;
-
-    if (!leadId || !type || !content) {
-      throw new AppError(400, 'Lead, type, and content are required');
-    }
+    const body = requireObjectBody(req.body);
+    const leadId = requireString(body, 'leadId', 'Lead');
+    const type = requireEnum(body, 'type', ACTIVITY_TYPES, 'Type');
+    const content = requireString(body, 'content', 'Content');
 
     const activity = await prisma.activity.create({
       data: {
