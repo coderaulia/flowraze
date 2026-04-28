@@ -11,6 +11,8 @@ import {
   Shield,
   Plus,
   Search,
+  Menu,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/hooks/useAuthStore';
@@ -20,11 +22,16 @@ export function Layout() {
   const location = useLocation();
   const { isSuperadmin, clearAuth, user } = useAuthStore();
   const [globalSearch, setGlobalSearch] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     setGlobalSearch(location.pathname === '/leads' ? params.get('search') ?? '' : '');
   }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     clearAuth();
@@ -48,20 +55,40 @@ export function Layout() {
   ];
 
   return (
-    <div className="flex h-full">
+    <div className="flex min-h-full">
+      {isSidebarOpen && (
+        <button
+          aria-label="Close navigation"
+          className="fixed inset-0 z-40 bg-surface/60 backdrop-blur-sm lg:hidden"
+          type="button"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#f2f4f6] lg:static'
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#f2f4f6] transition-transform duration-300 lg:sticky lg:top-0 lg:translate-x-0',
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex items-center gap-3 px-6 pt-6 pb-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[#2A3BB0] flex items-center justify-center text-white shadow-md">
-            <LayoutDashboard className="h-5 w-5" />
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[#2A3BB0] flex items-center justify-center text-white shadow-md">
+              <LayoutDashboard className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-lg font-black text-primary tracking-tighter leading-none">FlowRaze</h1>
+              <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Growth Engine</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-black text-primary tracking-tighter leading-none">FlowRaze</h1>
-            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Growth Engine</p>
-          </div>
+          <button
+            aria-label="Close navigation"
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-200/70 lg:hidden"
+            type="button"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 px-3 py-2 space-y-1">
@@ -87,7 +114,10 @@ export function Layout() {
         <div className="px-4 py-4">
           <button 
             className="w-full py-3 px-4 bg-gradient-to-br from-primary to-[#2A3BB0] text-white rounded-xl font-semibold shadow-md flex items-center justify-center gap-2"
-            onClick={() => navigate('/leads?new=true')}
+            onClick={() => {
+              setIsSidebarOpen(false);
+              navigate('/leads?new=true');
+            }}
           >
             <Plus className="h-4 w-4" />
             Add Lead
@@ -119,20 +149,29 @@ export function Layout() {
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="fixed top-0 left-64 right-0 h-16 bg-[#f7f9fb] border-b border-slate-200 flex justify-between items-center px-8 z-40">
-          <div className="flex items-center gap-6">
-            <form className="relative group" onSubmit={handleGlobalSearch}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="fixed left-0 right-0 top-0 z-30 min-h-16 bg-[#f7f9fb] border-b border-slate-200 px-4 py-3 lg:left-64 lg:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-6">
+              <button
+                aria-label="Open navigation"
+                className="rounded-lg p-2 text-primary hover:bg-surface-container lg:hidden"
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <form className="relative group min-w-0 flex-1 sm:flex-none" onSubmit={handleGlobalSearch}>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
-                className="bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 w-64 focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                className="w-full rounded-full border-none bg-surface-container-low py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20 sm:w-64"
                 placeholder="Search leads..."
                 type="text"
                 value={globalSearch}
                 onChange={(event) => setGlobalSearch(event.target.value)}
               />
             </form>
-            <div className="hidden lg:flex items-center gap-6">
+              <div className="hidden lg:flex items-center gap-6">
               <NavLink
                 to="/dashboard"
                 className={({ isActive }) =>
@@ -167,16 +206,14 @@ export function Layout() {
                 Deals
               </NavLink>
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="h-8 w-px bg-slate-200 mx-2"></div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-700 hidden sm:inline">{user?.name}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 sm:justify-end">
+              <span className="text-sm font-medium text-slate-700">{user?.name}</span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-surface p-8 pt-24">
+        <main className="flex-1 overflow-auto bg-surface px-4 pb-8 pt-32 sm:px-6 sm:pt-24 lg:px-8">
           <Outlet />
         </main>
       </div>

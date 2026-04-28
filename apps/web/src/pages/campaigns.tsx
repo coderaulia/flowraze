@@ -240,7 +240,7 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg bg-white border border-gray-200 overflow-hidden">
+      <div className="rounded-lg bg-white border border-gray-200 overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-64 text-on-surface-variant">
             Loading campaigns...

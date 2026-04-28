@@ -239,9 +239,10 @@ NODE_ENV=development
 - [x] API write routes use shared validation helpers for strings, numbers, enums, and dates
 - [x] Dashboard UI supports range controls, chart empty states, and persisted revenue trends
 - [x] Frontend forms show inline validation and API error feedback before writes
+- [x] Layout shell supports mobile navigation and responsive table scrolling
 
 ### In Progress
-- [ ] Layout mobile responsiveness
+- None
 
 ### Placeholder/Todo
 - [ ] Deals Kanban Board
