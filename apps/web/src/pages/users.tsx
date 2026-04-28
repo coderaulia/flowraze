@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Pencil, Shield, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ const ROLE_COLORS: Record<UserRole, 'default' | 'secondary' | 'warning'> = {
 
 export function UsersPage() {
   const { user: currentUser, isSuperadmin } = useAuthStore();
+  const canManageUsers = isSuperadmin();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,18 +53,22 @@ export function UsersPage() {
     role: 'staff' as UserRole,
   });
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  const fetchUsers = useCallback(async () => {
+    if (!canManageUsers) {
+      setIsLoading(false);
+      return;
+    }
 
-  const fetchUsers = async () => {
-    if (!isSuperadmin()) return;
     const response = await get<User[]>('/users');
     if (response.success && response.data) {
       setUsers(response.data);
     }
     setIsLoading(false);
-  };
+  }, [canManageUsers]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +120,7 @@ export function UsersPage() {
     });
   };
 
-  if (!isSuperadmin()) {
+  if (!canManageUsers) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
