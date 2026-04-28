@@ -14,8 +14,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { get, post, put } from '@/lib/api';
+import { formatFieldErrorId, hasFormErrors, isBlank, parseOptionalNumber, type FormErrors } from '@/lib/form-validation';
 import { formatCurrency } from '@/lib/utils';
 import type { Deal, DealStage, Lead } from '@/types';
+
+const DEAL_FORM_ID = 'deal-form';
 
 const STAGES: { id: DealStage; label: string; color: string }[] = [
   { id: 'new', label: 'New', color: '#bcc3ff' },
@@ -26,17 +29,29 @@ const STAGES: { id: DealStage; label: string; color: string }[] = [
   { id: 'lost', label: 'Lost', color: '#ffb4ab' },
 ];
 
+type DealFormField = 'leadId' | 'title' | 'value' | 'expectedCloseDate';
+type DealFormData = {
+  leadId: string;
+  title: string;
+  value: string;
+  stage: DealStage;
+  expectedCloseDate: string;
+  notes: string;
+};
+
 export function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<Deal | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors<DealFormField>>({});
+  const [submitError, setSubmitError] = useState('');
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<DealFormData>({
     leadId: '',
     title: '',
-    value: 0,
+    value: '',
     stage: 'new' as DealStage,
     expectedCloseDate: '',
     notes: '',
@@ -58,15 +73,26 @@ export function DealsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors = validateDealForm(formData);
+    setFormErrors(nextErrors);
+    setSubmitError('');
+
+    if (hasFormErrors(nextErrors)) {
+      return;
+    }
+
     const payload = {
       ...formData,
       value: Number(formData.value),
+      title: formData.title.trim(),
       expectedCloseDate: formData.expectedCloseDate || undefined,
     };
     const response = await post<Deal>('/deals', payload);
     if (response.success) {
       fetchData();
       closeModal();
+    } else {
+      setSubmitError(response.error || 'Unable to add deal');
     }
   };
 
@@ -91,14 +117,25 @@ export function DealsPage() {
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setFormErrors({});
+    setSubmitError('');
     setFormData({
       leadId: '',
       title: '',
-      value: 0,
+      value: '',
       stage: 'new',
       expectedCloseDate: '',
       notes: '',
     });
+  };
+
+  const handleModalOpenChange = (open: boolean) => {
+    if (open) {
+      setIsModalOpen(true);
+      return;
+    }
+
+    closeModal();
   };
 
   const getDealsByStage = (stage: DealStage) =>
@@ -194,7 +231,7 @@ export function DealsPage() {
         ))}
       </div>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={handleModalOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Deal</DialogTitle>
@@ -208,7 +245,10 @@ export function DealsPage() {
                   setFormData({ ...formData, leadId: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={Boolean(formErrors.leadId)}
+                  aria-describedby={formErrors.leadId ? formatFieldErrorId(DEAL_FORM_ID, 'leadId') : undefined}
+                >
                   <SelectValue placeholder="Select a lead" />
                 </SelectTrigger>
                 <SelectContent>
@@ -219,6 +259,7 @@ export function DealsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError id={formatFieldErrorId(DEAL_FORM_ID, 'leadId')} message={formErrors.leadId} />
             </div>
 
             <div className="space-y-2">
@@ -229,8 +270,11 @@ export function DealsPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
                 }
+                aria-invalid={Boolean(formErrors.title)}
+                aria-describedby={formErrors.title ? formatFieldErrorId(DEAL_FORM_ID, 'title') : undefined}
                 required
               />
+              <FieldError id={formatFieldErrorId(DEAL_FORM_ID, 'title')} message={formErrors.title} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -241,10 +285,14 @@ export function DealsPage() {
                   type="number"
                   value={formData.value}
                   onChange={(e) =>
-                    setFormData({ ...formData, value: Number(e.target.value) })
+                    setFormData({ ...formData, value: e.target.value })
                   }
+                  min={0}
+                  aria-invalid={Boolean(formErrors.value)}
+                  aria-describedby={formErrors.value ? formatFieldErrorId(DEAL_FORM_ID, 'value') : undefined}
                   required
                 />
+                <FieldError id={formatFieldErrorId(DEAL_FORM_ID, 'value')} message={formErrors.value} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="stage">Stage</Label>
@@ -277,6 +325,16 @@ export function DealsPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, expectedCloseDate: e.target.value })
                 }
+                aria-invalid={Boolean(formErrors.expectedCloseDate)}
+                aria-describedby={
+                  formErrors.expectedCloseDate
+                    ? formatFieldErrorId(DEAL_FORM_ID, 'expectedCloseDate')
+                    : undefined
+                }
+              />
+              <FieldError
+                id={formatFieldErrorId(DEAL_FORM_ID, 'expectedCloseDate')}
+                message={formErrors.expectedCloseDate}
               />
             </div>
 
@@ -292,6 +350,11 @@ export function DealsPage() {
             </div>
 
             <DialogFooter>
+              {submitError && (
+                <p className="mr-auto text-sm text-error" role="alert">
+                  {submitError}
+                </p>
+              )}
               <Button type="button" variant="secondary" onClick={closeModal}>
                 Cancel
               </Button>
@@ -301,5 +364,47 @@ export function DealsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function validateDealForm(formData: DealFormData) {
+  const errors: FormErrors<DealFormField> = {};
+  const parsedValue = parseOptionalNumber(formData.value);
+
+  if (isBlank(formData.leadId)) {
+    errors.leadId = 'Lead is required';
+  }
+
+  if (isBlank(formData.title)) {
+    errors.title = 'Deal title is required';
+  }
+
+  if (parsedValue === undefined) {
+    errors.value = 'Value is required';
+  } else if (Number.isNaN(parsedValue)) {
+    errors.value = 'Value must be a number';
+  } else if (parsedValue < 0) {
+    errors.value = 'Value cannot be negative';
+  }
+
+  if (formData.expectedCloseDate) {
+    const closeDate = new Date(formData.expectedCloseDate);
+    if (Number.isNaN(closeDate.getTime())) {
+      errors.expectedCloseDate = 'Enter a valid close date';
+    }
+  }
+
+  return errors;
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p id={id} className="text-sm text-error" role="alert">
+      {message}
+    </p>
   );
 }

@@ -24,9 +24,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { get, post, put, del } from '@/lib/api';
+import { formatFieldErrorId, hasFormErrors, isBlank, isValidEmail, type FormErrors } from '@/lib/form-validation';
 import type { Lead } from '@/types';
 
 const PAGE_LIMIT = 10;
+const LEAD_FORM_ID = 'lead-form';
 
 const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'warning' | 'error'> = {
   new: 'default',
@@ -34,6 +36,8 @@ const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'warning' | 'error
   qualified: 'secondary',
   unqualified: 'error',
 };
+
+type LeadFormField = 'fullName' | 'email' | 'source';
 
 export function LeadsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,6 +54,8 @@ export function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors<LeadFormField>>({});
+  const [submitError, setSubmitError] = useState('');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -94,17 +100,39 @@ export function LeadsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors = validateLeadForm(formData);
+    setFormErrors(nextErrors);
+    setSubmitError('');
+
+    if (hasFormErrors(nextErrors)) {
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      fullName: formData.fullName.trim(),
+      email: formData.email.trim(),
+      source: formData.source.trim(),
+      phone: formData.phone.trim(),
+      companyName: formData.companyName.trim(),
+      notes: formData.notes.trim(),
+    };
+
     if (editingLead) {
-      const response = await put<Lead>(`/leads/${editingLead.id}`, formData);
+      const response = await put<Lead>(`/leads/${editingLead.id}`, payload);
       if (response.success) {
         fetchLeads();
         closeModal();
+      } else {
+        setSubmitError(response.error || 'Unable to save lead');
       }
     } else {
-      const response = await post<Lead>('/leads', formData);
+      const response = await post<Lead>('/leads', payload);
       if (response.success) {
         fetchLeads();
         closeModal();
+      } else {
+        setSubmitError(response.error || 'Unable to add lead');
       }
     }
   };
@@ -137,6 +165,8 @@ export function LeadsPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingLead(null);
+    setFormErrors({});
+    setSubmitError('');
     setFormData({
       fullName: '',
       email: '',
@@ -146,6 +176,15 @@ export function LeadsPage() {
       status: 'new',
       notes: '',
     });
+  };
+
+  const handleModalOpenChange = (open: boolean) => {
+    if (open) {
+      setIsModalOpen(true);
+      return;
+    }
+
+    closeModal();
   };
 
   const handleSearchChange = (value: string) => {
@@ -264,7 +303,7 @@ export function LeadsPage() {
         )}
       </div>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={handleModalOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -281,8 +320,11 @@ export function LeadsPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, fullName: e.target.value })
                   }
+                  aria-invalid={Boolean(formErrors.fullName)}
+                  aria-describedby={formErrors.fullName ? formatFieldErrorId(LEAD_FORM_ID, 'fullName') : undefined}
                   required
                 />
+                <FieldError id={formatFieldErrorId(LEAD_FORM_ID, 'fullName')} message={formErrors.fullName} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -293,8 +335,11 @@ export function LeadsPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
+                  aria-invalid={Boolean(formErrors.email)}
+                  aria-describedby={formErrors.email ? formatFieldErrorId(LEAD_FORM_ID, 'email') : undefined}
                   required
                 />
+                <FieldError id={formatFieldErrorId(LEAD_FORM_ID, 'email')} message={formErrors.email} />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -329,8 +374,11 @@ export function LeadsPage() {
                     setFormData({ ...formData, source: e.target.value })
                   }
                   placeholder="e.g., Website, Referral"
+                  aria-invalid={Boolean(formErrors.source)}
+                  aria-describedby={formErrors.source ? formatFieldErrorId(LEAD_FORM_ID, 'source') : undefined}
                   required
                 />
+                <FieldError id={formatFieldErrorId(LEAD_FORM_ID, 'source')} message={formErrors.source} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
@@ -366,6 +414,11 @@ export function LeadsPage() {
               />
             </div>
             <DialogFooter>
+              {submitError && (
+                <p className="mr-auto text-sm text-error" role="alert">
+                  {submitError}
+                </p>
+              )}
               <Button type="button" variant="secondary" onClick={closeModal}>
                 Cancel
               </Button>
@@ -399,5 +452,41 @@ export function LeadsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function validateLeadForm(formData: {
+  fullName: string;
+  email: string;
+  source: string;
+}) {
+  const errors: FormErrors<LeadFormField> = {};
+
+  if (isBlank(formData.fullName)) {
+    errors.fullName = 'Full name is required';
+  }
+
+  if (isBlank(formData.email)) {
+    errors.email = 'Email is required';
+  } else if (!isValidEmail(formData.email)) {
+    errors.email = 'Enter a valid email address';
+  }
+
+  if (isBlank(formData.source)) {
+    errors.source = 'Source is required';
+  }
+
+  return errors;
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p id={id} className="text-sm text-error" role="alert">
+      {message}
+    </p>
   );
 }

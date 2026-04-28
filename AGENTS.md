@@ -237,10 +237,10 @@ NODE_ENV=development
 - [x] Header search is wired to lead search via `/leads?search=...`
 - [x] Frontend table views expose API-backed pagination controls
 - [x] API write routes use shared validation helpers for strings, numbers, enums, and dates
+- [x] Active frontend forms show client-side field validation and submit errors before/after API calls
 
 ### In Progress
 - [ ] Dashboard UI refinement around charts, empty states, and date ranges
-- [ ] Frontend form validation hardening
 - [ ] Layout mobile responsiveness
 
 ### Placeholder/Todo
@@ -260,6 +260,7 @@ NODE_ENV=development
 |----------|-------|----------|
 | MEDIUM | No frontend test runner/script exists yet | `apps/web/package.json` |
 | MEDIUM | Search is lead-only; cross-entity search still needs a dedicated API/UI flow | `apps/web/src/components/layout/index.tsx` |
+| LOW | Settings page is still a placeholder and does not persist profile, notification, or billing changes | `apps/web/src/pages/settings.tsx` |
 
 ---
 
