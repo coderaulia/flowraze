@@ -237,9 +237,9 @@ NODE_ENV=development
 - [x] Header search is wired to lead search via `/leads?search=...`
 - [x] Frontend table views expose API-backed pagination controls
 - [x] API write routes use shared validation helpers for strings, numbers, enums, and dates
+- [x] Dashboard UI supports range controls, chart empty states, and persisted revenue trends
 
 ### In Progress
-- [ ] Dashboard UI refinement around charts, empty states, and date ranges
 - [ ] Frontend form validation hardening
 - [ ] Layout mobile responsiveness
 

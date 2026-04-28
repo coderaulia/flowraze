@@ -61,6 +61,7 @@ export interface Activity {
 }
 
 export interface DashboardStats {
+  range: '30d' | '90d' | '6m' | '12m' | 'all';
   totalLeads: number;
   totalDeals: number;
   wonRevenue: number;
