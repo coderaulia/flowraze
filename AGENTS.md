@@ -234,6 +234,7 @@ NODE_ENV=development
 - [x] API list endpoints support opt-in `page`/`limit` pagination metadata
 - [x] Update endpoints reject empty payloads and only mutate provided fields
 - [x] README script docs match the current frontend package
+- [x] Header search is wired to lead search via `/leads?search=...`
 
 ### In Progress
 - [ ] Dashboard UI refinement around charts, empty states, and date ranges
@@ -258,7 +259,7 @@ NODE_ENV=development
 | HIGH | No centralized input validation on API routes | All API routes |
 | HIGH | Frontend table views do not expose API pagination controls yet | `apps/web/src/pages/*.tsx` |
 | MEDIUM | No frontend test runner/script exists yet | `apps/web/package.json` |
-| MEDIUM | Global search input is present but not wired to API queries | `apps/web/src/components/layout/index.tsx` |
+| MEDIUM | Search is lead-only; cross-entity search still needs a dedicated API/UI flow | `apps/web/src/components/layout/index.tsx` |
 
 ---
 

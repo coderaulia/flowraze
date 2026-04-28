@@ -1,4 +1,5 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -16,11 +17,25 @@ import { useAuthStore } from '@/hooks/useAuthStore';
 
 export function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isSuperadmin, clearAuth, user } = useAuthStore();
+  const [globalSearch, setGlobalSearch] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setGlobalSearch(location.pathname === '/leads' ? params.get('search') ?? '' : '');
+  }, [location.pathname, location.search]);
 
   const handleLogout = () => {
     clearAuth();
     navigate('/login');
+  };
+
+  const handleGlobalSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const query = globalSearch.trim();
+    navigate(query ? `/leads?search=${encodeURIComponent(query)}` : '/leads');
   };
 
   const navItems = [
@@ -107,14 +122,16 @@ export function Layout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="fixed top-0 left-64 right-0 h-16 bg-[#f7f9fb] border-b border-slate-200 flex justify-between items-center px-8 z-40">
           <div className="flex items-center gap-6">
-            <div className="relative group">
+            <form className="relative group" onSubmit={handleGlobalSearch}>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 className="bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 w-64 focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                placeholder="Search leads, deals, campaigns..."
+                placeholder="Search leads..."
                 type="text"
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
               />
-            </div>
+            </form>
             <div className="hidden lg:flex items-center gap-6">
               <NavLink
                 to="/dashboard"

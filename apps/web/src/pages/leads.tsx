@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ export function LeadsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const search = searchParams.get('search') ?? '';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -52,23 +52,33 @@ export function LeadsPage() {
     notes: '',
   });
 
-  useEffect(() => {
-    fetchLeads();
-    if (searchParams.get('new') === 'true') {
-      setIsModalOpen(true);
-      // Remove the param so it doesn't reopen on refresh
-      searchParams.delete('new');
-      setSearchParams(searchParams, { replace: true });
+  const fetchLeads = useCallback(async () => {
+    setIsLoading(true);
+    const params = new URLSearchParams();
+    if (search) {
+      params.set('search', search);
     }
-  }, [searchParams, setSearchParams]);
 
-  const fetchLeads = async () => {
-    const response = await get<Lead[]>('/leads');
+    const query = params.toString();
+    const response = await get<Lead[]>(`/leads${query ? `?${query}` : ''}`);
     if (response.success && response.data) {
       setLeads(response.data);
     }
     setIsLoading(false);
-  };
+  }, [search]);
+
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setIsModalOpen(true);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('new');
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,12 +136,17 @@ export function LeadsPage() {
     });
   };
 
-  const filteredLeads = leads.filter(
-    (lead) =>
-      lead.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      lead.email.toLowerCase().includes(search.toLowerCase()) ||
-      lead.companyName.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleSearchChange = (value: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (value) {
+      nextParams.set('search', value);
+    } else {
+      nextParams.delete('search');
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
 
   return (
     <div className="space-y-6">
@@ -154,7 +169,7 @@ export function LeadsPage() {
           <Input
             placeholder="Search leads..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -165,9 +180,9 @@ export function LeadsPage() {
           <div className="flex items-center justify-center h-64 text-on-surface-variant">
             Loading leads...
           </div>
-        ) : filteredLeads.length === 0 ? (
+        ) : leads.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant">
-            <p>No leads found</p>
+            <p>{search ? 'No matching leads found' : 'No leads found'}</p>
             <Button variant="link" onClick={() => setIsModalOpen(true)}>
               Add your first lead
             </Button>
@@ -185,7 +200,7 @@ export function LeadsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLeads.map((lead) => (
+              {leads.map((lead) => (
                 <TableRow key={lead.id}>
                   <TableCell className="font-medium">{lead.fullName}</TableCell>
                   <TableCell>{lead.email}</TableCell>
