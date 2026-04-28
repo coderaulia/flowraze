@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +20,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { get, post, put } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { Campaign } from '@/types';
+
+const PAGE_LIMIT = 10;
 
 const CHANNEL_COLORS: Record<string, 'default' | 'secondary' | 'warning'> = {
   email: 'default',
@@ -31,9 +35,16 @@ const CHANNEL_COLORS: Record<string, 'default' | 'secondary' | 'warning'> = {
 };
 
 export function CampaignsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const search = searchParams.get('search') ?? '';
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: PAGE_LIMIT,
+    total: 0,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -45,17 +56,26 @@ export function CampaignsPage() {
     endDate: '',
   });
 
-  const fetchCampaigns = async () => {
-    const response = await get<Campaign[]>('/campaigns');
+  const fetchCampaigns = useCallback(async () => {
+    setIsLoading(true);
+    const params = new URLSearchParams();
+    if (search) {
+      params.set('search', search);
+    }
+    params.set('page', String(page));
+    params.set('limit', String(PAGE_LIMIT));
+
+    const response = await get<Campaign[]>(`/campaigns?${params.toString()}`);
     if (response.success && response.data) {
       setCampaigns(response.data);
+      setPagination(response.pagination ?? { page, limit: PAGE_LIMIT, total: response.data.length });
     }
     setIsLoading(false);
-  };
+  }, [page, search]);
 
   useEffect(() => {
     fetchCampaigns();
-  }, []);
+  }, [fetchCampaigns]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,10 +127,24 @@ export function CampaignsPage() {
     });
   };
 
-  const filteredCampaigns = campaigns.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.channel.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleSearchChange = (value: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (value) {
+      nextParams.set('search', value);
+    } else {
+      nextParams.delete('search');
+    }
+    nextParams.set('page', '1');
+
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('page', String(nextPage));
+    setSearchParams(nextParams);
+  };
 
   return (
     <div className="space-y-6">
@@ -133,7 +167,7 @@ export function CampaignsPage() {
           <Input
             placeholder="Search campaigns..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -144,9 +178,9 @@ export function CampaignsPage() {
           <div className="flex items-center justify-center h-64 text-on-surface-variant">
             Loading campaigns...
           </div>
-        ) : filteredCampaigns.length === 0 ? (
+        ) : campaigns.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant">
-            <p>No campaigns found</p>
+            <p>{search ? 'No matching campaigns found' : 'No campaigns found'}</p>
             <Button variant="link" onClick={() => setIsModalOpen(true)}>
               Add your first campaign
             </Button>
@@ -164,7 +198,7 @@ export function CampaignsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCampaigns.map((campaign) => (
+              {campaigns.map((campaign) => (
                 <TableRow key={campaign.id}>
                   <TableCell className="font-medium">{campaign.name}</TableCell>
                   <TableCell>
@@ -192,6 +226,12 @@ export function CampaignsPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+        {!isLoading && (
+          <PaginationControls
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
         )}
       </div>
 

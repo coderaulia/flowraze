@@ -38,6 +38,11 @@ api.interceptors.response.use(
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
   error?: string;
   code?: string;
 }

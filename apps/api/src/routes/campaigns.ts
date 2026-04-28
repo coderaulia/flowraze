@@ -12,13 +12,24 @@ router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
+    const { search } = req.query;
+    const where: Prisma.CampaignWhereInput = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: String(search), mode: 'insensitive' } },
+        { channel: { contains: String(search), mode: 'insensitive' } },
+      ];
+    }
+
     const pagination = getPagination(req.query);
     const [campaigns, total] = await prisma.$transaction([
       prisma.campaign.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         ...getPaginationArgs(pagination),
       }),
-      prisma.campaign.count(),
+      prisma.campaign.count({ where }),
     ]);
 
     res.json(paginatedResponse(campaigns, pagination, total));

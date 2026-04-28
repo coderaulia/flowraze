@@ -22,8 +22,11 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { get, post, put, del } from '@/lib/api';
 import type { Lead } from '@/types';
+
+const PAGE_LIMIT = 10;
 
 const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'warning' | 'error'> = {
   new: 'default',
@@ -37,6 +40,12 @@ export function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const search = searchParams.get('search') ?? '';
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: PAGE_LIMIT,
+    total: 0,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -58,14 +67,17 @@ export function LeadsPage() {
     if (search) {
       params.set('search', search);
     }
+    params.set('page', String(page));
+    params.set('limit', String(PAGE_LIMIT));
 
     const query = params.toString();
     const response = await get<Lead[]>(`/leads${query ? `?${query}` : ''}`);
     if (response.success && response.data) {
       setLeads(response.data);
+      setPagination(response.pagination ?? { page, limit: PAGE_LIMIT, total: response.data.length });
     }
     setIsLoading(false);
-  }, [search]);
+  }, [page, search]);
 
   useEffect(() => {
     fetchLeads();
@@ -144,8 +156,15 @@ export function LeadsPage() {
     } else {
       nextParams.delete('search');
     }
+    nextParams.set('page', '1');
 
     setSearchParams(nextParams, { replace: true });
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('page', String(nextPage));
+    setSearchParams(nextParams);
   };
 
   return (
@@ -236,6 +255,12 @@ export function LeadsPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+        {!isLoading && (
+          <PaginationControls
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
         )}
       </div>
 

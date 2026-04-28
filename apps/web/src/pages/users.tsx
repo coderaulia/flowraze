@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Shield, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,9 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { useAuthStore, type UserRole } from '@/hooks/useAuthStore';
 import { get, post, put, del } from '@/lib/api';
 import type { User } from '@/types';
+
+const PAGE_LIMIT = 10;
 
 const ROLE_COLORS: Record<UserRole, 'default' | 'secondary' | 'warning'> = {
   superadmin: 'warning',
@@ -37,10 +41,17 @@ const ROLE_COLORS: Record<UserRole, 'default' | 'secondary' | 'warning'> = {
 };
 
 export function UsersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user: currentUser, isSuperadmin } = useAuthStore();
   const canManageUsers = isSuperadmin();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: PAGE_LIMIT,
+    total: 0,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -59,12 +70,14 @@ export function UsersPage() {
       return;
     }
 
-    const response = await get<User[]>('/users');
+    setIsLoading(true);
+    const response = await get<User[]>(`/users?page=${page}&limit=${PAGE_LIMIT}`);
     if (response.success && response.data) {
       setUsers(response.data);
+      setPagination(response.pagination ?? { page, limit: PAGE_LIMIT, total: response.data.length });
     }
     setIsLoading(false);
-  }, [canManageUsers]);
+  }, [canManageUsers, page]);
 
   useEffect(() => {
     fetchUsers();
@@ -96,6 +109,12 @@ export function UsersPage() {
         setDeletingId(null);
       }
     }
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('page', String(nextPage));
+    setSearchParams(nextParams);
   };
 
   const openEditModal = (user: User) => {
@@ -199,6 +218,12 @@ export function UsersPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+        {!isLoading && (
+          <PaginationControls
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
         )}
       </div>
 

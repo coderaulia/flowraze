@@ -235,6 +235,7 @@ NODE_ENV=development
 - [x] Update endpoints reject empty payloads and only mutate provided fields
 - [x] README script docs match the current frontend package
 - [x] Header search is wired to lead search via `/leads?search=...`
+- [x] Frontend table views expose API-backed pagination controls
 
 ### In Progress
 - [ ] Dashboard UI refinement around charts, empty states, and date ranges
@@ -257,7 +258,6 @@ NODE_ENV=development
 | Priority | Issue | Location |
 |----------|-------|----------|
 | HIGH | No centralized input validation on API routes | All API routes |
-| HIGH | Frontend table views do not expose API pagination controls yet | `apps/web/src/pages/*.tsx` |
 | MEDIUM | No frontend test runner/script exists yet | `apps/web/package.json` |
 | MEDIUM | Search is lead-only; cross-entity search still needs a dedicated API/UI flow | `apps/web/src/components/layout/index.tsx` |
 

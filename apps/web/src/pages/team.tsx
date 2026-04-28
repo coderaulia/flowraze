@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Users, Activity } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
@@ -10,24 +11,44 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { get } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import type { TeamPerformance } from '@/types';
 
+const PAGE_LIMIT = 8;
+
 export function TeamPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [teamPerformance, setTeamPerformance] = useState<TeamPerformance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: PAGE_LIMIT,
+    total: 0,
+  });
+
+  const fetchTeamPerformance = useCallback(async () => {
+    setIsLoading(true);
+    const response = await get<TeamPerformance[]>(
+      `/team/performance?page=${page}&limit=${PAGE_LIMIT}`
+    );
+    if (response.success && response.data) {
+      setTeamPerformance(response.data);
+      setPagination(response.pagination ?? { page, limit: PAGE_LIMIT, total: response.data.length });
+    }
+    setIsLoading(false);
+  }, [page]);
 
   useEffect(() => {
     fetchTeamPerformance();
-  }, []);
+  }, [fetchTeamPerformance]);
 
-  const fetchTeamPerformance = async () => {
-    const response = await get<TeamPerformance[]>('/team/performance');
-    if (response.success && response.data) {
-      setTeamPerformance(response.data);
-    }
-    setIsLoading(false);
+  const handlePageChange = (nextPage: number) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('page', String(nextPage));
+    setSearchParams(nextParams);
   };
 
   if (isLoading) {
@@ -125,6 +146,10 @@ export function TeamPage() {
               )}
             </TableBody>
           </Table>
+          <PaginationControls
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
         </CardContent>
       </Card>
     </div>
