@@ -150,6 +150,119 @@ List endpoints support optional `page` and `limit` query params and return pagin
 - [ ] Mobile responsive improvements
 - [ ] Multi-tenant billing system
 
+## VPS Deployment Guide
+
+This guide walks you through deploying FlowRaze on a Linux VPS (e.g., Ubuntu 22.04) using PM2 for the backend and Nginx for the frontend/reverse proxy.
+
+### 1. VPS Prerequisites
+Ensure your server has the following installed:
+- Node.js 18+
+- npm 9+
+- PostgreSQL 14+
+- Nginx
+- PM2 (`npm install -g pm2`)
+
+### 2. Prepare the Database
+Create a database and user in PostgreSQL:
+```bash
+sudo -u postgres psql
+CREATE DATABASE flowraze;
+CREATE USER flowraze_user WITH ENCRYPTED PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE flowraze TO flowraze_user;
+\q
+```
+
+### 3. Clone & Install
+```bash
+git clone <repository-url> /var/www/flowraze
+cd /var/www/flowraze
+npm install
+```
+
+### 4. Configure Environment Variables
+Create the necessary `.env` files.
+
+**Backend (`apps/api/.env`):**
+```env
+DATABASE_URL="postgresql://flowraze_user:your_secure_password@localhost:5432/flowraze"
+JWT_SECRET="generate_a_secure_random_string"
+PORT=3000
+NODE_ENV=production
+```
+
+**Frontend (`apps/web/.env`):**
+```env
+# Point this to your actual domain name when accessed by users
+VITE_API_URL=https://api.yourdomain.com
+```
+
+### 5. Build the Apps
+```bash
+# Build the frontend (outputs to apps/web/dist)
+# Build the backend (outputs to apps/api/dist)
+npm run build
+```
+
+### 6. Setup the Database Schema
+```bash
+cd apps/api
+npm run prisma:generate
+npm run prisma:migrate deploy
+# (Optional) Seed the database if this is a fresh setup
+npm run prisma:seed
+```
+
+### 7. Start the Backend with PM2
+```bash
+cd /var/www/flowraze/apps/api
+pm2 start dist/index.js --name "flowraze-api"
+pm2 save
+pm2 startup
+```
+
+### 8. Configure Nginx
+Create an Nginx server block to serve the frontend and proxy the API.
+
+**`/etc/nginx/sites-available/flowraze`**
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com www.yourdomain.com;
+
+    # Serve the React frontend
+    root /var/www/flowraze/apps/web/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+server {
+    listen 80;
+    server_name api.yourdomain.com;
+
+    # Proxy API requests to Node.js backend
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Enable the site and restart Nginx:
+```bash
+sudo ln -s /etc/nginx/sites-available/flowraze /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+> **Note:** We strongly recommend using Let's Encrypt (Certbot) to secure your domains with HTTPS after this step.
+
 ## License
 
 Private - All rights reserved

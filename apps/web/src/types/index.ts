@@ -58,6 +58,8 @@ export interface Activity {
   content: string;
   createdBy: string;
   createdAt: Date;
+  lead?: { id: string; fullName: string };
+  creator?: { id: string; name: string };
 }
 
 export interface DashboardStats {

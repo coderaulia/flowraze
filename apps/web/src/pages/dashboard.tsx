@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ActivityFeed } from '@/components/activity-feed';
 import {
   TrendingUp,
   BarChart3,
@@ -354,44 +355,51 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-secondary" />
-            Revenue Over Time
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            {hasRevenueData ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats?.revenueOverTime || []} margin={{ left: 0, right: 20, top: 12 }}>
-                  <CartesianGrid stroke="#dfe3ea" vertical={false} />
-                  <XAxis dataKey="month" stroke="#464555" fontSize={12} tickLine={false} />
-                  <YAxis
-                    stroke="#464555"
-                    fontSize={12}
-                    tickFormatter={(value: number) => formatCompactCurrency(value)}
-                    tickLine={false}
-                  />
-                  <Tooltip content={<DashboardTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    name="Revenue"
-                    stroke="#22c55e"
-                    strokeWidth={3}
-                    dot={{ fill: '#22c55e', r: 4, strokeWidth: 0 }}
-                    activeDot={{ r: 6, fill: '#1e2a78' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <ChartEmptyState label="Mark deals as won to populate revenue movement across this range." />
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-secondary" />
+                Revenue Over Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                {hasRevenueData ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={stats?.revenueOverTime || []} margin={{ left: 0, right: 20, top: 12 }}>
+                      <CartesianGrid stroke="#dfe3ea" vertical={false} />
+                      <XAxis dataKey="month" stroke="#464555" fontSize={12} tickLine={false} />
+                      <YAxis
+                        stroke="#464555"
+                        fontSize={12}
+                        tickFormatter={(value: number) => formatCompactCurrency(value)}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<DashboardTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        name="Revenue"
+                        stroke="#22c55e"
+                        strokeWidth={3}
+                        dot={{ fill: '#22c55e', r: 4, strokeWidth: 0 }}
+                        activeDot={{ r: 6, fill: '#1e2a78' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ChartEmptyState label="Mark deals as won to populate revenue movement across this range." />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="lg:col-span-1">
+          <ActivityFeed className="h-[360px]" />
+        </div>
+      </div>
     </div>
   );
 }

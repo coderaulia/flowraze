@@ -222,6 +222,7 @@ NODE_ENV=development
 ## 7. Feature Status
 
 ### Completed
+- [x] Activity Feed UI
 - [x] Project scaffolding & workspace setup
 - [x] Database schema (Prisma) & seed data
 - [x] JWT authentication (login/register)
@@ -246,7 +247,6 @@ NODE_ENV=development
 - None
 
 ### Placeholder/Todo
-- [ ] Activity Feed UI
 - [ ] Team Performance real integration
 - [ ] Settings Page (Profile/Security)
 - [ ] Global Search functionality
