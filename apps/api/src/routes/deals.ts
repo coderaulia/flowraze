@@ -131,6 +131,20 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const title = requireString(body, 'title', 'Title');
     const value = requireNumber(body, 'value', 'Value');
     const stage = optionalEnum(DEAL_STAGES, 'Stage')(body.stage) || 'new';
+    const expectedCloseDate = optionalDate(body.expectedCloseDate) ?? undefined;
+
+    const existingDeal = await prisma.deal.findFirst({
+      where: {
+        leadId,
+        ownerId: req.userId!,
+        title: { equals: title, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+
+    if (existingDeal) {
+      throw new AppError(409, 'Deal already exists for this lead and owner', 'DUPLICATE_DEAL');
+    }
 
     const deal = await prisma.deal.create({
       data: {
@@ -138,7 +152,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
         title,
         value,
         stage,
-        expectedCloseDate: optionalDate(body.expectedCloseDate) ?? undefined,
+        expectedCloseDate,
         closedAt: stage === 'won' ? new Date() : undefined,
         ownerId: req.userId!,
       },
@@ -193,11 +207,16 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
     const existingDeal = await prisma.deal.findUnique({
       where: { id: req.params.id },
-      select: { stage: true },
+      select: { stage: true, ownerId: true },
     });
 
     if (!existingDeal) {
       throw new AppError(404, 'Deal not found');
+    }
+
+    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    if (!isPrivileged && existingDeal.ownerId !== req.userId!) {
+      throw new AppError(403, 'Access denied');
     }
 
     // Auto-manage closedAt: set when transitioning to won, clear when leaving won
@@ -233,7 +252,9 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    await prisma.deal.delete({ where: { id: req.params.id } });
+    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    const ownerWhere = isPrivileged ? {} : { ownerId: req.userId! };
+    await prisma.deal.delete({ where: { id: req.params.id, ...ownerWhere } });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

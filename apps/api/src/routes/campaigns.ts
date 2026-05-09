@@ -112,6 +112,16 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const body = requireObjectBody(req.body);
     const name = requireString(body, 'name', 'Name');
     const channel = requireString(body, 'channel', 'Channel');
+    const startDate = requiredDate(body.startDate);
+
+    const existingCampaign = await prisma.campaign.findFirst({
+      where: { name, channel, startDate },
+      select: { id: true },
+    });
+
+    if (existingCampaign) {
+      throw new AppError(409, 'Campaign already exists for this channel and start date', 'DUPLICATE_CAMPAIGN');
+    }
 
     const campaign = await prisma.campaign.create({
       data: {
@@ -121,7 +131,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
         ownerId: optionalNonEmptyString(body.ownerId),
         salesOwnerId: optionalNonEmptyString(body.salesOwnerId),
         cost: optionalNumber(body.cost),
-        startDate: requiredDate(body.startDate),
+        startDate,
         endDate: optionalDate(body.endDate),
       },
     });
@@ -147,6 +157,18 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'endDate', optionalDate);
     requireAtLeastOneField(data);
 
+    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    if (!isPrivileged) {
+      const existingCampaign = await prisma.campaign.findUnique({
+        where: { id: req.params.id },
+        select: { ownerId: true, salesOwnerId: true },
+      });
+      if (!existingCampaign) throw new AppError(404, 'Campaign not found');
+      if (existingCampaign.ownerId !== req.userId! && existingCampaign.salesOwnerId !== req.userId!) {
+        throw new AppError(403, 'Access denied');
+      }
+    }
+
     const campaign = await prisma.campaign.update({
       where: { id: req.params.id },
       data: data as Prisma.CampaignUpdateInput,
@@ -160,6 +182,17 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
+    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    if (!isPrivileged) {
+      const existingCampaign = await prisma.campaign.findUnique({
+        where: { id: req.params.id },
+        select: { ownerId: true, salesOwnerId: true },
+      });
+      if (!existingCampaign) throw new AppError(404, 'Campaign not found');
+      if (existingCampaign.ownerId !== req.userId! && existingCampaign.salesOwnerId !== req.userId!) {
+        throw new AppError(403, 'Access denied');
+      }
+    }
     await prisma.campaign.delete({ where: { id: req.params.id } });
     res.json({ success: true, data: null });
   } catch (error) {

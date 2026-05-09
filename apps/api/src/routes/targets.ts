@@ -41,6 +41,15 @@ router.post('/teams', requireRole('superadmin'), async (req: AuthRequest, res, n
     const body = req.body as Record<string, unknown>;
     const name = requireString(body, 'name');
     const managerId = requireString(body, 'managerId');
+    const existingTeam = await prisma.salesTeam.findFirst({
+      where: { name },
+      select: { id: true },
+    });
+
+    if (existingTeam) {
+      throw new AppError(409, 'Sales team already exists', 'DUPLICATE_SALES_TEAM');
+    }
+
     const team = await prisma.salesTeam.create({
       data: { name, managerId },
       include: { manager: { select: { id: true, name: true } } },
@@ -147,11 +156,31 @@ router.post('/', async (req: AuthRequest, res, next) => {
     if (body.targetDeals !== undefined) data.targetDeals = optionalNumber(body.targetDeals) as number | undefined;
     if (body.shareOfParent !== undefined) data.shareOfParent = optionalNumber(body.shareOfParent) as number | undefined;
     if (body.category !== undefined) data.category = (body.category as string) || null;
+    const userId = typeof body.userId === 'string' && body.userId ? body.userId : null;
+    const teamId = typeof body.teamId === 'string' && body.teamId ? body.teamId : null;
     if (scope === 'individual' && body.userId) {
-      data.user = { connect: { id: body.userId as string } };
+      data.user = { connect: { id: userId! } };
     }
     if (scope === 'team' && body.teamId) {
-      data.team = { connect: { id: body.teamId as string } };
+      data.team = { connect: { id: teamId! } };
+    }
+
+    const existingTarget = await prisma.salesTarget.findFirst({
+      where: {
+        scope,
+        period,
+        year,
+        quarter: (data.quarter as number | undefined) ?? null,
+        month: (data.month as number | undefined) ?? null,
+        category: (data.category as string | null | undefined) ?? null,
+        userId: scope === 'individual' ? userId : null,
+        teamId: scope === 'team' ? teamId : null,
+      },
+      select: { id: true },
+    });
+
+    if (existingTarget) {
+      throw new AppError(409, 'Sales target already exists for this scope and period', 'DUPLICATE_SALES_TARGET');
     }
 
     const target = await prisma.salesTarget.create({
@@ -182,6 +211,15 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     if (body.category !== undefined) updates.category = (body.category as string) || null;
 
     if (Object.keys(updates).length === 0) throw new AppError(400, 'No fields to update');
+
+    const existing = await prisma.salesTarget.findUnique({
+      where: { id: req.params.id },
+      select: { scope: true },
+    });
+    if (!existing) throw new AppError(404, 'Target not found');
+    if (role === 'admin' && existing.scope !== 'individual') {
+      throw new AppError(403, 'Admins can only update individual targets');
+    }
 
     const target = await prisma.salesTarget.update({
       where: { id: req.params.id },

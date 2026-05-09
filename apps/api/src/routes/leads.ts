@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -14,10 +14,14 @@ import {
   setIfPresent,
 } from '../utils/request.js';
 import { getQueryDate, getQueryString } from '../utils/query.js';
+import { buildLeadImportCandidates } from '../utils/lead-import.js';
 import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
 
 const router = Router();
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified'] as const;
+type ImportedLead = Prisma.LeadGetPayload<{
+  include: { owner: { select: { id: true; name: true } } };
+}>;
 
 router.use(authenticate);
 
@@ -105,6 +109,85 @@ router.get('/lookups', async (req: AuthRequest, res, next) => {
   }
 });
 
+router.post('/import', async (req: AuthRequest, res, next) => {
+  try {
+    const body = requireObjectBody(req.body);
+    const { candidates, errors, totalRows } = buildLeadImportCandidates(body.leads, req.userId!);
+    const existingLeads = candidates.length > 0
+      ? await prisma.lead.findMany({
+        where: {
+          ownerId: req.userId!,
+          OR: candidates.map((candidate) => ({
+            email: { equals: candidate.email, mode: 'insensitive' },
+          })),
+        },
+        select: { email: true },
+      })
+      : [];
+    const existingEmails = new Set(existingLeads.map((lead) => lead.email.toLowerCase()));
+    const importableCandidates = candidates.filter((candidate) => {
+      if (!existingEmails.has(candidate.email)) {
+        return true;
+      }
+
+      errors.push({
+        rowNumber: candidate.rowNumber,
+        email: candidate.email,
+        reason: 'Lead already exists for this owner and email',
+      });
+      return false;
+    });
+    const created: ImportedLead[] = [];
+
+    for (const candidate of importableCandidates) {
+      try {
+        const lead = await prisma.lead.create({
+          data: candidate.data,
+          include: {
+            owner: { select: { id: true, name: true } },
+          },
+        });
+
+        created.push(lead);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          errors.push({
+            rowNumber: candidate.rowNumber,
+            email: candidate.email,
+            reason: error.code === 'P2002'
+              ? 'Lead already exists for this owner and email'
+              : error.code === 'P2003'
+                ? 'Campaign was not found'
+                : 'Lead could not be imported',
+          });
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    created.forEach((lead) => {
+      void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead })).catch((error) => {
+        console.error('Lead webhook dispatch failed:', error);
+      });
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        createdCount: created.length,
+        skippedCount: errors.length,
+        totalRows,
+        errors,
+        leads: created,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/:id', async (req: AuthRequest, res, next) => {
   try {
     const lead = await prisma.lead.findUnique({
@@ -131,8 +214,20 @@ router.post('/', async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const fullName = requireString(body, 'fullName', 'Full name');
-    const email = requireString(body, 'email', 'Email');
+    const email = requireString(body, 'email', 'Email').toLowerCase();
     const source = requireString(body, 'source', 'Source');
+
+    const existingLead = await prisma.lead.findFirst({
+      where: {
+        ownerId: req.userId!,
+        email: { equals: email, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+
+    if (existingLead) {
+      throw new AppError(409, 'Lead already exists for this owner and email', 'DUPLICATE_LEAD');
+    }
 
     const lead = await prisma.lead.create({
       data: {
@@ -168,7 +263,7 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     const data: Record<string, unknown> = {};
 
     setIfPresent(data, body, 'fullName', optionalNonEmptyString);
-    setIfPresent(data, body, 'email', optionalNonEmptyString);
+    setIfPresent(data, body, 'email', (value) => optionalNonEmptyString(value).toLowerCase());
     setIfPresent(data, body, 'phone', optionalString);
     setIfPresent(data, body, 'companyName', optionalString);
     setIfPresent(data, body, 'source', optionalNonEmptyString);
@@ -178,8 +273,11 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'notes', optionalString);
     requireAtLeastOneField(data);
 
+    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    const ownerWhere = isPrivileged ? {} : { ownerId: req.userId! };
+
     const lead = await prisma.lead.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id, ...ownerWhere },
       data: data as Prisma.LeadUncheckedUpdateInput,
       include: {
         owner: { select: { id: true, name: true } },
@@ -194,7 +292,9 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    await prisma.lead.delete({ where: { id: req.params.id } });
+    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    const ownerWhere = isPrivileged ? {} : { ownerId: req.userId! };
+    await prisma.lead.delete({ where: { id: req.params.id, ...ownerWhere } });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

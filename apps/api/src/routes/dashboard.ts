@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Prisma, SalesTarget, SalesTeamMember } from '@prisma/client';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 const router = Router();
 import { parseDateRange, getStartDate } from '../utils/date.js';
@@ -235,6 +236,16 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
     const month = monthStr ? parseInt(monthStr, 10) : undefined;
     const effectiveScope = scope || 'company';
     const effectivePeriod = period || 'yearly';
+
+    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    if (effectiveScope === 'individual') {
+      const resolvedUserId = userId ?? req.userId!;
+      if (resolvedUserId !== req.userId! && !isPrivileged) {
+        throw new AppError(403, 'Insufficient permissions');
+      }
+    } else if (effectiveScope === 'team' && !isPrivileged) {
+      throw new AppError(403, 'Insufficient permissions');
+    }
 
     // -- Build date range for actuals --
     let periodStart: Date;
