@@ -114,23 +114,23 @@ async function main() {
   // Leads spread across the past 6 months (createdAt set via raw SQL after creation)
   const leadsData = [
     // Month -5
-    { fullName: 'John Smith', email: 'john@techstartup.io', phone: '+6281234567890', companyName: 'TechStartup Inc', source: 'Website', status: 'qualified' as const, ownerId: staff1.id, campaignId: campaign1.id, createdAt: monthsAgo(5, 5) },
-    { fullName: 'Emma Wilson', email: 'emma@designstudio.co', phone: '+6282345678901', companyName: 'Design Studio Co', source: 'Referral', status: 'contacted' as const, ownerId: staff1.id, campaignId: null, createdAt: monthsAgo(5, 12) },
+    { fullName: 'John Smith', email: 'john@techstartup.io', phone: '+6281234567890', companyName: 'TechStartup Inc', source: 'Website', serviceType: 'Development', status: 'qualified' as const, ownerId: staff1.id, campaignId: campaign1.id, createdAt: monthsAgo(5, 5) },
+    { fullName: 'Emma Wilson', email: 'emma@designstudio.co', phone: '+6282345678901', companyName: 'Design Studio Co', source: 'Referral', serviceType: 'Design', status: 'contacted' as const, ownerId: staff1.id, campaignId: null, createdAt: monthsAgo(5, 12) },
     // Month -4
-    { fullName: 'David Brown', email: 'david@retailbusiness.com', phone: '+6283456789012', companyName: 'Retail Business Ltd', source: 'LinkedIn', status: 'new' as const, ownerId: staff2.id, campaignId: campaign2.id, createdAt: monthsAgo(4, 3) },
-    { fullName: 'Lisa Anderson', email: 'lisa@marketingagency.net', phone: '+6284567890123', companyName: 'Marketing Agency', source: 'Google Ads', status: 'qualified' as const, ownerId: staff1.id, campaignId: campaign3.id, createdAt: monthsAgo(4, 18) },
+    { fullName: 'David Brown', email: 'david@retailbusiness.com', phone: '+6283456789012', companyName: 'Retail Business Ltd', source: 'LinkedIn', serviceType: 'Consulting', status: 'new' as const, ownerId: staff2.id, campaignId: campaign2.id, createdAt: monthsAgo(4, 3) },
+    { fullName: 'Lisa Anderson', email: 'lisa@marketingagency.net', phone: '+6284567890123', companyName: 'Marketing Agency', source: 'Google Ads', serviceType: 'Marketing', status: 'qualified' as const, ownerId: staff1.id, campaignId: campaign3.id, createdAt: monthsAgo(4, 18) },
     // Month -3
-    { fullName: 'Robert Taylor', email: 'robert@consultingfirm.io', phone: '+6285678901234', companyName: 'Consulting Firm', source: 'Website', status: 'contacted' as const, ownerId: staff2.id, campaignId: null, createdAt: monthsAgo(3, 7) },
-    { fullName: 'Jennifer Martinez', email: 'jennifer@ecommerce.co', phone: '+6286789012345', companyName: 'E-Commerce Plus', source: 'Referral', status: 'new' as const, ownerId: staff1.id, campaignId: null, createdAt: monthsAgo(3, 20) },
+    { fullName: 'Robert Taylor', email: 'robert@consultingfirm.io', phone: '+6285678901234', companyName: 'Consulting Firm', source: 'Website', serviceType: 'Consulting', status: 'contacted' as const, ownerId: staff2.id, campaignId: null, createdAt: monthsAgo(3, 7) },
+    { fullName: 'Jennifer Martinez', email: 'jennifer@ecommerce.co', phone: '+6286789012345', companyName: 'E-Commerce Plus', source: 'Referral', serviceType: 'Development', status: 'new' as const, ownerId: staff1.id, campaignId: null, createdAt: monthsAgo(3, 20) },
     // Month -2
-    { fullName: 'William Johnson', email: 'william@saascompany.com', phone: '+6287890123456', companyName: 'SaaS Company', source: 'Email', status: 'qualified' as const, ownerId: staff2.id, campaignId: campaign1.id, createdAt: monthsAgo(2, 8) },
-    { fullName: 'Amanda Davis', email: 'amanda@foodbusiness.net', phone: '+6288901234567', companyName: 'Food Business Inc', source: 'LinkedIn', status: 'contacted' as const, ownerId: staff1.id, campaignId: campaign2.id, createdAt: monthsAgo(2, 22) },
+    { fullName: 'William Johnson', email: 'william@saascompany.com', phone: '+6287890123456', companyName: 'SaaS Company', source: 'Email', serviceType: 'Support', status: 'qualified' as const, ownerId: staff2.id, campaignId: campaign1.id, createdAt: monthsAgo(2, 8) },
+    { fullName: 'Amanda Davis', email: 'amanda@foodbusiness.net', phone: '+6288901234567', companyName: 'Food Business Inc', source: 'LinkedIn', serviceType: 'Design', status: 'contacted' as const, ownerId: staff1.id, campaignId: campaign2.id, createdAt: monthsAgo(2, 22) },
     // Month -1
-    { fullName: 'Kevin Park', email: 'kevin@fintech.io', phone: '+6289012345678', companyName: 'FinTech Solutions', source: 'Google Ads', status: 'qualified' as const, ownerId: staff1.id, campaignId: campaign4.id, createdAt: monthsAgo(1, 5) },
-    { fullName: 'Sandra Lee', email: 'sandra@healthtech.co', phone: '+6289123456789', companyName: 'HealthTech Co', source: 'Website', status: 'new' as const, ownerId: staff2.id, campaignId: null, createdAt: monthsAgo(1, 15) },
+    { fullName: 'Kevin Park', email: 'kevin@fintech.io', phone: '+6289012345678', companyName: 'FinTech Solutions', source: 'Google Ads', serviceType: 'Development', status: 'qualified' as const, ownerId: staff1.id, campaignId: campaign4.id, createdAt: monthsAgo(1, 5) },
+    { fullName: 'Sandra Lee', email: 'sandra@healthtech.co', phone: '+6289123456789', companyName: 'HealthTech Co', source: 'Website', serviceType: 'Consulting', status: 'new' as const, ownerId: staff2.id, campaignId: null, createdAt: monthsAgo(1, 15) },
     // Month 0 (current)
-    { fullName: 'Mark Thompson', email: 'mark@logistics.com', phone: '+6289234567890', companyName: 'Logistics Plus', source: 'Referral', status: 'contacted' as const, ownerId: staff1.id, campaignId: campaign4.id, createdAt: monthsAgo(0, 3) },
-    { fullName: 'Priya Sharma', email: 'priya@edtech.net', phone: '+6289345678901', companyName: 'EduTech Inc', source: 'LinkedIn', status: 'new' as const, ownerId: staff2.id, campaignId: null, createdAt: monthsAgo(0, 8) },
+    { fullName: 'Mark Thompson', email: 'mark@logistics.com', phone: '+6289234567890', companyName: 'Logistics Plus', source: 'Referral', serviceType: 'Logistics', status: 'contacted' as const, ownerId: staff1.id, campaignId: campaign4.id, createdAt: monthsAgo(0, 3) },
+    { fullName: 'Priya Sharma', email: 'priya@edtech.net', phone: '+6289345678901', companyName: 'EduTech Inc', source: 'LinkedIn', serviceType: 'Marketing', status: 'new' as const, ownerId: staff2.id, campaignId: null, createdAt: monthsAgo(0, 8) },
   ];
 
   const leads: { id: string; createdAt: Date }[] = [];
