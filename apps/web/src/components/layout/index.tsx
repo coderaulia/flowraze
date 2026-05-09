@@ -61,7 +61,7 @@ export function Layout() {
 
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex h-dvh min-h-0 overflow-hidden">
       {isSidebarOpen && (
         <button
           aria-label="Close navigation"
@@ -73,11 +73,11 @@ export function Layout() {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#f2f4f6] transition-transform duration-300 lg:sticky lg:top-0 lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-dvh w-64 min-h-0 flex-col bg-[#f2f4f6] transition-transform duration-300 lg:relative lg:translate-x-0',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+        <div className="flex shrink-0 items-center justify-between px-6 pt-6 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[#2A3BB0] flex items-center justify-center text-white shadow-md">
               <LayoutDashboard className="h-5 w-5" />
@@ -97,7 +97,7 @@ export function Layout() {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-2 space-y-1">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-2">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -119,7 +119,7 @@ export function Layout() {
 
 
 
-        <div className="mt-auto">
+        <div className="mt-auto shrink-0">
           <div className="px-3 py-4 space-y-1 border-t border-slate-200/50">
           <NavLink
             to="/settings"
@@ -146,7 +146,7 @@ export function Layout() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="fixed left-0 right-0 top-0 z-30 min-h-16 bg-[#f7f9fb] border-b border-slate-200 px-4 py-3 lg:left-64 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3 sm:gap-6">
