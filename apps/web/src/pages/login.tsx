@@ -19,10 +19,12 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetToken, setResetToken] = useState(searchParams.get('token') ?? '');
   const [resetPassword, setResetPassword] = useState('');
-  const [verificationToken, setVerificationToken] = useState(searchParams.get('token') ?? '');
+  const urlToken = searchParams.get('token') ?? '';
+  const [verificationToken, setVerificationToken] = useState(urlToken);
   const [securityMessage, setSecurityMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -144,65 +146,82 @@ export function LoginPage() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
+            <div className="text-center">
+              <button
+                type="button"
+                className="text-sm text-secondary hover:underline"
+                onClick={() => { setShowReset(!showReset); setSecurityMessage(''); }}
+              >
+                Forgot password?
+              </button>
+            </div>
           </form>
-          <div className="mt-6 space-y-4 border-t border-surface-container-high pt-5">
-            {securityMessage && (
-              <div className="rounded-round-eight bg-surface-container p-3 text-sm text-on-surface-variant">
-                {securityMessage}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="resetEmail">Password Reset Email</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="resetEmail"
-                  type="email"
-                  value={resetEmail}
-                  onChange={(event) => setResetEmail(event.target.value)}
-                  placeholder="you@company.com"
-                />
-                <Button type="button" variant="secondary" onClick={handleRequestReset}>
-                  Request
-                </Button>
-              </div>
+          {(showReset || urlToken) && (
+            <div className="mt-6 space-y-4 border-t border-surface-container-high pt-5">
+              {securityMessage && (
+                <div className="rounded-round-eight bg-surface-container p-3 text-sm text-on-surface-variant">
+                  {securityMessage}
+                </div>
+              )}
+              {showReset && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="resetEmail">Password Reset Email</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="resetEmail"
+                        type="email"
+                        value={resetEmail}
+                        onChange={(event) => setResetEmail(event.target.value)}
+                        placeholder="you@company.com"
+                      />
+                      <Button type="button" variant="secondary" onClick={handleRequestReset}>
+                        Request
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input
+                      value={resetToken}
+                      onChange={(event) => setResetToken(event.target.value)}
+                      placeholder="Reset token"
+                    />
+                    <Input
+                      type="password"
+                      value={resetPassword}
+                      onChange={(event) => setResetPassword(event.target.value)}
+                      placeholder="New password"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    variant="secondary"
+                    disabled={!resetToken || !resetPassword}
+                    onClick={handleConfirmReset}
+                  >
+                    Confirm Password Reset
+                  </Button>
+                </>
+              )}
+              {urlToken && (
+                <div className="space-y-2">
+                  <Label htmlFor="verifyToken">Email Verification Token</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="verifyToken"
+                      value={verificationToken}
+                      onChange={(event) => setVerificationToken(event.target.value)}
+                      placeholder="Verification token"
+                    />
+                    <Button type="button" variant="secondary" disabled={!verificationToken} onClick={handleVerifyEmail}>
+                      Verify
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                value={resetToken}
-                onChange={(event) => setResetToken(event.target.value)}
-                placeholder="Reset token"
-              />
-              <Input
-                type="password"
-                value={resetPassword}
-                onChange={(event) => setResetPassword(event.target.value)}
-                placeholder="New password"
-              />
-            </div>
-            <Button
-              type="button"
-              className="w-full"
-              variant="secondary"
-              disabled={!resetToken || !resetPassword}
-              onClick={handleConfirmReset}
-            >
-              Confirm Password Reset
-            </Button>
-            <div className="space-y-2">
-              <Label htmlFor="verifyToken">Email Verification Token</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="verifyToken"
-                  value={verificationToken}
-                  onChange={(event) => setVerificationToken(event.target.value)}
-                  placeholder="Verification token"
-                />
-                <Button type="button" variant="secondary" disabled={!verificationToken} onClick={handleVerifyEmail}>
-                  Verify
-                </Button>
-              </div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

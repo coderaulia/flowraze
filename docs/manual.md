@@ -33,7 +33,6 @@ As a staff member (e.g., Sales Representative), your primary focus is managing y
 Admins have all the capabilities of a Staff member, plus access to team management and broader analytics.
 
 ### Team Management
-- **Users Page**: Admins can invite new team members, reset passwords, and deactivate accounts.
 - **Team Performance**: Admins can view individual metrics for each staff member, including leads assigned, deals won, and revenue closed.
 
 ### Campaign Management
@@ -52,7 +51,7 @@ Superadmins have full unrestricted access to the entire FlowRaze system. This ro
 ### System Settings & Security
 - **Profile & Security**: Update your profile, request/confirm email verification, and run password reset flows from Settings.
 - **Billing**: Manage the workspace plan, status, seats, renewal date, and external customer reference.
-- **Role Management**: Superadmins can promote Staff to Admins or demote Admins as necessary.
+- **User Management**: Superadmins can invite new team members, update roles (Staff ↔ Admin ↔ Superadmin), reset passwords, and delete users. At least one Superadmin account is always preserved.
 - **Data Export**: Export leads, deals, campaigns, activities, and team performance as CSV or PDF reports.
 
 ### Technical Administration

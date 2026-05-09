@@ -1,45 +1,28 @@
-# FlowRaze - CRM & Operations Analytics
+# FlowRaze
 
-A modern CRM + Operations Analytics web app for growing teams. Built with React, TypeScript, Express, and PostgreSQL.
+FlowRaze is a CRM and operations analytics platform for growing sales teams. It provides lead and deal management, campaign tracking, activity logging, team performance reporting, and system integrations — all in a single application.
 
 ## Features
 
-- **Lead Management** - Track and manage your sales leads
-- **Deal Pipeline** - Visual Kanban-style deal tracking
-- **Campaign Tracking** - Monitor marketing campaign performance
-- **Activity Logging** - Log calls, notes, and follow-ups
-- **Dashboard** - Real-time sales metrics and analytics
-- **Team Performance** - Track team member performance
-- **Global Search** - Search leads, deals, campaigns, and activities
-- **Settings & Security** - Profile updates, email verification, password reset, API keys, webhooks, and billing state
-- **Exports** - Download CRM data as CSV or PDF reports
+- **Lead Management** — Track leads through their full lifecycle with status, source, and assignment.
+- **Deal Pipeline** — Visual Kanban board for moving deals through stages from prospect to close.
+- **Campaign Tracking** — Monitor marketing campaigns and the leads they generate.
+- **Activity Logging** — Log calls, notes, and follow-ups against leads with a full audit trail.
+- **Dashboard & Analytics** — Real-time metrics for revenue, conversion rates, and pipeline health.
+- **Team Performance** — Per-member reporting on leads assigned, deals won, and revenue closed.
+- **Global Search** — Search across leads, deals, campaigns, and activities from anywhere.
+- **Data Export** — Download filtered datasets as CSV or PDF reports.
+- **API & Webhooks** — API key authentication and outbound webhook delivery for external integrations.
+- **Settings & Security** — Email verification, password reset, billing management, and role-based access control.
 
 ## Tech Stack
 
-- **Frontend**: React 18+, Vite, TypeScript, Tailwind CSS, Recharts
-- **Backend**: Node.js, Express, TypeScript, Prisma ORM
-- **Database**: PostgreSQL
-- **Auth**: JWT-based authentication
-
-## Project Structure
-
-```
-flowraze/
-+-- apps/
-|   +-- web/              # React frontend
-|   |   +-- src/
-|   |   |   +-- components/   # UI components
-|   |   |   +-- pages/        # Route pages
-|   |   |   +-- lib/          # Utilities & API client
-|   |   |   +-- hooks/        # Custom React hooks
-|   +-- api/              # Express backend
-|       +-- src/
-|       |   +-- routes/       # API routes
-|       |   +-- middleware/   # Auth & error handling
-|       |   +-- prisma/       # Database client
-+-- prisma/               # Database schema & seed
-+-- shared/               # Shared TypeScript types
-```
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Recharts |
+| Backend | Node.js, Express, TypeScript, Prisma ORM |
+| Database | PostgreSQL 14+ |
+| Auth | JWT + API key |
 
 ## Getting Started
 
@@ -49,232 +32,56 @@ flowraze/
 - npm 9+
 - PostgreSQL 14+
 
-### Installation
+### Setup
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd flowraze
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Set up environment variables:
-   ```bash
-   # apps/api/.env
-   DATABASE_URL="postgresql://user:password@localhost:5432/flowraze"
-   JWT_SECRET=your-secret-key
-   PORT=3000
-   ```
-
-4. Set up the database:
-   ```bash
-   cd apps/api
-   npm run prisma:generate
-   npm run prisma:migrate
-   npm run prisma:seed
-   ```
-
-### Running Development
-
-Start both frontend and backend:
 ```bash
+# Install dependencies
+npm install
+
+# Configure the backend
+cp apps/api/.env.example apps/api/.env
+# Edit apps/api/.env with your DATABASE_URL and JWT_SECRET
+
+# Run database migrations and seed
+cd apps/api
+npm run prisma:generate
+npm run prisma:deploy
+npm run prisma:seed
+cd ../..
+
+# Start development servers
 npm run dev
 ```
 
-Or separately:
-```bash
-# Frontend (http://localhost:5173)
-cd apps/web && npm run dev
-
-# Backend (http://localhost:3000)
-cd apps/api && npm run dev
-```
+Frontend runs at `http://localhost:5173`, backend at `http://localhost:3000`.
 
 ### Default Login
 
-After seeding the database:
-- **Email**: admin@flowraze.com
-- **Password**: admin123
+```
+Email:    admin@flowraze.com
+Password: admin123
+```
 
 ## Scripts
 
-### Root
-- `npm run dev` - Start all apps in dev mode
-- `npm run build` - Build all apps
-- `npm run lint` - Run ESLint
-- `npm test` - Run workspace tests
-- `npm run typecheck` - TypeScript check
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start frontend and backend in dev mode |
+| `npm run build` | Build all apps for production |
+| `npm run typecheck` | TypeScript check across all workspaces |
+| `npm run lint` | ESLint across all workspaces |
+| `npm test` | Run tests across all workspaces |
 
-### Frontend (apps/web)
-- `npm run dev` - Vite dev server
-- `npm run build` - Production build
-- `npm test` - Run frontend utility tests
+## Documentation
 
-### Backend (apps/api)
-- `npm run dev` - Start dev server
-- `npm run build` - Compile TypeScript
-- `npm run start` - Production server
-- `npm test` - Run API utility tests
-- `npm run prisma:generate` - Generate Prisma client
-- `npm run prisma:migrate` - Run migrations
-- `npm run prisma:seed` - Seed database
-
-## API Endpoints
-
-List endpoints support optional `page` and `limit` query params and return pagination metadata when those params are present.
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/login | User login |
-| POST | /api/auth/register | User registration |
-| POST | /api/auth/email-verification/request | Request email verification token |
-| POST | /api/auth/verify-email | Confirm email verification |
-| POST | /api/auth/password-reset/request | Request password reset token |
-| POST | /api/auth/password-reset/confirm | Confirm password reset |
-| GET | /api/leads | List leads |
-| POST | /api/leads | Create lead |
-| PUT | /api/leads/:id | Update lead |
-| DELETE | /api/leads/:id | Delete lead |
-| GET | /api/deals | List deals |
-| POST | /api/deals | Create deal |
-| PUT | /api/deals/:id | Update deal |
-| GET | /api/campaigns | List campaigns |
-| POST | /api/campaigns | Create campaign |
-| GET | /api/activities | List activities |
-| POST | /api/activities | Create activity |
-| GET | /api/dashboard | Dashboard stats |
-| GET | /api/team/performance | Team performance |
-| GET | /api/search | Cross-entity search |
-| GET | /api/exports/:entity.csv | CSV export |
-| GET | /api/exports/:entity.pdf | PDF export |
-| GET/POST/DELETE | /api/api-keys | Superadmin API key management |
-| GET/PUT | /api/billing | Workspace billing state |
-| GET/POST/PUT/DELETE | /api/webhooks | Superadmin webhook management |
-
-## Roadmap
-
-- [ ] Real email provider for verification and reset delivery
-- [ ] Webhook retry/replay policy
-- [ ] Payment provider integration for checkout, invoices, and customer portal
-- [ ] Future betterauth migration decision
-
-## VPS Deployment Guide
-
-This guide walks you through deploying FlowRaze on a Linux VPS (e.g., Ubuntu 22.04) using PM2 for the backend and Nginx for the frontend/reverse proxy.
-
-### 1. VPS Prerequisites
-Ensure your server has the following installed:
-- Node.js 18+
-- npm 9+
-- PostgreSQL 14+
-- Nginx
-- PM2 (`npm install -g pm2`)
-
-### 2. Prepare the Database
-Create a database and user in PostgreSQL:
-```bash
-sudo -u postgres psql
-CREATE DATABASE flowraze;
-CREATE USER flowraze_user WITH ENCRYPTED PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE flowraze TO flowraze_user;
-\q
-```
-
-### 3. Clone & Install
-```bash
-git clone <repository-url> /var/www/flowraze
-cd /var/www/flowraze
-npm install
-```
-
-### 4. Configure Environment Variables
-Create the necessary `.env` files.
-
-**Backend (`apps/api/.env`):**
-```env
-DATABASE_URL="postgresql://flowraze_user:your_secure_password@localhost:5432/flowraze"
-JWT_SECRET="generate_a_secure_random_string"
-PORT=3000
-NODE_ENV=production
-```
-
-**Frontend (`apps/web/.env`):**
-```env
-# Point this to your actual domain name when accessed by users
-VITE_API_URL=https://api.yourdomain.com
-```
-
-### 5. Build the Apps
-```bash
-# Build the frontend (outputs to apps/web/dist)
-# Build the backend (outputs to apps/api/dist)
-npm run build
-```
-
-### 6. Setup the Database Schema
-```bash
-cd apps/api
-npm run prisma:generate
-npm run prisma:migrate deploy
-# (Optional) Seed the database if this is a fresh setup
-npm run prisma:seed
-```
-
-### 7. Start the Backend with PM2
-```bash
-cd /var/www/flowraze/apps/api
-pm2 start dist/index.js --name "flowraze-api"
-pm2 save
-pm2 startup
-```
-
-### 8. Configure Nginx
-Create an Nginx server block to serve the frontend and proxy the API.
-
-**`/etc/nginx/sites-available/flowraze`**
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com www.yourdomain.com;
-
-    # Serve the React frontend
-    root /var/www/flowraze/apps/web/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-
-server {
-    listen 80;
-    server_name api.yourdomain.com;
-
-    # Proxy API requests to Node.js backend
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-Enable the site and restart Nginx:
-```bash
-sudo ln -s /etc/nginx/sites-available/flowraze /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-> **Note:** We strongly recommend using Let's Encrypt (Certbot) to secure your domains with HTTPS after this step.
+| Document | Description |
+|----------|-------------|
+| [docs/api.md](docs/api.md) | Full API endpoint reference |
+| [docs/deployment.md](docs/deployment.md) | VPS deployment guide |
+| [docs/manual.md](docs/manual.md) | User manual (Staff, Admin, Superadmin) |
 
 ## License
 
-Private - All rights reserved
+Copyright © 2026 FlowRaze. All rights reserved.
+
+This software is proprietary and confidential. Unauthorized copying, distribution, modification, or use of this software, in whole or in part, is strictly prohibited without prior written permission from the copyright holder.
