@@ -302,6 +302,7 @@ export function TargetsPage() {
   );
   const [targetFormError, setTargetFormError] = useState('');
   const [expandedTargetIds, setExpandedTargetIds] = useState<Set<string>>(() => new Set());
+  const [collapsedQuarters, setCollapsedQuarters] = useState<Set<number>>(() => new Set());
 
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<SalesTeam | null>(null);
@@ -318,6 +319,20 @@ export function TargetsPage() {
     () => (editingTarget?.period === 'quarterly' ? PERIOD_OPTIONS : TARGET_SET_PERIOD_OPTIONS),
     [editingTarget?.period]
   );
+
+  const quarterlyPerfBreakdown = useMemo(() => {
+    if (!data) return [];
+    const map = new Map<number, { target: number; actual: number; remaining: number; months: typeof data.monthlyBreakdown }>();
+    for (const item of data.monthlyBreakdown) {
+      if (!map.has(item.quarter)) map.set(item.quarter, { target: 0, actual: 0, remaining: 0, months: [] });
+      const entry = map.get(item.quarter)!;
+      entry.target += item.target;
+      entry.actual += item.actual;
+      entry.remaining += Math.max(0, item.remaining);
+      entry.months.push(item);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a - b);
+  }, [data]);
 
   const targetGroups = useMemo(() => {
     const yearlyTargetKeys = new Set(
@@ -517,6 +532,14 @@ export function TargetsPage() {
       } else {
         next.add(targetId);
       }
+      return next;
+    });
+  };
+
+  const toggleQuarter = (quarter: number) => {
+    setCollapsedQuarters((current) => {
+      const next = new Set(current);
+      if (next.has(quarter)) next.delete(quarter); else next.add(quarter);
       return next;
     });
   };
@@ -973,6 +996,11 @@ export function TargetsPage() {
                                       const quarter = getTargetQuarterIndex(detail);
                                       const quarterStyle = getQuarterStyle(detail);
                                       const isQuarterSummary = detail.period === 'quarterly' && !detail.category;
+                                      const isQuarterCollapsed = isQuarterSummary && collapsedQuarters.has(quarter);
+
+                                      if (detail.period === 'monthly' && detail.month) {
+                                        if (collapsedQuarters.has(Math.ceil(detail.month / 3))) return null;
+                                      }
 
                                       return (
                                       <tr
@@ -981,11 +1009,20 @@ export function TargetsPage() {
                                           isQuarterSummary
                                             ? quarterStyle.summaryRow
                                             : quarterStyle.row,
-                                          isQuarterSummary && 'font-semibold uppercase tracking-wide'
+                                          isQuarterSummary && 'font-semibold uppercase tracking-wide',
+                                          isQuarterSummary && 'cursor-pointer'
                                         )}
+                                        onClick={isQuarterSummary ? (e) => { e.stopPropagation(); toggleQuarter(quarter); } : undefined}
                                       >
                                         <td className={cn('px-4', isQuarterSummary ? 'py-4' : 'py-3')}>
                                           <div className="flex items-start gap-3">
+                                            {isQuarterSummary && (
+                                              <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center">
+                                                {isQuarterCollapsed
+                                                  ? <ChevronRight className="h-3.5 w-3.5 text-on-surface-variant" />
+                                                  : <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />}
+                                              </div>
+                                            )}
                                             <span
                                               className={cn(
                                                 'mt-1 rounded-full',
@@ -1027,12 +1064,12 @@ export function TargetsPage() {
                                         <td className={cn('px-4', isQuarterSummary ? 'py-4' : 'py-3')}>
                                           {canManageTargets && (
                                             <div className="flex justify-end gap-2">
-                                              <Button size="icon" type="button" variant="ghost" onClick={() => openTargetModal(detail)}>
+                                              <Button size="icon" type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); openTargetModal(detail); }}>
                                                 <Pencil className="h-4 w-4" />
                                                 <span className="sr-only">Edit target detail</span>
                                               </Button>
                                               {canManageTeams && (
-                                                <Button size="icon" type="button" variant="ghost" onClick={() => handleDeleteTarget(detail)}>
+                                                <Button size="icon" type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDeleteTarget(detail); }}>
                                                   <Trash2 className="h-4 w-4 text-red-400" />
                                                   <span className="sr-only">Delete target detail</span>
                                                 </Button>
@@ -1177,31 +1214,75 @@ export function TargetsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {data.monthlyBreakdown.map((item) => (
-                    <tr key={item.month} className="hover:bg-white/[0.02]">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-on-surface">{item.month}</span>
-                          <span className="text-[10px] font-bold uppercase text-primary/50">Q{item.quarter}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-sm font-medium text-on-surface">{formatCurrency(item.target)}</td>
-                      <td className="px-8 py-6 text-sm font-bold text-on-surface">{formatCurrency(item.actual)}</td>
-                      <td className="px-8 py-6">
-                        <div className={cn('inline-flex min-w-[70px] items-center justify-center rounded-full px-3 py-1 text-xs font-black', getAchievementColor(item.pct), getAchievementBorder(item.pct))}>
-                          {item.pct.toFixed(1)}%
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-xs font-bold text-on-surface-variant">
-                        {item.shareOfParent ? `${item.shareOfParent}%` : '-'}
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <span className={cn('text-sm font-medium', item.remaining <= 0 ? 'text-[#4ae176]' : 'text-on-surface-variant')}>
-                          {item.remaining <= 0 ? 'Done' : formatCurrency(item.remaining)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {quarterlyPerfBreakdown.map(([quarterNum, qData]) => {
+                    const q = Number(quarterNum);
+                    const qStyle = TARGET_QUARTER_STYLES[q] ?? {
+                      badge: 'bg-white/10 text-on-surface-variant',
+                      marker: 'bg-white/30',
+                      row: 'bg-white/[0.025] hover:bg-white/[0.045]',
+                      summaryRow: 'bg-white/[0.09] hover:bg-white/[0.12]',
+                    };
+                    const qPct = qData.target > 0 ? (qData.actual / qData.target) * 100 : 0;
+                    const isCollapsed = collapsedQuarters.has(q);
+
+                    return (
+                      <Fragment key={q}>
+                        <tr
+                          className={cn('cursor-pointer', qStyle.summaryRow)}
+                          onClick={(e) => { e.stopPropagation(); toggleQuarter(q); }}
+                        >
+                          <td className="px-8 py-5">
+                            <div className="flex items-center gap-3">
+                              {isCollapsed
+                                ? <ChevronRight className="h-3.5 w-3.5 text-on-surface-variant" />
+                                : <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />}
+                              <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-black uppercase', qStyle.badge)}>
+                                Q{q}
+                              </span>
+                              <span className="text-sm font-black text-on-surface">Quarter {q}</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5 text-sm font-black text-on-surface">{formatCurrency(qData.target)}</td>
+                          <td className="px-8 py-5 text-sm font-black text-on-surface">{formatCurrency(qData.actual)}</td>
+                          <td className="px-8 py-5">
+                            <div className={cn('inline-flex min-w-[70px] items-center justify-center rounded-full px-3 py-1 text-xs font-black', getAchievementColor(qPct), getAchievementBorder(qPct))}>
+                              {qPct.toFixed(1)}%
+                            </div>
+                          </td>
+                          <td className="px-8 py-5 text-xs font-bold text-on-surface-variant">—</td>
+                          <td className="px-8 py-5 text-right">
+                            <span className={cn('text-sm font-black', qData.remaining <= 0 ? 'text-[#4ae176]' : 'text-on-surface-variant')}>
+                              {qData.remaining <= 0 ? 'Done' : formatCurrency(qData.remaining)}
+                            </span>
+                          </td>
+                        </tr>
+                        {!isCollapsed && qData.months.map((item) => (
+                          <tr key={item.month} className={cn('hover:bg-white/[0.02]', qStyle.row)}>
+                            <td className="py-5 pl-16 pr-8">
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-on-surface">{item.month}</span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-5 text-sm font-medium text-on-surface">{formatCurrency(item.target)}</td>
+                            <td className="px-8 py-5 text-sm font-bold text-on-surface">{formatCurrency(item.actual)}</td>
+                            <td className="px-8 py-5">
+                              <div className={cn('inline-flex min-w-[70px] items-center justify-center rounded-full px-3 py-1 text-xs font-black', getAchievementColor(item.pct), getAchievementBorder(item.pct))}>
+                                {item.pct.toFixed(1)}%
+                              </div>
+                            </td>
+                            <td className="px-8 py-5 text-xs font-bold text-on-surface-variant">
+                              {item.shareOfParent ? `${item.shareOfParent}%` : '-'}
+                            </td>
+                            <td className="px-8 py-5 text-right">
+                              <span className={cn('text-sm font-medium', item.remaining <= 0 ? 'text-[#4ae176]' : 'text-on-surface-variant')}>
+                                {item.remaining <= 0 ? 'Done' : formatCurrency(item.remaining)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

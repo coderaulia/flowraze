@@ -13,9 +13,12 @@ import {
   requireString,
   setIfPresent,
 } from '../utils/request.js';
+import { createOpaqueToken, hashSecret } from '../utils/security.js';
+import { sendInviteEmail } from '../utils/email.js';
 
 const router = Router();
 const USER_ROLES = ['superadmin', 'admin', 'staff'] as const;
+const ADMIN_ASSIGNABLE_ROLES = ['admin', 'staff'] as const;
 
 router.use(authenticate);
 
@@ -25,9 +28,23 @@ const userSelect = {
   name: true,
   role: true,
   emailVerifiedAt: true,
+  inviteToken: true,
+  inviteExpiresAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;
+
+function toUserDto(user: { inviteToken: string | null; inviteExpiresAt: Date | null; [key: string]: unknown }) {
+  const { inviteToken, inviteExpiresAt, ...rest } = user;
+  return {
+    ...rest,
+    invitePending: inviteToken !== null && (inviteExpiresAt === null || inviteExpiresAt > new Date()),
+  };
+}
+
+function isSuperadmin(req: AuthRequest) {
+  return req.userRole === 'superadmin';
+}
 
 async function ensureNotRemovingLastSuperadmin(userId: string, nextRole?: string) {
   const user = await prisma.user.findUnique({
@@ -45,6 +62,14 @@ async function ensureNotRemovingLastSuperadmin(userId: string, nextRole?: string
   }
 }
 
+async function guardAdminTarget(req: AuthRequest, targetId: string) {
+  if (isSuperadmin(req)) return;
+  const target = await prisma.user.findUnique({ where: { id: targetId }, select: { role: true } });
+  if (target?.role === 'superadmin') {
+    throw new AppError(403, 'Admins cannot manage superadmin accounts');
+  }
+}
+
 router.get('/me', async (req: AuthRequest, res, next) => {
   try {
     const user = await prisma.user.findUnique({
@@ -56,7 +81,7 @@ router.get('/me', async (req: AuthRequest, res, next) => {
       throw new AppError(404, 'User not found');
     }
 
-    res.json({ success: true, data: user });
+    res.json({ success: true, data: toUserDto(user) });
   } catch (error) {
     next(error);
   }
@@ -77,7 +102,7 @@ router.put('/me', async (req: AuthRequest, res, next) => {
         updateData.password = await bcrypt.hash(password, 10);
       }
     }
-    
+
     if (Object.keys(updateData).length === 0) {
       throw new AppError(400, 'No valid fields provided for update');
     }
@@ -88,7 +113,7 @@ router.put('/me', async (req: AuthRequest, res, next) => {
       select: userSelect,
     });
 
-    res.json({ success: true, data: user });
+    res.json({ success: true, data: toUserDto(user) });
   } catch (error) {
     next(error);
   }
@@ -106,25 +131,27 @@ router.get('/lookup', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.get('/', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.get('/', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
   try {
     const pagination = getPagination(req.query);
+    const where = isSuperadmin(req) ? {} : { role: { not: 'superadmin' as const } };
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         select: userSelect,
+        where,
         orderBy: { createdAt: 'desc' },
         ...getPaginationArgs(pagination),
       }),
-      prisma.user.count(),
+      prisma.user.count({ where }),
     ]);
 
-    res.json(paginatedResponse(users, pagination, total));
+    res.json(paginatedResponse(users.map(toUserDto), pagination, total));
   } catch (error) {
     next(error);
   }
 });
 
-router.get('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.get('/:id', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
@@ -135,21 +162,33 @@ router.get('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next
       throw new AppError(404, 'User not found');
     }
 
-    res.json({ success: true, data: user });
+    if (!isSuperadmin(req) && user.role === 'superadmin') {
+      throw new AppError(403, 'Admins cannot view superadmin accounts');
+    }
+
+    res.json({ success: true, data: toUserDto(user) });
   } catch (error) {
     next(error);
   }
 });
 
-router.post('/', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.post('/', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const email = requireString(body, 'email', 'Email');
     const password = requireString(body, 'password', 'Password');
     const name = requireString(body, 'name', 'Name');
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const roleValidator = isSuperadmin(req)
+      ? optionalEnum(USER_ROLES, 'Role')
+      : optionalEnum(ADMIN_ASSIGNABLE_ROLES, 'Role');
+    const role = roleValidator(body.role) || 'staff';
 
+    if (!isSuperadmin(req) && role === 'superadmin') {
+      throw new AppError(403, 'Admins cannot assign superadmin role');
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw new AppError(400, 'Email already in use');
     }
@@ -157,34 +196,40 @@ router.post('/', requireRole('superadmin'), async (req: AuthRequest, res, next) 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        role: optionalEnum(USER_ROLES, 'Role')(body.role) || 'staff',
-      },
+      data: { email, password: hashedPassword, name, role },
       select: userSelect,
     });
 
-    res.status(201).json({ success: true, data: user });
+    res.status(201).json({ success: true, data: toUserDto(user) });
   } catch (error) {
     next(error);
   }
 });
 
-router.put('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.put('/:id', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
   try {
     const userId = req.params.id;
     if (!userId) {
       throw new AppError(400, 'User id is required');
     }
 
+    await guardAdminTarget(req, userId);
+
     const body = requireObjectBody(req.body);
     const updateData: Record<string, unknown> = {};
 
     setIfPresent(updateData, body, 'email', optionalNonEmptyString);
     setIfPresent(updateData, body, 'name', optionalNonEmptyString);
-    setIfPresent(updateData, body, 'role', optionalEnum(USER_ROLES, 'Role'));
+
+    const roleValidator = isSuperadmin(req)
+      ? optionalEnum(USER_ROLES, 'Role')
+      : optionalEnum(ADMIN_ASSIGNABLE_ROLES, 'Role');
+    setIfPresent(updateData, body, 'role', roleValidator);
+
+    if (!isSuperadmin(req) && updateData.role === 'superadmin') {
+      throw new AppError(403, 'Admins cannot assign superadmin role');
+    }
+
     if (Object.prototype.hasOwnProperty.call(body, 'password')) {
       const password = body.password;
       if (typeof password !== 'string') {
@@ -203,13 +248,13 @@ router.put('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next
       select: userSelect,
     });
 
-    res.json({ success: true, data: user });
+    res.json({ success: true, data: toUserDto(user) });
   } catch (error) {
     next(error);
   }
 });
 
-router.delete('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.delete('/:id', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
   try {
     const userId = req.params.id;
     if (!userId) {
@@ -220,9 +265,104 @@ router.delete('/:id', requireRole('superadmin'), async (req: AuthRequest, res, n
       throw new AppError(400, 'Cannot delete your own account');
     }
 
+    await guardAdminTarget(req, userId);
     await ensureNotRemovingLastSuperadmin(userId);
 
     await prisma.user.delete({ where: { id: userId } });
+    res.json({ success: true, data: null });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const INVITE_TTL_DAYS = 7;
+
+router.post('/invite', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
+  try {
+    const body = requireObjectBody(req.body);
+    const email = requireString(body, 'email', 'Email');
+    const name = requireString(body, 'name', 'Name');
+
+    const roleValidator = isSuperadmin(req)
+      ? optionalEnum(USER_ROLES, 'Role')
+      : optionalEnum(ADMIN_ASSIGNABLE_ROLES, 'Role');
+    const role = roleValidator(body.role) || 'staff';
+
+    if (!isSuperadmin(req) && role === 'superadmin') {
+      throw new AppError(403, 'Admins cannot invite as superadmin');
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new AppError(400, 'Email already in use');
+    }
+
+    const inviter = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { name: true },
+    });
+
+    const tempPassword = await bcrypt.hash(createOpaqueToken(), 10);
+    const inviteToken = createOpaqueToken();
+    const inviteExpiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        role,
+        password: tempPassword,
+        inviteToken: hashSecret(inviteToken),
+        inviteExpiresAt,
+      },
+      select: userSelect,
+    });
+
+    const baseUrl = process.env.APP_URL || 'http://localhost:5173';
+    const inviteUrl = `${baseUrl}/accept-invite?token=${encodeURIComponent(inviteToken)}`;
+    await sendInviteEmail(email, name, inviter?.name ?? 'Your admin', inviteToken, inviteUrl);
+
+    res.status(201).json({ success: true, data: toUserDto(user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:id/resend-invite', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
+  try {
+    const userId = req.params.id;
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, role: true, inviteToken: true, inviteExpiresAt: true },
+    });
+
+    if (!target) {
+      throw new AppError(404, 'User not found');
+    }
+    if (!isSuperadmin(req) && target.role === 'superadmin') {
+      throw new AppError(403, 'Admins cannot manage superadmin accounts');
+    }
+    if (!target.inviteToken) {
+      throw new AppError(400, 'User has already accepted their invitation');
+    }
+
+    const inviter = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { name: true },
+    });
+
+    const inviteToken = createOpaqueToken();
+    const inviteExpiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { inviteToken: hashSecret(inviteToken), inviteExpiresAt },
+    });
+
+    const baseUrl = process.env.APP_URL || 'http://localhost:5173';
+    const inviteUrl = `${baseUrl}/accept-invite?token=${encodeURIComponent(inviteToken)}`;
+    await sendInviteEmail(target.email, target.name, inviter?.name ?? 'Your admin', inviteToken, inviteUrl);
+
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

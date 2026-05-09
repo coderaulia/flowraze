@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './hooks/useAuthStore';
 import { Layout } from './components/layout';
 import { LoginPage } from './pages/login';
+import { AcceptInvitePage } from './pages/accept-invite';
 import { LandingPage } from './pages/landing';
 import { SolutionsPage } from './pages/solutions';
 import { PricingPage } from './pages/pricing';
@@ -35,6 +36,7 @@ function App() {
         <Route path="/solutions" element={<SolutionsPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
         
         {/* Protected dashboard routes */}
         <Route

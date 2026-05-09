@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Pencil, Shield, Trash2 } from 'lucide-react';
+import { Mail, Pencil, Plus, RefreshCw, Shield, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +49,12 @@ type UserFormData = {
   role: UserRole;
 };
 
+type InviteFormData = {
+  email: string;
+  name: string;
+  role: UserRole;
+};
+
 function validateUserForm(data: UserFormData, isEditing: boolean): FormErrors {
   const errors: FormErrors = {};
 
@@ -71,10 +77,27 @@ function validateUserForm(data: UserFormData, isEditing: boolean): FormErrors {
   return errors;
 }
 
+function validateInviteForm(data: InviteFormData): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!data.name.trim()) {
+    errors.name = 'Name is required';
+  }
+
+  if (!data.email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!isValidEmail(data.email)) {
+    errors.email = 'Enter a valid email address';
+  }
+
+  return errors;
+}
+
 export function UsersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user: currentUser, isSuperadmin } = useAuthStore();
-  const canManageUsers = isSuperadmin();
+  const { user: currentUser, isSuperadmin, isAdmin } = useAuthStore();
+  const canManageUsers = isAdmin();
+  const currentUserIsSuperadmin = isSuperadmin();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
@@ -89,6 +112,19 @@ export function UsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState('');
+
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteErrors, setInviteErrors] = useState<FormErrors>({});
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+  const [inviteData, setInviteData] = useState<InviteFormData>({
+    email: '',
+    name: '',
+    role: 'staff',
+  });
+
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [resendSuccess, setResendSuccess] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
@@ -151,6 +187,43 @@ export function UsersPage() {
     }
   };
 
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const validationErrors = validateInviteForm(inviteData);
+    setInviteErrors(validationErrors);
+    setInviteError('');
+    setInviteSuccess('');
+
+    if (hasFormErrors(validationErrors)) {
+      return;
+    }
+
+    const response = await post<User>('/users/invite', {
+      email: inviteData.email.trim(),
+      name: inviteData.name.trim(),
+      role: inviteData.role,
+    });
+
+    if (response.success) {
+      setInviteSuccess(`Invitation sent to ${inviteData.email}`);
+      fetchUsers();
+      setTimeout(() => closeInviteModal(), 1500);
+    } else {
+      setInviteError(response.error || 'Unable to send invitation');
+    }
+  };
+
+  const handleResendInvite = async (userId: string) => {
+    setResendingId(userId);
+    setResendSuccess(null);
+    const response = await post<void>(`/users/${userId}/resend-invite`, {});
+    setResendingId(null);
+    if (response.success) {
+      setResendSuccess(userId);
+      setTimeout(() => setResendSuccess(null), 3000);
+    }
+  };
+
   const handleDelete = async () => {
     if (deletingId && deletingId !== currentUser?.id) {
       const response = await del<void>(`/users/${deletingId}`);
@@ -184,14 +257,17 @@ export function UsersPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingUser(null);
-    setFormData({
-      email: '',
-      password: '',
-      name: '',
-      role: 'staff',
-    });
+    setFormData({ email: '', password: '', name: '', role: 'staff' });
     setFormErrors({});
     setFormError('');
+  };
+
+  const closeInviteModal = () => {
+    setIsInviteModalOpen(false);
+    setInviteData({ email: '', name: '', role: 'staff' });
+    setInviteErrors({});
+    setInviteError('');
+    setInviteSuccess('');
   };
 
   if (!canManageUsers) {
@@ -201,7 +277,7 @@ export function UsersPage() {
           <Shield className="h-12 w-12 text-error mx-auto mb-4" />
           <h2 className="text-xl font-bold text-primary mb-2">Access Denied</h2>
           <p className="text-on-surface-variant">
-            You need superadmin privileges to access this page.
+            You need admin or superadmin privileges to access this page.
           </p>
         </div>
       </div>
@@ -217,10 +293,16 @@ export function UsersPage() {
             Manage team members and their access levels
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setIsInviteModalOpen(true)}>
+            <Mail className="h-4 w-4 mr-2" />
+            Invite User
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg bg-white border border-gray-200 overflow-x-auto">
@@ -235,6 +317,7 @@ export function UsersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -246,16 +329,38 @@ export function UsersPage() {
                   <TableCell>
                     <Badge variant={ROLE_COLORS[user.role]}>{user.role}</Badge>
                   </TableCell>
+                  <TableCell>
+                    {user.invitePending ? (
+                      <Badge variant="secondary">Invite Pending</Badge>
+                    ) : (
+                      <Badge variant="default">Active</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditModal(user)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {user.id !== currentUser?.id && (
+                      {user.invitePending && (currentUserIsSuperadmin || user.role !== 'superadmin') && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Resend invite"
+                          disabled={resendingId === user.id}
+                          onClick={() => handleResendInvite(user.id)}
+                        >
+                          <RefreshCw
+                            className={`h-4 w-4 ${resendSuccess === user.id ? 'text-green-600' : ''} ${resendingId === user.id ? 'animate-spin' : ''}`}
+                          />
+                        </Button>
+                      )}
+                      {(currentUserIsSuperadmin || user.role !== 'superadmin') && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditModal(user)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {user.id !== currentUser?.id && (currentUserIsSuperadmin || user.role !== 'superadmin') && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -282,6 +387,76 @@ export function UsersPage() {
         )}
       </div>
 
+      {/* Invite User Modal */}
+      <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite User</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleInviteSubmit} className="space-y-4">
+            {inviteError && (
+              <div className="rounded-lg bg-error/10 px-3 py-2 text-sm font-medium text-error">
+                {inviteError}
+              </div>
+            )}
+            {inviteSuccess && (
+              <div className="rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
+                {inviteSuccess}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="invite-name">Name</Label>
+              <Input
+                id="invite-name"
+                value={inviteData.name}
+                onChange={(e) => setInviteData({ ...inviteData, name: e.target.value })}
+                placeholder="Full name"
+              />
+              <FieldError message={inviteErrors.name} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={inviteData.email}
+                onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                placeholder="user@example.com"
+              />
+              <FieldError message={inviteErrors.email} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select
+                value={inviteData.role}
+                onValueChange={(value) => setInviteData({ ...inviteData, role: value as UserRole })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  {currentUserIsSuperadmin && (
+                    <SelectItem value="superadmin">Superadmin</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-sm text-on-surface-variant">
+              An invitation email will be sent. The user sets their own password when they accept.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={closeInviteModal}>
+                Cancel
+              </Button>
+              <Button type="submit">Send Invitation</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit User Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -349,7 +524,9 @@ export function UsersPage() {
                 <SelectContent>
                   <SelectItem value="staff">Staff</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="superadmin">Superadmin</SelectItem>
+                  {currentUserIsSuperadmin && (
+                    <SelectItem value="superadmin">Superadmin</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -365,6 +542,7 @@ export function UsersPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation Modal */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent>
           <DialogHeader>

@@ -18,6 +18,8 @@ model User {
   passwordResetToken       String?   @unique
   passwordResetRequestedAt DateTime?
   passwordResetExpiresAt   DateTime?
+  inviteToken              String?   @unique
+  inviteExpiresAt          DateTime?
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 

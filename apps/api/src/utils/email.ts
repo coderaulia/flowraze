@@ -55,6 +55,22 @@ export async function sendVerificationEmail(email: string, name: string, token: 
   });
 }
 
+export async function sendInviteEmail(email: string, name: string, inviterName: string, token: string, url: string): Promise<void> {
+  const html = `
+    <h2>You've been invited to FlowRaze!</h2>
+    <p>${inviterName} has invited you to join FlowRaze as <strong>${name}</strong>.</p>
+    <p>Click the link below to accept your invitation and set your password:</p>
+    <p><a href="${url}">Accept Invitation</a></p>
+    <p>If the link doesn't work, you can enter this token manually: <strong>${token}</strong></p>
+    <p>This invitation will expire in 7 days.</p>
+  `;
+  await sendEmail({
+    to: email,
+    subject: `You've been invited to FlowRaze`,
+    html,
+  });
+}
+
 export async function sendPasswordResetEmail(email: string, token: string, url: string): Promise<void> {
   const html = `
     <h2>Reset Your FlowRaze Password</h2>

@@ -10,6 +10,7 @@ export interface User {
   name: string;
   role: UserRole;
   emailVerifiedAt?: Date | string | null;
+  invitePending?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

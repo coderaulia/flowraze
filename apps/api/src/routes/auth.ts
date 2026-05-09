@@ -276,4 +276,47 @@ router.post('/password-reset/confirm', async (req, res, next) => {
   }
 });
 
+router.post('/accept-invite', async (req, res, next) => {
+  try {
+    const body = requireObjectBody(req.body);
+    const token = requireString(body, 'token', 'Invite token');
+    const password = requireStrongPassword(body);
+    const tokenHash = hashSecret(token);
+
+    const user = await prisma.user.findFirst({
+      where: {
+        inviteToken: tokenHash,
+        inviteExpiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new AppError(400, 'Invite token is invalid or expired');
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: await bcrypt.hash(password, 10),
+        inviteToken: null,
+        inviteExpiresAt: null,
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    const jwtToken = jwt.sign(
+      { userId: updated.id, role: updated.role },
+      getJwtSecret(),
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      data: { token: jwtToken, user: buildAuthUser(updated) },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
