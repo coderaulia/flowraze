@@ -15,5 +15,9 @@
     "sourceMap": true,
     "noUncheckedIndexedAccess": true
   },
-  "files": []
+
+  "references": [
+    { "path": "./apps/api" },
+    { "path": "./apps/web" }
+  ]
 }

@@ -4,41 +4,7 @@ import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
-const DASHBOARD_RANGES = ['30d', '90d', '6m', '12m', 'all'] as const;
-type DashboardRange = (typeof DASHBOARD_RANGES)[number];
-
-function getDashboardRange(value: unknown): DashboardRange {
-  if (typeof value !== 'string') {
-    return '6m';
-  }
-
-  return DASHBOARD_RANGES.includes(value as DashboardRange)
-    ? (value as DashboardRange)
-    : '6m';
-}
-
-function getStartDate(range: DashboardRange) {
-  if (range === 'all') {
-    return undefined;
-  }
-
-  const startDate = new Date();
-  startDate.setHours(0, 0, 0, 0);
-
-  if (range === '30d') {
-    startDate.setDate(startDate.getDate() - 29);
-    return startDate;
-  }
-
-  if (range === '90d') {
-    startDate.setDate(startDate.getDate() - 89);
-    return startDate;
-  }
-
-  startDate.setDate(1);
-  startDate.setMonth(startDate.getMonth() - (range === '12m' ? 11 : 5));
-  return startDate;
-}
+import { parseDateRange, getStartDate } from '../utils/date.js';
 
 function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -70,7 +36,7 @@ router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const range = getDashboardRange(req.query.range);
+    const range = parseDateRange(req.query.range);
     const startDate = getStartDate(range);
 
     const leadWhere: Prisma.LeadWhereInput = startDate

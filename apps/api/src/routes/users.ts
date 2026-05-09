@@ -94,6 +94,18 @@ router.put('/me', async (req: AuthRequest, res, next) => {
   }
 });
 
+router.get('/lookup', async (req: AuthRequest, res, next) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ success: true, data: users });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
   try {
     const pagination = getPagination(req.query);

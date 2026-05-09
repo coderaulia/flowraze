@@ -26,6 +26,8 @@ model User {
   activities               Activity[]
   apiKeys                  ApiKey[]
   webhookEndpoints         WebhookEndpoint[]
+  campaigns                Campaign[] @relation("CampaignOwner")
+  salesCampaigns           Campaign[] @relation("CampaignSalesOwner")
 }
 
 enum Role {
@@ -96,12 +98,17 @@ enum DealStatus {
 model Campaign {
   id        String    @id @default(cuid())
   name      String
+  type      String?
   channel   String
   cost      Float?
   startDate DateTime
   endDate   DateTime?
+  ownerId   String?
+  salesOwnerId String?
   createdAt DateTime  @default(now())
 
+  owner     User?     @relation("CampaignOwner", fields: [ownerId], references: [id])
+  salesOwner User?    @relation("CampaignSalesOwner", fields: [salesOwnerId], references: [id])
   leads     Lead[]
 }
 

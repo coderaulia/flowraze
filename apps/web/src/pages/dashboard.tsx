@@ -43,13 +43,13 @@ interface DashboardStats {
   dealsByStage: Record<string, number>;
 }
 
-type DashboardRange = '30d' | '90d' | '6m' | '12m' | 'all';
+type DashboardRange = '7d' | '30d' | '90d' | '12m' | 'all';
 type ChartDatum = { name: string; value: number };
 
 const RANGE_OPTIONS: { value: DashboardRange; label: string }[] = [
+  { value: '7d', label: '7D' },
   { value: '30d', label: '30D' },
   { value: '90d', label: '90D' },
-  { value: '6m', label: '6M' },
   { value: '12m', label: '12M' },
   { value: 'all', label: 'All' },
 ];
@@ -158,7 +158,7 @@ export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [range, setRange] = useState<DashboardRange>('6m');
+  const [range, setRange] = useState<DashboardRange>('30d');
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {

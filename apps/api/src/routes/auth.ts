@@ -6,6 +6,7 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { requireObjectBody, requireString } from '../utils/request.js';
 import { createOpaqueToken, hashSecret } from '../utils/security.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email.js';
 
 const router = Router();
 const PASSWORD_RESET_TTL_MINUTES = 30;
@@ -117,6 +118,9 @@ router.post('/register', async (req, res, next) => {
       { expiresIn: '7d' }
     );
 
+    const verificationUrl = buildDevelopmentUrl('/login', verificationToken);
+    await sendVerificationEmail(email, name, verificationToken, verificationUrl);
+
     res.status(201).json({
       success: true,
       data: {
@@ -124,8 +128,6 @@ router.post('/register', async (req, res, next) => {
         user: {
           ...buildAuthUser(user),
         },
-        verificationToken,
-        verificationUrl: buildDevelopmentUrl('/login', verificationToken),
       },
     });
   } catch (error) {
@@ -158,12 +160,14 @@ router.post('/email-verification/request', authenticate, async (req: AuthRequest
       data: { emailVerificationToken: hashSecret(verificationToken) },
     });
 
+    const verificationUrl = buildDevelopmentUrl('/settings', verificationToken);
+    await sendVerificationEmail(user.email, user.name, verificationToken, verificationUrl);
+
     res.json({
       success: true,
       data: {
         verified: false,
-        verificationToken,
-        verificationUrl: buildDevelopmentUrl('/settings', verificationToken),
+        sent: true,
       },
     });
   } catch (error) {
@@ -222,13 +226,13 @@ router.post('/password-reset/request', async (req, res, next) => {
       },
     });
 
+    const resetUrl = buildDevelopmentUrl('/login', resetToken);
+    await sendPasswordResetEmail(user.email, resetToken, resetUrl);
+
     res.json({
       success: true,
       data: {
         sent: true,
-        resetToken,
-        resetUrl: buildDevelopmentUrl('/login', resetToken),
-        expiresAt,
       },
     });
   } catch (error) {

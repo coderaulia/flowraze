@@ -41,11 +41,17 @@ export interface Deal {
 export interface Campaign {
   id: string;
   name: string;
+  type?: string;
   channel: string;
   cost?: number;
-  startDate: Date;
-  endDate?: Date;
-  createdAt: Date;
+  startDate: Date | string;
+  endDate?: Date | string;
+  ownerId?: string;
+  salesOwnerId?: string;
+  createdAt: Date | string;
+  owner?: { id: string; name: string; email: string };
+  salesOwner?: { id: string; name: string; email: string };
+  leads?: (Lead & { deals?: Deal[] })[];
 }
 
 export type ActivityType = 'note' | 'call' | 'follow_up';

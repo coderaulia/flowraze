@@ -46,6 +46,7 @@ type LeadFormData = {
   source: string;
   serviceType: string;
   status: Lead['status'];
+  campaignId: string;
   notes: string;
 };
 
@@ -99,6 +100,7 @@ export function LeadsPage() {
     source: '',
     serviceType: '',
     status: 'new' as Lead['status'],
+    campaignId: '',
     notes: '',
   });
 
@@ -107,6 +109,18 @@ export function LeadsPage() {
     companies: [],
     serviceTypes: [],
   });
+
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    async function fetchCampaigns() {
+      const response = await get<{ id: string; name: string }[]>('/campaigns?limit=100');
+      if (response.success && response.data) {
+        setCampaigns(response.data);
+      }
+    }
+    fetchCampaigns();
+  }, []);
 
   useEffect(() => {
     async function fetchLookups() {
@@ -179,6 +193,7 @@ export function LeadsPage() {
       companyName: formData.companyName.trim(),
       source: formData.source.trim(),
       serviceType: formData.serviceType.trim(),
+      campaignId: (formData.campaignId && formData.campaignId !== 'none') ? formData.campaignId : undefined,
       notes: formData.notes.trim(),
     };
 
@@ -221,6 +236,7 @@ export function LeadsPage() {
       companyName: lead.companyName || '',
       source: lead.source,
       serviceType: lead.serviceType || '',
+      campaignId: lead.campaignId || '',
       status: lead.status,
       notes: lead.notes || '',
     });
@@ -239,6 +255,7 @@ export function LeadsPage() {
       companyName: '',
       source: '',
       serviceType: '',
+      campaignId: '',
       status: 'new',
       notes: '',
     });
@@ -511,7 +528,29 @@ export function LeadsPage() {
                 </datalist>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="campaignId">Campaign / Project</Label>
+                <Select
+                  value={formData.campaignId}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, campaignId: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a campaign (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {campaigns.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <Select
                 value={formData.status}
@@ -532,6 +571,7 @@ export function LeadsPage() {
                   <SelectItem value="unqualified">Unqualified</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>

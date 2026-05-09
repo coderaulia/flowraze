@@ -1,3 +1,4 @@
+// Force IDE re-evaluation for Prisma types
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
@@ -142,9 +143,25 @@ router.post('/', async (req: AuthRequest, res, next) => {
         ownerId: req.userId!,
       },
       include: {
-        lead: { select: { id: true, fullName: true, companyName: true } },
+        lead: { select: { id: true, fullName: true, companyName: true, serviceType: true, source: true } },
         owner: { select: { id: true, name: true } },
       },
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: `[Project] ${deal.title}`,
+        type: deal.lead.serviceType || 'Project',
+        channel: deal.lead.source || 'organic',
+        startDate: new Date(),
+        salesOwnerId: deal.ownerId,
+        cost: 0,
+      },
+    });
+
+    await prisma.lead.update({
+      where: { id: deal.leadId },
+      data: { campaignId: campaign.id },
     });
 
     void dispatchWebhookEvent('deal_created', toWebhookPayload({ deal })).catch((error) => {

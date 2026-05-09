@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { ExportControls } from '@/components/export-controls';
 import { FieldError } from '@/components/ui/field-error';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { get, post, put } from '@/lib/api';
 import {
   hasFormErrors,
@@ -44,10 +45,13 @@ const CHANNEL_COLORS: Record<string, 'default' | 'secondary' | 'warning'> = {
 
 type CampaignFormData = {
   name: string;
+  type: string;
   channel: string;
   cost: number;
   startDate: string;
   endDate: string;
+  ownerId: string;
+  salesOwnerId: string;
 };
 
 function validateCampaignForm(data: CampaignFormData): FormErrors {
@@ -103,11 +107,26 @@ export function CampaignsPage() {
 
   const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
+    type: '',
     channel: '',
     cost: 0,
     startDate: '',
     endDate: '',
+    ownerId: '',
+    salesOwnerId: '',
   });
+
+  const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+
+  useEffect(() => {
+    async function fetchUsers() {
+      const response = await get<{ id: string; name: string; email: string }[]>('/users/lookup');
+      if (response.success && response.data) {
+        setUsers(response.data);
+      }
+    }
+    fetchUsers();
+  }, []);
 
   const fetchCampaigns = useCallback(async () => {
     setIsLoading(true);
@@ -152,10 +171,13 @@ export function CampaignsPage() {
     const payload = {
       ...formData,
       name: formData.name.trim(),
+      type: formData.type.trim(),
       channel: formData.channel.trim(),
       cost: Number(formData.cost) || undefined,
       startDate: new Date(formData.startDate),
       endDate: formData.endDate ? new Date(formData.endDate) : undefined,
+      ownerId: (formData.ownerId && formData.ownerId !== 'none') ? formData.ownerId : undefined,
+      salesOwnerId: (formData.salesOwnerId && formData.salesOwnerId !== 'none') ? formData.salesOwnerId : undefined,
     };
 
     if (editingId) {
@@ -181,12 +203,15 @@ export function CampaignsPage() {
     setEditingId(campaign.id);
     setFormData({
       name: campaign.name,
+      type: campaign.type || '',
       channel: campaign.channel,
       cost: campaign.cost || 0,
       startDate: new Date(campaign.startDate).toISOString().split('T')[0],
       endDate: campaign.endDate
         ? new Date(campaign.endDate).toISOString().split('T')[0]
         : '',
+      ownerId: campaign.ownerId || '',
+      salesOwnerId: campaign.salesOwnerId || '',
     });
     setFormErrors({});
     setFormError('');
@@ -198,10 +223,13 @@ export function CampaignsPage() {
     setEditingId(null);
     setFormData({
       name: '',
+      type: '',
       channel: '',
       cost: 0,
       startDate: '',
       endDate: '',
+      ownerId: '',
+      salesOwnerId: '',
     });
     setFormErrors({});
     setFormError('');
@@ -301,10 +329,13 @@ export function CampaignsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Channel</TableHead>
                 <TableHead>Cost</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
+                <TableHead>Owner (PM)</TableHead>
+                <TableHead>Sales Owner</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -312,6 +343,7 @@ export function CampaignsPage() {
               {campaigns.map((campaign) => (
                 <TableRow key={campaign.id}>
                   <TableCell className="font-medium">{campaign.name}</TableCell>
+                  <TableCell>{campaign.type || '-'}</TableCell>
                   <TableCell>
                     <Badge variant={CHANNEL_COLORS[campaign.channel] || 'default'}>
                       {campaign.channel}
@@ -324,6 +356,8 @@ export function CampaignsPage() {
                   <TableCell>
                     {campaign.endDate ? formatDate(campaign.endDate) : '-'}
                   </TableCell>
+                  <TableCell>{campaign.owner?.name || '-'}</TableCell>
+                  <TableCell>{campaign.salesOwner?.name || '-'}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="ghost"
@@ -359,17 +393,75 @@ export function CampaignsPage() {
                 {formError}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="name">Campaign Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                required
-              />
-              <FieldError message={formErrors.name} />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Campaign / Project Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  required
+                />
+                <FieldError message={formErrors.name} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="type">Type</Label>
+                <Input
+                  id="type"
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
+                  }
+                  placeholder="e.g., Marketing, Internal Project"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="ownerId">Owner</Label>
+                <Select
+                  value={formData.ownerId}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, ownerId: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Assign a PM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="salesOwnerId">Sales Owner</Label>
+                <Select
+                  value={formData.salesOwnerId}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, salesOwnerId: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Assign a Sales Owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

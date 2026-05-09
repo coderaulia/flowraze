@@ -2,6 +2,8 @@ import { Router } from 'express';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
+import { parseDateRange, getStartDate } from '../utils/date.js';
+import type { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -10,15 +12,31 @@ router.use(authenticate);
 router.get('/performance', async (req: AuthRequest, res, next) => {
   try {
     const pagination = getPagination(req.query);
+    const range = parseDateRange(req.query.range);
+    const startDate = getStartDate(range);
+
+    const dateFilter: Prisma.DateTimeFilter | undefined = startDate
+      ? { gte: startDate }
+      : undefined;
+
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         include: {
-          leads: { select: { id: true } },
+          leads: {
+            where: dateFilter ? { createdAt: dateFilter } : undefined,
+            select: { id: true }
+          },
           deals: {
-            where: { stage: 'won' },
+            where: {
+              stage: 'won',
+              ...(dateFilter ? { closedAt: dateFilter } : {}),
+            },
             select: { id: true, value: true },
           },
-          activities: { select: { id: true } },
+          activities: {
+            where: dateFilter ? { createdAt: dateFilter } : undefined,
+            select: { id: true }
+          },
         },
         orderBy: { createdAt: 'desc' },
         ...getPaginationArgs(pagination),

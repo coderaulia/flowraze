@@ -6,6 +6,7 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { exportFilename, toCsv, toPdf } from '../utils/export.js';
 import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
+import { parseDateRange, getStartDate } from '../utils/date.js';
 
 const router = Router();
 const EXPORT_ENTITIES = ['leads', 'deals', 'campaigns', 'activities', 'team-performance'] as const;
@@ -233,16 +234,31 @@ async function getActivityRows(req: AuthRequest) {
 async function getTeamRows(req: AuthRequest) {
   const role = getQueryString(req.query.role);
   const where: Prisma.UserWhereInput = role ? { role: role as Prisma.EnumRoleFilter['equals'] } : {};
+  const range = parseDateRange(req.query.range);
+  const startDate = getStartDate(range);
+
+  const dateFilter: Prisma.DateTimeFilter | undefined = startDate
+    ? { gte: startDate }
+    : undefined;
 
   const users = await prisma.user.findMany({
     where,
     include: {
-      leads: { select: { id: true } },
+      leads: {
+        where: dateFilter ? { createdAt: dateFilter } : undefined,
+        select: { id: true }
+      },
       deals: {
-        where: { stage: 'won' },
+        where: {
+          stage: 'won',
+          ...(dateFilter ? { closedAt: dateFilter } : {}),
+        },
         select: { id: true, value: true },
       },
-      activities: { select: { id: true } },
+      activities: {
+        where: dateFilter ? { createdAt: dateFilter } : undefined,
+        select: { id: true }
+      },
     },
     orderBy: { createdAt: 'desc' },
     take: 1000,

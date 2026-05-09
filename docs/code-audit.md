@@ -8,7 +8,7 @@ The audit items from the previous pass are now implemented in the codebase:
 
 - **Testing Infrastructure**: Root, API, web, and shared workspaces now expose `npm test`. API and web tests use Node's built-in test runner through the existing `tsx` dev dependency, so no new packages were added.
 - **Global Search**: Header search now routes to `/search` and the backend searches leads, deals, campaigns, and activities.
-- **Security Workflows**: Auth now supports email verification tokens and password-reset request/confirm endpoints. Settings and login expose manual MVP controls for these flows.
+- **Security Workflows**: Auth now supports email verification tokens and password-reset request/confirm endpoints. Manual QA tokens have been replaced with a `nodemailer` service that safely logs locally and supports SMTP configuration.
 - **API Keys**: Superadmins can create/revoke API keys. API key authentication is supported through `X-API-Key`.
 - **Webhooks**: Superadmins can create, pause, test, and delete event webhooks. Lead, deal, and activity writes dispatch persisted webhook deliveries.
 - **Billing**: A persisted workspace billing account exists with editable plan, status, seats, renewal date, and external customer reference.
@@ -16,6 +16,8 @@ The audit items from the previous pass are now implemented in the codebase:
 - **Advanced Filtering**: List/export endpoints support combined search/filter query params for common CRM fields and date/value ranges.
 - **Pagination Syncing**: Table views retain API-backed pagination controls, and exports remove page/limit to export the filtered dataset.
 - **Error Handling Consistency**: Settings, auth, forms, API keys, webhooks, billing, and export controls use the existing API response pattern and inline feedback.
+- **Project Tracking**: Campaigns now track `type`, `owner`, and `salesOwner` to support complex sales-to-project transitions and dual ownership.
+- **Analytics & Dashboards**: Added date-range filtering (7D, 30D, etc.) to the revenue dashboard and time-based filtering to Team Performance KPIs.
 
 ## Verification Snapshot
 
@@ -35,7 +37,6 @@ npm run build
 
 ## Remaining Watch Items
 
-- The email verification and password reset flows generate tokens for manual QA because no email provider is configured yet.
 - PDF export is dependency-free and intentionally simple. Replace it with a richer renderer only after choosing a PDF dependency.
 - Webhook delivery is synchronous per event dispatch worker and records status; production deployments may later want retries/backoff.
 - `betterauth`, Turborepo, and paid subscription provider integration remain future architecture choices, not current blockers.

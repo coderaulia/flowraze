@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Users, Activity } from 'lucide-react';
+import { Users, Activity, CalendarRange } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -14,16 +14,27 @@ import { Badge } from '@/components/ui/badge';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
 import { ExportControls } from '@/components/export-controls';
 import { get } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import type { TeamPerformance } from '@/types';
 
 const PAGE_LIMIT = 8;
+
+type DateRange = '7d' | '30d' | '90d' | '12m' | 'all';
+
+const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: '7d', label: '7D' },
+  { value: '30d', label: '30D' },
+  { value: '90d', label: '90D' },
+  { value: '12m', label: '12M' },
+  { value: 'all', label: 'All' },
+];
 
 export function TeamPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [teamPerformance, setTeamPerformance] = useState<TeamPerformance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const range = (searchParams.get('range') as DateRange) || '30d';
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
     limit: PAGE_LIMIT,
@@ -33,14 +44,14 @@ export function TeamPage() {
   const fetchTeamPerformance = useCallback(async () => {
     setIsLoading(true);
     const response = await get<TeamPerformance[]>(
-      `/team/performance?page=${page}&limit=${PAGE_LIMIT}`
+      `/team/performance?page=${page}&limit=${PAGE_LIMIT}&range=${range}`
     );
     if (response.success && response.data) {
       setTeamPerformance(response.data);
       setPagination(response.pagination ?? { page, limit: PAGE_LIMIT, total: response.data.length });
     }
     setIsLoading(false);
-  }, [page]);
+  }, [page, range]);
 
   useEffect(() => {
     fetchTeamPerformance();
@@ -49,6 +60,13 @@ export function TeamPage() {
   const handlePageChange = (nextPage: number) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('page', String(nextPage));
+    setSearchParams(nextParams);
+  };
+
+  const handleRangeChange = (nextRange: DateRange) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('range', nextRange);
+    nextParams.set('page', '1'); // Reset to first page on range change
     setSearchParams(nextParams);
   };
 
@@ -66,10 +84,31 @@ export function TeamPage() {
         <div>
           <h1 className="text-2xl font-bold text-primary">Team Performance</h1>
           <p className="text-on-surface-variant mt-1">
-          Track your team's sales performance
-        </p>
+            Track your team's sales performance
+          </p>
         </div>
-        <ExportControls entity="team-performance" queryParams={searchParams} />
+        
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2 rounded-lg bg-surface-container px-2 py-2">
+            <CalendarRange className="h-4 w-4 text-primary" />
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                className={cn(
+                  'h-8 rounded px-3 text-sm font-semibold transition-colors',
+                  range === option.value
+                    ? 'bg-primary text-surface'
+                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+                )}
+                type="button"
+                onClick={() => handleRangeChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <ExportControls entity="team-performance" queryParams={searchParams} />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

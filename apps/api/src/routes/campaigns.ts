@@ -1,3 +1,4 @@
+// Force IDE re-evaluation for Prisma types
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
@@ -61,6 +62,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { channel: { contains: search, mode: 'insensitive' } },
+        { type: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -69,6 +71,10 @@ router.get('/', async (req: AuthRequest, res, next) => {
       prisma.campaign.findMany({
         where,
         orderBy: { createdAt: 'desc' },
+        include: {
+          owner: { select: { id: true, name: true, email: true } },
+          salesOwner: { select: { id: true, name: true, email: true } }
+        },
         ...getPaginationArgs(pagination),
       }),
       prisma.campaign.count({ where }),
@@ -85,7 +91,9 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
     const campaign = await prisma.campaign.findUnique({
       where: { id: req.params.id },
       include: {
-        leads: true,
+        leads: { include: { deals: true } },
+        owner: { select: { id: true, name: true, email: true } },
+        salesOwner: { select: { id: true, name: true, email: true } }
       },
     });
 
@@ -109,6 +117,9 @@ router.post('/', async (req: AuthRequest, res, next) => {
       data: {
         name,
         channel,
+        type: optionalNonEmptyString(body.type),
+        ownerId: optionalNonEmptyString(body.ownerId),
+        salesOwnerId: optionalNonEmptyString(body.salesOwnerId),
         cost: optionalNumber(body.cost),
         startDate: requiredDate(body.startDate),
         endDate: optionalDate(body.endDate),
@@ -128,6 +139,9 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
     setIfPresent(data, body, 'name', optionalNonEmptyString);
     setIfPresent(data, body, 'channel', optionalNonEmptyString);
+    setIfPresent(data, body, 'type', optionalNonEmptyString);
+    setIfPresent(data, body, 'ownerId', optionalNonEmptyString);
+    setIfPresent(data, body, 'salesOwnerId', optionalNonEmptyString);
     setIfPresent(data, body, 'cost', optionalNumber);
     setIfPresent(data, body, 'startDate', requiredDate);
     setIfPresent(data, body, 'endDate', optionalDate);
