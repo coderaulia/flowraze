@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import leadsRoutes from './routes/leads.js';
 import dealsRoutes from './routes/deals.js';
@@ -16,7 +18,6 @@ import exportsRoutes from './routes/exports.js';
 import webhooksRoutes from './routes/webhooks.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
-dotenv.config();
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.error('CRITICAL: JWT_SECRET must be set in production');

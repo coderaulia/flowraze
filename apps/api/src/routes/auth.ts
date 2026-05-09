@@ -8,8 +8,15 @@ import { requireObjectBody, requireString } from '../utils/request.js';
 import { createOpaqueToken, hashSecret } from '../utils/security.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET!;
 const PASSWORD_RESET_TTL_MINUTES = 30;
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not set');
+  }
+  return secret;
+}
 
 function buildAuthUser(user: {
   id: string;
@@ -61,7 +68,7 @@ router.post('/login', async (req, res, next) => {
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 
@@ -106,7 +113,7 @@ router.post('/register', async (req, res, next) => {
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 

@@ -4,7 +4,6 @@ import prisma from '../prisma/index.js';
 import { AppError } from './errorHandler.js';
 import { hashSecret } from '../utils/security.js';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -78,7 +77,9 @@ export async function authenticate(
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new AppError(500, 'Server configuration error');
+    const decoded = jwt.verify(token, secret) as TokenPayload;
     req.userId = decoded.userId;
     req.userRole = decoded.role;
     req.authType = 'jwt';
