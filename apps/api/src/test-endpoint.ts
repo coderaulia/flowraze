@@ -23,8 +23,9 @@ async function test() {
       headers: { Authorization: `Bearer ${token}` }
     });
     console.log('Team dashboard success:', teamResponse.data.success);
-  } catch (err: any) {
-    console.error('Error:', err.response?.status, err.response?.data || err.message);
+  } catch (err: unknown) {
+    const error = err as { response?: { status?: number; data?: unknown }; message?: string };
+    console.error('Error:', error.response?.status, error.response?.data || error.message);
   }
 }
 

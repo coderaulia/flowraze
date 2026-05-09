@@ -232,17 +232,7 @@ function buildPdf(contentStreams: string[]): Buffer {
 
   const pageCount = contentStreams.length;
 
-  // We'll accumulate all objects in order and track byte offsets.
-  const objects: string[] = [];
-  const offsets: number[] = [];
-
   let pdf = '%PDF-1.4\n%\xFF\xFF\xFF\xFF\n';
-
-  function addObj(content: string): number {
-    const id = objects.length + 1;
-    objects.push(content);
-    return id;
-  }
 
   // Reserve IDs:
   //  id 1  → Catalog

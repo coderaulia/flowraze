@@ -1,10 +1,22 @@
 import { Router } from 'express';
-import type { Prisma, SalesTarget, SalesTeamMember, Campaign, Deal } from '@prisma/client';
+import type { Prisma, SalesTarget, SalesTeamMember } from '@prisma/client';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 import { parseDateRange, getStartDate } from '../utils/date.js';
+
+type WonDealWithCampaign = Prisma.DealGetPayload<{
+  include: {
+    lead: {
+      include: {
+        campaign: {
+          select: { type: true };
+        };
+      };
+    };
+  };
+}>;
 
 function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -270,7 +282,9 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
       select: { type: true },
       distinct: ['type'],
     });
-    const uniqueTypes = campaignTypes.map((c: any) => c.type!).filter(Boolean);
+    const uniqueTypes = campaignTypes
+      .map((campaign) => campaign.type)
+      .filter((type): type is string => Boolean(type));
 
     const categories = uniqueTypes.map((catType) => {
       const catTarget = currentPeriodTargets
@@ -278,8 +292,8 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
         .reduce((s: number, t: SalesTarget) => s + t.targetValue, 0);
 
       const catActual = wonDeals
-        .filter((d: any) => d.lead?.campaign?.type === catType)
-        .reduce((s: number, d: any) => s + d.value, 0);
+        .filter((deal: WonDealWithCampaign) => deal.lead?.campaign?.type === catType)
+        .reduce((s: number, deal: WonDealWithCampaign) => s + deal.value, 0);
 
       const achievementPct = catTarget > 0 ? (catActual / catTarget) * 100 : 0;
 
@@ -303,11 +317,11 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
 
       const mQuarter = Math.floor(i / 3) + 1;
 
-      const mDeals = wonDeals.filter((d: any) => {
-        const c = d.closedAt as Date | null;
+      const mDeals = wonDeals.filter((deal: WonDealWithCampaign) => {
+        const c = deal.closedAt;
         return c && c >= mStart && c <= mEnd;
       });
-      const mActual = mDeals.reduce((s: number, d: any) => s + d.value, 0);
+      const mActual = mDeals.reduce((s: number, deal: WonDealWithCampaign) => s + deal.value, 0);
 
       return {
         month: mLabel,
@@ -339,11 +353,11 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
 
       const qTarget = explicitQTarget || mTargetsSum;
 
-      const qDeals = wonDeals.filter((d: any) => {
-        const c = d.closedAt as Date | null;
+      const qDeals = wonDeals.filter((deal: WonDealWithCampaign) => {
+        const c = deal.closedAt;
         return c && c >= qStart && c <= qEnd;
       });
-      const qActual = qDeals.reduce((s: number, d: any) => s + d.value, 0);
+      const qActual = qDeals.reduce((s: number, deal: WonDealWithCampaign) => s + deal.value, 0);
       const qPct = qTarget > 0 ? (qActual / qTarget) * 100 : 0;
 
       return {
@@ -421,4 +435,3 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
 });
 
 export default router;
-

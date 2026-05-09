@@ -1,55 +1,227 @@
-import { useState, useEffect } from 'react';
-import { 
-  TrendingUp, 
-  Users, 
-  Briefcase, 
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
   AlertCircle,
-  Plus,
   BarChart3,
-  PieChart as PieChartIcon
+  Briefcase,
+  Pencil,
+  PieChart as PieChartIcon,
+  Plus,
+  Trash2,
+  TrendingUp,
+  UserPlus,
+  Users,
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
   Cell,
+  Pie,
   PieChart,
-  Pie
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { get } from '@/lib/api';
-import type { TargetAchievement, TargetScope, TargetPeriod, SalesTeam } from '@/types';
+import { del, get, post, put } from '@/lib/api';
+import { useAuthStore } from '@/hooks/useAuthStore';
+import type {
+  SalesTarget,
+  SalesTeam,
+  TargetAchievement,
+  TargetPeriod,
+  TargetScope,
+} from '@/types';
+
+type LookupUser = { id: string; name: string; email: string };
+
+type TargetFormData = {
+  name: string;
+  scope: TargetScope;
+  period: TargetPeriod;
+  year: string;
+  quarter: string;
+  month: string;
+  targetValue: string;
+  targetLeads: string;
+  targetDeals: string;
+  category: string;
+  shareOfParent: string;
+  teamId: string;
+  userId: string;
+};
+
+type TeamFormData = {
+  name: string;
+  managerId: string;
+};
+
+const PERIOD_OPTIONS: { value: TargetPeriod; label: string }[] = [
+  { value: 'yearly', label: 'Yearly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'monthly', label: 'Monthly' },
+];
+
+const SCOPE_OPTIONS: { value: TargetScope; label: string }[] = [
+  { value: 'company', label: 'Company' },
+  { value: 'team', label: 'Team' },
+  { value: 'individual', label: 'Individual' },
+];
+
+const MONTH_OPTIONS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+const emptyTargetForm = (year: number, scope: TargetScope): TargetFormData => ({
+  name: '',
+  scope,
+  period: 'yearly',
+  year: String(year),
+  quarter: '',
+  month: '',
+  targetValue: '',
+  targetLeads: '',
+  targetDeals: '',
+  category: '',
+  shareOfParent: '',
+  teamId: '',
+  userId: '',
+});
+
+const emptyTeamForm: TeamFormData = {
+  name: '',
+  managerId: '',
+};
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value).replace('IDR', 'Rp');
+}
+
+function toNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function optionalNumber(value: string) {
+  if (!value.trim()) return undefined;
+  return toNumber(value);
+}
+
+function quarterForMonth(month: string) {
+  const monthNumber = optionalNumber(month);
+  return monthNumber ? Math.ceil(monthNumber / 3) : undefined;
+}
+
+function getAchievementColor(pct: number) {
+  if (pct >= 100) return 'text-[#4ae176] bg-[#4ae176]/10';
+  if (pct >= 80) return 'text-lime-400 bg-lime-400/10';
+  if (pct >= 60) return 'text-amber-400 bg-amber-400/10';
+  if (pct >= 40) return 'text-orange-400 bg-orange-400/10';
+  return 'text-red-400 bg-red-400/10';
+}
+
+function getAchievementBorder(pct: number) {
+  if (pct >= 100) return 'border-[#4ae176]/30';
+  if (pct >= 80) return 'border-lime-400/30';
+  if (pct >= 60) return 'border-amber-400/30';
+  if (pct >= 40) return 'border-orange-400/30';
+  return 'border-red-400/30';
+}
+
+function buildTargetForm(target: SalesTarget): TargetFormData {
+  return {
+    name: target.name,
+    scope: target.scope,
+    period: target.period,
+    year: String(target.year),
+    quarter: target.quarter ? String(target.quarter) : '',
+    month: target.month ? String(target.month) : '',
+    targetValue: String(target.targetValue),
+    targetLeads: target.targetLeads ? String(target.targetLeads) : '',
+    targetDeals: target.targetDeals ? String(target.targetDeals) : '',
+    category: target.category ?? '',
+    shareOfParent: target.shareOfParent ? String(target.shareOfParent) : '',
+    teamId: target.teamId ?? '',
+    userId: target.userId ?? '',
+  };
+}
 
 export function TargetsPage() {
+  const { isAdmin, isSuperadmin } = useAuthStore();
+  const canManageTargets = isAdmin();
+  const canManageTeams = isSuperadmin();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [data, setData] = useState<TargetAchievement | null>(null);
   const [scope, setScope] = useState<TargetScope>('company');
   const [period] = useState<TargetPeriod>('yearly');
-  const [year] = useState(2026); 
+  const [year] = useState(2026);
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-  
+
   const [teams, setTeams] = useState<SalesTeam[]>([]);
-  const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [targets, setTargets] = useState<SalesTarget[]>([]);
+  const [users, setUsers] = useState<LookupUser[]>([]);
 
-  useEffect(() => {
-    async function fetchLookups() {
-      const [teamsRes, usersRes] = await Promise.all([
-        get<SalesTeam[]>('/targets/teams'),
-        get<{ id: string; name: string; email: string }[]>('/users/lookup')
-      ]);
-      if (teamsRes.success && teamsRes.data) setTeams(teamsRes.data);
-      if (usersRes.success && usersRes.data) setUsers(usersRes.data);
-    }
-    fetchLookups();
-  }, []);
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [editingTarget, setEditingTarget] = useState<SalesTarget | null>(null);
+  const [targetForm, setTargetForm] = useState<TargetFormData>(
+    emptyTargetForm(year, 'company')
+  );
+  const [targetFormError, setTargetFormError] = useState('');
 
-  const fetchTargets = async () => {
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<SalesTeam | null>(null);
+  const [teamForm, setTeamForm] = useState<TeamFormData>(emptyTeamForm);
+  const [teamFormError, setTeamFormError] = useState('');
+  const [memberSelections, setMemberSelections] = useState<Record<string, string>>({});
+
+  const selectableScopeOptions = useMemo(
+    () => (canManageTeams ? SCOPE_OPTIONS : SCOPE_OPTIONS.filter((item) => item.value === 'individual')),
+    [canManageTeams]
+  );
+
+  const fetchLookups = useCallback(async () => {
+    const [teamsRes, usersRes, targetsRes] = await Promise.all([
+      get<SalesTeam[]>('/targets/teams'),
+      get<LookupUser[]>('/users/lookup'),
+      get<SalesTarget[]>(`/targets?year=${year}`),
+    ]);
+
+    if (teamsRes.success && teamsRes.data) setTeams(teamsRes.data);
+    if (usersRes.success && usersRes.data) setUsers(usersRes.data);
+    if (targetsRes.success && targetsRes.data) setTargets(targetsRes.data);
+  }, [year]);
+
+  const fetchTargets = useCallback(async () => {
     setLoading(true);
     try {
       const query = new URLSearchParams({
@@ -73,63 +245,257 @@ export function TargetsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period, scope, selectedTeamId, selectedUserId, year]);
+
+  const refreshTargetWorkspace = useCallback(async () => {
+    await Promise.all([fetchLookups(), fetchTargets()]);
+  }, [fetchLookups, fetchTargets]);
+
+  useEffect(() => {
+    fetchLookups().catch((err) => {
+      setError('Unable to load target setup data');
+      console.error(err);
+    });
+  }, [fetchLookups]);
 
   useEffect(() => {
     fetchTargets();
-  }, [scope, period, selectedTeamId, selectedUserId]);
+  }, [fetchTargets]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value).replace('IDR', 'Rp');
+  const openTargetModal = (target?: SalesTarget) => {
+    const nextScope = canManageTeams ? scope : 'individual';
+    setEditingTarget(target ?? null);
+    setTargetForm(target ? buildTargetForm(target) : emptyTargetForm(year, nextScope));
+    setTargetFormError('');
+    setIsTargetModalOpen(true);
   };
 
-  const getAchievementColor = (pct: number) => {
-    if (pct >= 100) return 'text-[#4ae176] bg-[#4ae176]/10';
-    if (pct >= 80) return 'text-lime-400 bg-lime-400/10';
-    if (pct >= 60) return 'text-amber-400 bg-amber-400/10';
-    if (pct >= 40) return 'text-orange-400 bg-orange-400/10';
-    return 'text-red-400 bg-red-400/10';
+  const closeTargetModal = () => {
+    setIsTargetModalOpen(false);
+    setEditingTarget(null);
+    setTargetForm(emptyTargetForm(year, canManageTeams ? scope : 'individual'));
+    setTargetFormError('');
   };
 
-  const getAchievementBorder = (pct: number) => {
-    if (pct >= 100) return 'border-[#4ae176]/30';
-    if (pct >= 80) return 'border-lime-400/30';
-    if (pct >= 60) return 'border-amber-400/30';
-    if (pct >= 40) return 'border-orange-400/30';
-    return 'border-red-400/30';
+  const openTeamModal = (team?: SalesTeam) => {
+    setEditingTeam(team ?? null);
+    setTeamForm(team ? { name: team.name, managerId: team.managerId } : emptyTeamForm);
+    setTeamFormError('');
+    setIsTeamModalOpen(true);
+  };
+
+  const closeTeamModal = () => {
+    setIsTeamModalOpen(false);
+    setEditingTeam(null);
+    setTeamForm(emptyTeamForm);
+    setTeamFormError('');
+  };
+
+  const handleTargetSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setTargetFormError('');
+    setMessage(null);
+
+    if (!targetForm.name.trim()) {
+      setTargetFormError('Target name is required.');
+      return;
+    }
+
+    if (!targetForm.targetValue.trim()) {
+      setTargetFormError('Revenue target is required.');
+      return;
+    }
+
+    if (targetForm.scope === 'team' && !targetForm.teamId) {
+      setTargetFormError('Select a team for team targets.');
+      return;
+    }
+
+    if (targetForm.scope === 'individual' && !targetForm.userId) {
+      setTargetFormError('Select a user for individual targets.');
+      return;
+    }
+
+    if (targetForm.period === 'quarterly' && !targetForm.quarter) {
+      setTargetFormError('Select a quarter for quarterly targets.');
+      return;
+    }
+
+    if (targetForm.period === 'monthly' && !targetForm.month) {
+      setTargetFormError('Select a month for monthly targets.');
+      return;
+    }
+
+    const quarter =
+      targetForm.period === 'monthly'
+        ? quarterForMonth(targetForm.month)
+        : optionalNumber(targetForm.quarter);
+
+    const payload = {
+      name: targetForm.name.trim(),
+      scope: targetForm.scope,
+      period: targetForm.period,
+      year: toNumber(targetForm.year),
+      targetValue: toNumber(targetForm.targetValue),
+      quarter,
+      month: optionalNumber(targetForm.month),
+      targetLeads: optionalNumber(targetForm.targetLeads),
+      targetDeals: optionalNumber(targetForm.targetDeals),
+      category: targetForm.category.trim() || undefined,
+      shareOfParent: optionalNumber(targetForm.shareOfParent),
+      teamId: targetForm.scope === 'team' ? targetForm.teamId : undefined,
+      userId: targetForm.scope === 'individual' ? targetForm.userId : undefined,
+    };
+
+    const response = editingTarget
+      ? await put<SalesTarget>(`/targets/${editingTarget.id}`, {
+          name: payload.name,
+          targetValue: payload.targetValue,
+          targetLeads: payload.targetLeads,
+          targetDeals: payload.targetDeals,
+          category: payload.category ?? null,
+          shareOfParent: payload.shareOfParent,
+        })
+      : await post<SalesTarget>('/targets', payload);
+
+    if (!response.success) {
+      setTargetFormError(response.error || 'Unable to save target.');
+      return;
+    }
+
+    setMessage(editingTarget ? 'Target updated.' : 'Target created.');
+    closeTargetModal();
+    await refreshTargetWorkspace();
+  };
+
+  const handleDeleteTarget = async (target: SalesTarget) => {
+    const confirmed = window.confirm(`Delete target "${target.name}"?`);
+    if (!confirmed) return;
+
+    const response = await del<void>(`/targets/${target.id}`);
+    if (!response.success) {
+      setError(response.error || 'Unable to delete target');
+      return;
+    }
+
+    setMessage('Target deleted.');
+    await refreshTargetWorkspace();
+  };
+
+  const handleTeamSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setTeamFormError('');
+    setMessage(null);
+
+    if (!teamForm.name.trim()) {
+      setTeamFormError('Team name is required.');
+      return;
+    }
+
+    if (!teamForm.managerId) {
+      setTeamFormError('Team manager is required.');
+      return;
+    }
+
+    const payload = {
+      name: teamForm.name.trim(),
+      managerId: teamForm.managerId,
+    };
+    const response = editingTeam
+      ? await put<SalesTeam>(`/targets/teams/${editingTeam.id}`, payload)
+      : await post<SalesTeam>('/targets/teams', payload);
+
+    if (!response.success) {
+      setTeamFormError(response.error || 'Unable to save team.');
+      return;
+    }
+
+    setMessage(editingTeam ? 'Sales team updated.' : 'Sales team created.');
+    closeTeamModal();
+    await refreshTargetWorkspace();
+  };
+
+  const handleDeleteTeam = async (team: SalesTeam) => {
+    const confirmed = window.confirm(`Delete sales team "${team.name}"?`);
+    if (!confirmed) return;
+
+    const response = await del<void>(`/targets/teams/${team.id}`);
+    if (!response.success) {
+      setError(response.error || 'Unable to delete team');
+      return;
+    }
+
+    setMessage('Sales team deleted.');
+    await refreshTargetWorkspace();
+  };
+
+  const handleAddMember = async (teamId: string) => {
+    const userId = memberSelections[teamId];
+    if (!userId) return;
+
+    const response = await post<void>(`/targets/teams/${teamId}/members`, { userId });
+    if (!response.success) {
+      setError(response.error || 'Unable to add member');
+      return;
+    }
+
+    setMemberSelections((current) => ({ ...current, [teamId]: '' }));
+    setMessage('Team member added.');
+    await refreshTargetWorkspace();
+  };
+
+  const handleRemoveMember = async (teamId: string, userId: string) => {
+    const response = await del<void>(`/targets/teams/${teamId}/members/${userId}`);
+    if (!response.success) {
+      setError(response.error || 'Unable to remove member');
+      return;
+    }
+
+    setMessage('Team member removed.');
+    await refreshTargetWorkspace();
+  };
+
+  const targetScopeLabel = (target: SalesTarget) => {
+    if (target.scope === 'team') return target.team?.name ?? 'Team target';
+    if (target.scope === 'individual') return target.user?.name ?? 'Individual target';
+    return 'Company target';
+  };
+
+  const targetPeriodLabel = (target: SalesTarget) => {
+    if (target.period === 'monthly' && target.month) {
+      return `${MONTH_OPTIONS[target.month - 1]} ${target.year}`;
+    }
+    if (target.period === 'quarterly' && target.quarter) {
+      return `Q${target.quarter} ${target.year}`;
+    }
+    return String(target.year);
   };
 
   if (loading && !data) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex h-full min-h-[400px] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
       </div>
     );
   }
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-on-surface tracking-tight">Sales Targets</h1>
-          <p className="text-on-surface-variant mt-1">Track revenue, leads, and deals achievement across the company.</p>
+          <h1 className="text-3xl font-black tracking-tight text-on-surface">Sales Targets</h1>
+          <p className="mt-1 text-on-surface-variant">Track revenue, leads, and deals achievement across the company.</p>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-3">
-          <select 
+          <select
             value={scope}
-            onChange={(e) => {
-              setScope(e.target.value as TargetScope);
+            onChange={(event) => {
+              setScope(event.target.value as TargetScope);
               setSelectedTeamId('');
               setSelectedUserId('');
             }}
-            className="bg-white border border-slate-200 text-on-surface text-sm font-bold rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 cursor-pointer outline-none shadow-sm hover:bg-slate-50 transition-colors"
+            className="cursor-pointer rounded-xl bg-surface-container px-4 py-2.5 text-sm font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="company">Company Wide</option>
             <option value="team">Sales Team</option>
@@ -137,210 +503,225 @@ export function TargetsPage() {
           </select>
 
           {scope === 'team' && (
-            <select 
+            <select
               value={selectedTeamId}
-              onChange={(e) => setSelectedTeamId(e.target.value)}
-              className="bg-white border border-slate-200 text-on-surface text-sm font-bold rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 cursor-pointer outline-none shadow-sm hover:bg-slate-50 transition-colors"
+              onChange={(event) => setSelectedTeamId(event.target.value)}
+              className="cursor-pointer rounded-xl bg-surface-container px-4 py-2.5 text-sm font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">All Teams</option>
-              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
             </select>
           )}
 
           {scope === 'individual' && (
-            <select 
+            <select
               value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className="bg-white border border-slate-200 text-on-surface text-sm font-bold rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 cursor-pointer outline-none shadow-sm hover:bg-slate-50 transition-colors"
+              onChange={(event) => setSelectedUserId(event.target.value)}
+              className="cursor-pointer rounded-xl bg-surface-container px-4 py-2.5 text-sm font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">All Users</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>{user.name}</option>
+              ))}
             </select>
           )}
 
-          <button className="flex items-center gap-2 bg-gradient-to-br from-primary to-[#2A3BB0] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
-            <Plus className="h-4 w-4" />
-            Set Target
-          </button>
+          {canManageTargets && (
+            <Button type="button" onClick={() => openTargetModal()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Set Target
+            </Button>
+          )}
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center gap-3 text-red-400">
+        <div className="flex items-center gap-3 rounded-2xl bg-red-500/10 p-4 text-red-400">
           <AlertCircle className="h-5 w-5" />
           <p className="text-sm font-medium">{error}</p>
         </div>
       )}
 
+      {message && (
+        <div className="rounded-2xl bg-[#4ae176]/10 p-4 text-sm font-semibold text-[#4ae176]">
+          {message}
+        </div>
+      )}
+
       {data && (
         <>
-          {/* KPI Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-surface-container rounded-[2rem] p-6 border border-white/5 shadow-sm relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="relative overflow-hidden rounded-[2rem] bg-surface-container p-6">
+              <div className="absolute right-0 top-0 h-32 w-32 -mr-16 -mt-16 rounded-full bg-primary/5 blur-2xl" />
               <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="rounded-2xl bg-primary/10 p-3 text-primary">
                     <TrendingUp className="h-6 w-6" />
                   </div>
-                  <span className={cn("px-3 py-1 rounded-full text-xs font-bold", getAchievementColor(data.achievementPct))}>
+                  <span className={cn('rounded-full px-3 py-1 text-xs font-bold', getAchievementColor(data.achievementPct))}>
                     {data.achievementPct.toFixed(1)}%
                   </span>
                 </div>
-                <h3 className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">Revenue Actual</h3>
-                <p className="text-2xl font-black text-on-surface mt-1">{formatCurrency(data.revenueActual)}</p>
-                <p className="text-xs text-on-surface-variant mt-2">Target: {formatCurrency(data.revenueTarget)}</p>
+                <h3 className="text-sm font-bold uppercase text-on-surface-variant">Revenue Actual</h3>
+                <p className="mt-1 text-2xl font-black text-on-surface">{formatCurrency(data.revenueActual)}</p>
+                <p className="mt-2 text-xs text-on-surface-variant">Target: {formatCurrency(data.revenueTarget)}</p>
               </div>
             </div>
 
-            <div className="bg-surface-container rounded-[2rem] p-6 border border-white/5 shadow-sm relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#4ae176]/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative overflow-hidden rounded-[2rem] bg-surface-container p-6">
+              <div className="absolute right-0 top-0 h-32 w-32 -mr-16 -mt-16 rounded-full bg-[#4ae176]/5 blur-2xl" />
               <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-2xl bg-[#4ae176]/10 text-[#4ae176]">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="rounded-2xl bg-[#4ae176]/10 p-3 text-[#4ae176]">
                     <Users className="h-6 w-6" />
                   </div>
                   {data.leadsTarget && (
-                    <span className={cn("px-3 py-1 rounded-full text-xs font-bold", getAchievementColor((data.leadsActual / data.leadsTarget) * 100))}>
+                    <span className={cn('rounded-full px-3 py-1 text-xs font-bold', getAchievementColor((data.leadsActual / data.leadsTarget) * 100))}>
                       {((data.leadsActual / data.leadsTarget) * 100).toFixed(1)}%
                     </span>
                   )}
                 </div>
-                <h3 className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">Leads Generated</h3>
-                <p className="text-2xl font-black text-on-surface mt-1">{data.leadsActual}</p>
-                <p className="text-xs text-on-surface-variant mt-2">Target: {data.leadsTarget || '-'}</p>
+                <h3 className="text-sm font-bold uppercase text-on-surface-variant">Leads Generated</h3>
+                <p className="mt-1 text-2xl font-black text-on-surface">{data.leadsActual}</p>
+                <p className="mt-2 text-xs text-on-surface-variant">Target: {data.leadsTarget || '-'}</p>
               </div>
             </div>
 
-            <div className="bg-surface-container rounded-[2rem] p-6 border border-white/5 shadow-sm relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative overflow-hidden rounded-[2rem] bg-surface-container p-6">
+              <div className="absolute right-0 top-0 h-32 w-32 -mr-16 -mt-16 rounded-full bg-amber-400/5 blur-2xl" />
               <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-2xl bg-amber-400/10 text-amber-400">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="rounded-2xl bg-amber-400/10 p-3 text-amber-400">
                     <Briefcase className="h-6 w-6" />
                   </div>
                   {data.dealsTarget && (
-                    <span className={cn("px-3 py-1 rounded-full text-xs font-bold", getAchievementColor((data.dealsActual / data.dealsTarget) * 100))}>
+                    <span className={cn('rounded-full px-3 py-1 text-xs font-bold', getAchievementColor((data.dealsActual / data.dealsTarget) * 100))}>
                       {((data.dealsActual / data.dealsTarget) * 100).toFixed(1)}%
                     </span>
                   )}
                 </div>
-                <h3 className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">Deals Won</h3>
-                <p className="text-2xl font-black text-on-surface mt-1">{data.dealsActual}</p>
-                <p className="text-xs text-on-surface-variant mt-2">Target: {data.dealsTarget || '-'}</p>
+                <h3 className="text-sm font-bold uppercase text-on-surface-variant">Deals Won</h3>
+                <p className="mt-1 text-2xl font-black text-on-surface">{data.dealsActual}</p>
+                <p className="mt-2 text-xs text-on-surface-variant">Target: {data.dealsTarget || '-'}</p>
               </div>
             </div>
 
-            <div className="bg-surface-container rounded-[2rem] p-6 border border-white/5 shadow-sm relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative overflow-hidden rounded-[2rem] bg-surface-container p-6">
+              <div className="absolute right-0 top-0 h-32 w-32 -mr-16 -mt-16 rounded-full bg-primary/5 blur-2xl" />
               <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="rounded-2xl bg-primary/10 p-3 text-primary">
                     <TrendingUp className="h-6 w-6" />
                   </div>
                 </div>
-                <h3 className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">Remaining Target</h3>
-                <p className={cn("text-2xl font-black mt-1", data.remainingTarget <= 0 ? "text-[#4ae176]" : "text-on-surface")}>
-                  {data.remainingTarget <= 0 ? 'GOAL REACHED' : formatCurrency(data.remainingTarget)}
+                <h3 className="text-sm font-bold uppercase text-on-surface-variant">Remaining Target</h3>
+                <p className={cn('mt-1 text-2xl font-black', data.remainingTarget <= 0 ? 'text-[#4ae176]' : 'text-on-surface')}>
+                  {data.remainingTarget <= 0 ? 'Goal reached' : formatCurrency(data.remainingTarget)}
                 </p>
-                <p className="text-xs text-on-surface-variant mt-2">To reach {year} goal</p>
+                <p className="mt-2 text-xs text-on-surface-variant">To reach {year} goal</p>
               </div>
             </div>
           </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Category Breakdown */}
-            <div className="lg:col-span-1 bg-surface-container rounded-[2.5rem] p-8 border border-white/5">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="bg-surface-container rounded-[2.5rem] p-8 lg:col-span-1">
+              <div className="mb-8 flex items-center gap-3">
+                <div className="rounded-xl bg-primary/10 p-2 text-primary">
                   <PieChartIcon className="h-5 w-5" />
                 </div>
-                <h2 className="text-xl font-black text-on-surface tracking-tight">Category Mix</h2>
-              </div>
-              
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.categories}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="actual"
-                      nameKey="name"
-                    >
-                      {data.categories.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={[
-                          '#bcc3ff', // Primary
-                          '#4ae176', // Success
-                          '#fde047', // Amber
-                          '#fb923c', // Orange
-                        ][index % 4]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#171f33', border: 'none', borderRadius: '1rem', color: '#fff' }}
-                      formatter={(value: number) => formatCurrency(value)}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                <h2 className="text-xl font-black tracking-tight text-on-surface">Category Mix</h2>
               </div>
 
-              <div className="mt-6 space-y-3">
-                {data.categories.map((cat, i) => (
-                  <div key={cat.name} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: [
-                        '#bcc3ff', '#4ae176', '#fde047', '#fb923c'
-                      ][i % 4] }} />
-                      <span className="text-sm font-bold text-on-surface">{cat.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-on-surface">{cat.pct.toFixed(1)}%</p>
-                      <p className="text-[10px] text-on-surface-variant">{formatCurrency(cat.actual)}</p>
-                    </div>
+              {data.categories.length > 0 ? (
+                <>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={data.categories}
+                          cx="50%"
+                          cy="50%"
+                          dataKey="actual"
+                          innerRadius={60}
+                          nameKey="name"
+                          outerRadius={100}
+                          paddingAngle={5}
+                        >
+                          {data.categories.map((_entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={['#bcc3ff', '#4ae176', '#fde047', '#fb923c'][index % 4]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#171f33', border: 'none', borderRadius: '1rem', color: '#fff' }}
+                          formatter={(value: number) => formatCurrency(value)}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
+
+                  <div className="mt-6 space-y-3">
+                    {data.categories.map((cat, index) => (
+                      <div key={cat.name} className="flex items-center justify-between rounded-2xl bg-white/5 p-3">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: ['#bcc3ff', '#4ae176', '#fde047', '#fb923c'][index % 4] }}
+                          />
+                          <span className="text-sm font-bold text-on-surface">{cat.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-black text-on-surface">{cat.pct.toFixed(1)}%</p>
+                          <p className="text-[10px] text-on-surface-variant">{formatCurrency(cat.actual)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-[300px] items-center justify-center rounded-2xl bg-white/[0.03] text-center text-sm text-on-surface-variant">
+                  Category targets appear after campaign types have target rows.
+                </div>
+              )}
             </div>
 
-            {/* Monthly Trend */}
-            <div className="lg:col-span-2 bg-surface-container rounded-[2.5rem] p-8 border border-white/5">
-              <div className="flex items-center justify-between mb-8">
+            <div className="bg-surface-container rounded-[2.5rem] p-8 lg:col-span-2">
+              <div className="mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <div className="rounded-xl bg-primary/10 p-2 text-primary">
                     <BarChart3 className="h-5 w-5" />
                   </div>
-                  <h2 className="text-xl font-black text-on-surface tracking-tight">Monthly Achievement</h2>
+                  <h2 className="text-xl font-black tracking-tight text-on-surface">Monthly Achievement</h2>
                 </div>
               </div>
 
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.monthlyBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                    <XAxis 
-                      dataKey="month" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }}
+                    <CartesianGrid stroke="#ffffff0a" strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      axisLine={false}
+                      dataKey="month"
                       dy={10}
+                      tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }}
+                      tickLine={false}
                     />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
+                    <YAxis
+                      axisLine={false}
                       tick={{ fill: '#94a3b8', fontSize: 12 }}
                       tickFormatter={(value) => `Rp${(value / 1000000).toFixed(0)}M`}
+                      tickLine={false}
                     />
-                    <Tooltip 
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#171f33', border: 'none', borderRadius: '1rem', color: '#fff' }}
                       cursor={{ fill: '#ffffff05' }}
-                      contentStyle={{ backgroundColor: '#171f33', border: 'none', borderRadius: '1rem', color: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                       formatter={(value: number) => [formatCurrency(value), '']}
                     />
-                    <Bar dataKey="target" name="Target" fill="#ffffff10" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="target" fill="#ffffff10" name="Target" radius={[8, 8, 0, 0]} />
                     <Bar dataKey="actual" name="Actual" radius={[8, 8, 0, 0]}>
                       {data.monthlyBreakdown.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.pct >= 100 ? '#4ae176' : '#bcc3ff'} />
@@ -352,53 +733,208 @@ export function TargetsPage() {
             </div>
           </div>
 
-          {/* Achievement Table */}
-          <div className="bg-surface-container rounded-[2.5rem] overflow-hidden border border-white/5">
-            <div className="p-8 border-b border-white/5">
-              <h2 className="text-xl font-black text-on-surface tracking-tight">Performance Breakdown</h2>
+          <div className="rounded-[2.5rem] bg-surface-container p-8">
+            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-black tracking-tight text-on-surface">Target Setup</h2>
+                <p className="mt-1 text-sm text-on-surface-variant">Manage revenue, lead, and deal goals by scope and period.</p>
+              </div>
+              {canManageTargets && (
+                <Button type="button" onClick={() => openTargetModal()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Target
+                </Button>
+              )}
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[900px] text-left">
                 <thead>
                   <tr className="bg-white/[0.02]">
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Period</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Target</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Actual</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Achievement</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Share of Q</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Remaining</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Name</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Scope</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Period</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Revenue</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Leads</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Deals</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase text-on-surface-variant">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {targets.map((target) => (
+                    <tr key={target.id} className="hover:bg-white/[0.02]">
+                      <td className="px-4 py-4">
+                        <p className="font-bold text-on-surface">{target.name}</p>
+                        {target.category && <p className="text-xs text-on-surface-variant">Category: {target.category}</p>}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-on-surface">{targetScopeLabel(target)}</td>
+                      <td className="px-4 py-4 text-sm text-on-surface-variant">{targetPeriodLabel(target)}</td>
+                      <td className="px-4 py-4 text-sm font-semibold text-on-surface">{formatCurrency(target.targetValue)}</td>
+                      <td className="px-4 py-4 text-sm text-on-surface-variant">{target.targetLeads ?? '-'}</td>
+                      <td className="px-4 py-4 text-sm text-on-surface-variant">{target.targetDeals ?? '-'}</td>
+                      <td className="px-4 py-4">
+                        {canManageTargets && (
+                          <div className="flex justify-end gap-2">
+                            <Button size="icon" type="button" variant="ghost" onClick={() => openTargetModal(target)}>
+                              <Pencil className="h-4 w-4" />
+                              <span className="sr-only">Edit target</span>
+                            </Button>
+                            {canManageTeams && (
+                              <Button size="icon" type="button" variant="ghost" onClick={() => handleDeleteTarget(target)}>
+                                <Trash2 className="h-4 w-4 text-red-400" />
+                                <span className="sr-only">Delete target</span>
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {targets.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-sm text-on-surface-variant" colSpan={7}>
+                        No sales targets have been created yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {canManageTeams && (
+            <div className="rounded-[2.5rem] bg-surface-container p-8">
+              <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-on-surface">Sales Teams</h2>
+                  <p className="mt-1 text-sm text-on-surface-variant">Assign managers and members for team-level target tracking.</p>
+                </div>
+                <Button type="button" onClick={() => openTeamModal()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Team
+                </Button>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                {teams.map((team) => {
+                  const memberIds = new Set(team.members?.map((member) => member.userId) ?? []);
+                  const availableUsers = users.filter((user) => !memberIds.has(user.id));
+
+                  return (
+                    <div key={team.id} className="rounded-2xl bg-white/[0.03] p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-black text-on-surface">{team.name}</h3>
+                          <p className="mt-1 text-sm text-on-surface-variant">
+                            Manager: {team.manager?.name ?? 'Unassigned'}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="icon" type="button" variant="ghost" onClick={() => openTeamModal(team)}>
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Edit team</span>
+                          </Button>
+                          <Button size="icon" type="button" variant="ghost" onClick={() => handleDeleteTeam(team)}>
+                            <Trash2 className="h-4 w-4 text-red-400" />
+                            <span className="sr-only">Delete team</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 space-y-3">
+                        {(team.members ?? []).map((member) => (
+                          <div key={member.userId} className="flex items-center justify-between rounded-xl bg-surface-container px-3 py-2">
+                            <div>
+                              <p className="text-sm font-semibold text-on-surface">{member.user.name}</p>
+                              <p className="text-xs text-on-surface-variant">{member.user.email}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              type="button"
+                              variant="ghost"
+                              onClick={() => handleRemoveMember(team.id, member.userId)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                        {(team.members ?? []).length === 0 && (
+                          <p className="rounded-xl bg-surface-container px-3 py-3 text-sm text-on-surface-variant">
+                            No members assigned.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <select
+                          value={memberSelections[team.id] ?? ''}
+                          onChange={(event) => setMemberSelections((current) => ({ ...current, [team.id]: event.target.value }))}
+                          className="h-10 flex-1 rounded-lg bg-surface-container px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/30"
+                        >
+                          <option value="">Select member</option>
+                          {availableUsers.map((user) => (
+                            <option key={user.id} value={user.id}>{user.name}</option>
+                          ))}
+                        </select>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => handleAddMember(team.id)}
+                          disabled={!memberSelections[team.id]}
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {teams.length === 0 && (
+                  <div className="rounded-2xl bg-white/[0.03] p-8 text-center text-sm text-on-surface-variant lg:col-span-2">
+                    No sales teams have been created yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-[2.5rem] bg-surface-container">
+            <div className="p-8">
+              <h2 className="text-xl font-black tracking-tight text-on-surface">Performance Breakdown</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-left">
+                <thead>
+                  <tr className="bg-white/[0.02]">
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-on-surface-variant">Period</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-on-surface-variant">Target</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-on-surface-variant">Actual</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-on-surface-variant">Achievement</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase text-on-surface-variant">Share of Q</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black uppercase text-on-surface-variant">Remaining</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {data.monthlyBreakdown.map((item) => (
-                    <tr key={item.month} className="group hover:bg-white/[0.02] transition-colors">
+                    <tr key={item.month} className="hover:bg-white/[0.02]">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-black text-on-surface">{item.month}</span>
-                          <span className="text-[10px] font-bold text-primary/50 uppercase tracking-widest">Q{item.quarter}</span>
+                          <span className="text-[10px] font-bold uppercase text-primary/50">Q{item.quarter}</span>
                         </div>
                       </td>
+                      <td className="px-8 py-6 text-sm font-medium text-on-surface">{formatCurrency(item.target)}</td>
+                      <td className="px-8 py-6 text-sm font-bold text-on-surface">{formatCurrency(item.actual)}</td>
                       <td className="px-8 py-6">
-                        <span className="text-sm font-medium text-on-surface">{formatCurrency(item.target)}</span>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className="text-sm font-bold text-on-surface">{formatCurrency(item.actual)}</span>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className={cn(
-                          "inline-flex items-center justify-center min-w-[70px] px-3 py-1 rounded-full text-xs font-black border",
-                          getAchievementColor(item.pct),
-                          getAchievementBorder(item.pct)
-                        )}>
+                        <div className={cn('inline-flex min-w-[70px] items-center justify-center rounded-full px-3 py-1 text-xs font-black', getAchievementColor(item.pct), getAchievementBorder(item.pct))}>
                           {item.pct.toFixed(1)}%
                         </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <span className="text-xs font-bold text-on-surface-variant">{item.shareOfParent ? `${item.shareOfParent}%` : '-'}</span>
+                      <td className="px-8 py-6 text-xs font-bold text-on-surface-variant">
+                        {item.shareOfParent ? `${item.shareOfParent}%` : '-'}
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <span className={cn("text-sm font-medium", item.remaining <= 0 ? "text-[#4ae176]" : "text-on-surface-variant")}>
-                          {item.remaining <= 0 ? '✓' : formatCurrency(item.remaining)}
+                        <span className={cn('text-sm font-medium', item.remaining <= 0 ? 'text-[#4ae176]' : 'text-on-surface-variant')}>
+                          {item.remaining <= 0 ? 'Done' : formatCurrency(item.remaining)}
                         </span>
                       </td>
                     </tr>
@@ -408,33 +944,30 @@ export function TargetsPage() {
             </div>
           </div>
 
-          {/* Leaderboard for Team/Company scope */}
           {scope !== 'individual' && data.leaderboard.length > 0 && (
-            <div className="bg-surface-container rounded-[2.5rem] p-8 border border-white/5">
-              <h2 className="text-xl font-black text-on-surface tracking-tight mb-8">Individual Performance</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="rounded-[2.5rem] bg-surface-container p-8">
+              <h2 className="mb-8 text-xl font-black tracking-tight text-on-surface">Individual Performance</h2>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {data.leaderboard.map((member, index) => (
-                  <div key={member.userId} className="p-6 rounded-[2rem] bg-white/[0.03] border border-white/5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl">
+                  <div key={member.userId} className="flex items-center gap-4 rounded-[2rem] bg-white/[0.03] p-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-xl font-black text-primary">
                       {index + 1}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-black text-on-surface truncate">{member.userName}</h4>
-                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-0.5">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate text-sm font-black text-on-surface">{member.userName}</h4>
+                      <p className="mt-0.5 text-[10px] uppercase text-on-surface-variant">
                         {formatCurrency(member.actual)} / {formatCurrency(member.target)}
                       </p>
-                      <div className="mt-3 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                        <div 
-                          className={cn("h-full rounded-full", member.pct >= 100 ? "bg-[#4ae176]" : "bg-primary")}
+                      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                        <div
+                          className={cn('h-full rounded-full', member.pct >= 100 ? 'bg-[#4ae176]' : 'bg-primary')}
                           style={{ width: `${Math.min(member.pct, 100)}%` }}
                         />
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className={cn("text-xs font-black", member.pct >= 100 ? "text-[#4ae176]" : "text-primary")}>
-                        {member.pct.toFixed(0)}%
-                      </span>
-                    </div>
+                    <span className={cn('text-xs font-black', member.pct >= 100 ? 'text-[#4ae176]' : 'text-primary')}>
+                      {member.pct.toFixed(0)}%
+                    </span>
                   </div>
                 ))}
               </div>
@@ -442,6 +975,245 @@ export function TargetsPage() {
           )}
         </>
       )}
+
+      <Dialog open={isTargetModalOpen} onOpenChange={(open) => (open ? setIsTargetModalOpen(true) : closeTargetModal())}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <form onSubmit={handleTargetSubmit}>
+            <DialogHeader>
+              <DialogTitle>{editingTarget ? 'Edit Target' : 'Set Target'}</DialogTitle>
+            </DialogHeader>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="target-name">Target name</Label>
+                <Input
+                  id="target-name"
+                  value={targetForm.name}
+                  onChange={(event) => setTargetForm({ ...targetForm, name: event.target.value })}
+                  placeholder="Annual company revenue"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target-scope">Scope</Label>
+                <select
+                  id="target-scope"
+                  value={targetForm.scope}
+                  onChange={(event) => setTargetForm({ ...targetForm, scope: event.target.value as TargetScope, teamId: '', userId: '' })}
+                  disabled={Boolean(editingTarget)}
+                  className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                >
+                  {selectableScopeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target-period">Period</Label>
+                <select
+                  id="target-period"
+                  value={targetForm.period}
+                  onChange={(event) => setTargetForm({ ...targetForm, period: event.target.value as TargetPeriod, quarter: '', month: '' })}
+                  disabled={Boolean(editingTarget)}
+                  className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                >
+                  {PERIOD_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {targetForm.scope === 'team' && (
+                <div className="space-y-2">
+                  <Label htmlFor="target-team">Team</Label>
+                  <select
+                    id="target-team"
+                    value={targetForm.teamId}
+                    onChange={(event) => setTargetForm({ ...targetForm, teamId: event.target.value })}
+                    disabled={Boolean(editingTarget)}
+                    className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                  >
+                    <option value="">Select team</option>
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {targetForm.scope === 'individual' && (
+                <div className="space-y-2">
+                  <Label htmlFor="target-user">User</Label>
+                  <select
+                    id="target-user"
+                    value={targetForm.userId}
+                    onChange={(event) => setTargetForm({ ...targetForm, userId: event.target.value })}
+                    disabled={Boolean(editingTarget)}
+                    className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                  >
+                    <option value="">Select user</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="target-year">Year</Label>
+                <Input
+                  id="target-year"
+                  value={targetForm.year}
+                  onChange={(event) => setTargetForm({ ...targetForm, year: event.target.value })}
+                  disabled={Boolean(editingTarget)}
+                  inputMode="numeric"
+                />
+              </div>
+
+              {targetForm.period !== 'yearly' && (
+                <div className="space-y-2">
+                  <Label htmlFor="target-quarter">Quarter</Label>
+                  <select
+                    id="target-quarter"
+                    value={targetForm.period === 'monthly' ? String(quarterForMonth(targetForm.month) ?? '') : targetForm.quarter}
+                    onChange={(event) => setTargetForm({ ...targetForm, quarter: event.target.value })}
+                    disabled={Boolean(editingTarget) || targetForm.period === 'monthly'}
+                    className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                  >
+                    <option value="">Select quarter</option>
+                    {[1, 2, 3, 4].map((quarter) => (
+                      <option key={quarter} value={quarter}>Q{quarter}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {targetForm.period === 'monthly' && (
+                <div className="space-y-2">
+                  <Label htmlFor="target-month">Month</Label>
+                  <select
+                    id="target-month"
+                    value={targetForm.month}
+                    onChange={(event) => setTargetForm({ ...targetForm, month: event.target.value })}
+                    disabled={Boolean(editingTarget)}
+                    className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                  >
+                    <option value="">Select month</option>
+                    {MONTH_OPTIONS.map((label, index) => (
+                      <option key={label} value={index + 1}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="target-value">Revenue target</Label>
+                <Input
+                  id="target-value"
+                  value={targetForm.targetValue}
+                  onChange={(event) => setTargetForm({ ...targetForm, targetValue: event.target.value })}
+                  inputMode="numeric"
+                  placeholder="250000000"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target-leads">Lead target</Label>
+                <Input
+                  id="target-leads"
+                  value={targetForm.targetLeads}
+                  onChange={(event) => setTargetForm({ ...targetForm, targetLeads: event.target.value })}
+                  inputMode="numeric"
+                  placeholder="Optional"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target-deals">Deal target</Label>
+                <Input
+                  id="target-deals"
+                  value={targetForm.targetDeals}
+                  onChange={(event) => setTargetForm({ ...targetForm, targetDeals: event.target.value })}
+                  inputMode="numeric"
+                  placeholder="Optional"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target-category">Category</Label>
+                <Input
+                  id="target-category"
+                  value={targetForm.category}
+                  onChange={(event) => setTargetForm({ ...targetForm, category: event.target.value })}
+                  placeholder="Optional campaign type"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target-share">Share of parent</Label>
+                <Input
+                  id="target-share"
+                  value={targetForm.shareOfParent}
+                  onChange={(event) => setTargetForm({ ...targetForm, shareOfParent: event.target.value })}
+                  inputMode="decimal"
+                  placeholder="Optional percent"
+                />
+              </div>
+            </div>
+
+            {targetFormError && <p className="mt-4 text-sm font-medium text-red-400">{targetFormError}</p>}
+
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="secondary" onClick={closeTargetModal}>Cancel</Button>
+              <Button type="submit">{editingTarget ? 'Save Target' : 'Create Target'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isTeamModalOpen} onOpenChange={(open) => (open ? setIsTeamModalOpen(true) : closeTeamModal())}>
+        <DialogContent>
+          <form onSubmit={handleTeamSubmit}>
+            <DialogHeader>
+              <DialogTitle>{editingTeam ? 'Edit Sales Team' : 'New Sales Team'}</DialogTitle>
+            </DialogHeader>
+
+            <div className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="team-name">Team name</Label>
+                <Input
+                  id="team-name"
+                  value={teamForm.name}
+                  onChange={(event) => setTeamForm({ ...teamForm, name: event.target.value })}
+                  placeholder="Enterprise Sales"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="team-manager">Manager</Label>
+                <select
+                  id="team-manager"
+                  value={teamForm.managerId}
+                  onChange={(event) => setTeamForm({ ...teamForm, managerId: event.target.value })}
+                  className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Select manager</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {teamFormError && <p className="mt-4 text-sm font-medium text-red-400">{teamFormError}</p>}
+
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="secondary" onClick={closeTeamModal}>Cancel</Button>
+              <Button type="submit">{editingTeam ? 'Save Team' : 'Create Team'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
