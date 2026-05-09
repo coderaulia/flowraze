@@ -370,7 +370,7 @@ export function UsersPage() {
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
           </DialogHeader>
-          <p className="text-on_surface_variant">
+          <p className="text-on-surface-variant">
             Are you sure you want to delete this user? This action cannot be undone.
           </p>
           <DialogFooter>

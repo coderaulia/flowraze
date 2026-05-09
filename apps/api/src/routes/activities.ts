@@ -3,6 +3,8 @@ import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import { requireEnum, requireObjectBody, requireString } from '../utils/request.js';
+import { getQueryDate, getQueryString } from '../utils/query.js';
+import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
 
 const router = Router();
 const ACTIVITY_TYPES = ['note', 'call', 'follow_up'] as const;
@@ -11,11 +13,35 @@ router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const { leadId } = req.query;
+    const leadId = getQueryString(req.query.leadId);
+    const type = getQueryString(req.query.type);
+    const createdBy = getQueryString(req.query.createdBy);
+    const search = getQueryString(req.query.search);
+    const createdFrom = getQueryDate(req.query.createdFrom, 'createdFrom');
+    const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
     const where: Record<string, unknown> = {};
 
     if (leadId) {
-      where.leadId = String(leadId);
+      where.leadId = leadId;
+    }
+
+    if (type) {
+      where.type = type;
+    }
+
+    if (createdBy) {
+      where.createdBy = createdBy;
+    }
+
+    if (search) {
+      where.content = { contains: search, mode: 'insensitive' };
+    }
+
+    if (createdFrom || createdTo) {
+      where.createdAt = {
+        ...(createdFrom ? { gte: createdFrom } : {}),
+        ...(createdTo ? { lte: createdTo } : {}),
+      };
     }
 
     const pagination = getPagination(req.query);
@@ -56,6 +82,10 @@ router.post('/', async (req: AuthRequest, res, next) => {
         lead: { select: { id: true, fullName: true } },
         creator: { select: { id: true, name: true } },
       },
+    });
+
+    void dispatchWebhookEvent('activity_created', toWebhookPayload({ activity })).catch((error) => {
+      console.error('Activity webhook dispatch failed:', error);
     });
 
     res.status(201).json({ success: true, data: activity });

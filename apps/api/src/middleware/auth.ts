@@ -1,12 +1,15 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import prisma from '../prisma/index.js';
 import { AppError } from './errorHandler.js';
+import { hashSecret } from '../utils/security.js';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 export interface AuthRequest extends Request {
   userId?: string;
   userRole?: string;
+  authType?: 'jwt' | 'api-key';
 }
 
 interface TokenPayload {
@@ -14,12 +17,55 @@ interface TokenPayload {
   role: string;
 }
 
-export function authenticate(
+function getApiKey(req: AuthRequest) {
+  const headerValue = req.headers['x-api-key'];
+
+  if (Array.isArray(headerValue)) {
+    return headerValue[0];
+  }
+
+  return headerValue;
+}
+
+export async function authenticate(
   req: AuthRequest,
   _res: Response,
   next: NextFunction
 ) {
   const authHeader = req.headers.authorization;
+  const apiKey = getApiKey(req);
+
+  if (apiKey) {
+    try {
+      const record = await prisma.apiKey.findFirst({
+        where: {
+          keyHash: hashSecret(apiKey),
+          revokedAt: null,
+        },
+        include: {
+          createdBy: { select: { id: true, role: true } },
+        },
+      });
+
+      if (!record) {
+        return next(new AppError(401, 'Invalid API key'));
+      }
+
+      await prisma.apiKey.update({
+        where: { id: record.id },
+        data: { lastUsedAt: new Date() },
+      });
+
+      req.userId = record.createdBy.id;
+      req.userRole = record.createdBy.role;
+      req.authType = 'api-key';
+      next();
+      return;
+    } catch (error) {
+      next(error);
+      return;
+    }
+  }
 
   if (!authHeader?.startsWith('Bearer ')) {
     return next(new AppError(401, 'No token provided'));
@@ -35,6 +81,7 @@ export function authenticate(
     const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
     req.userId = decoded.userId;
     req.userRole = decoded.role;
+    req.authType = 'jwt';
     next();
   } catch {
     next(new AppError(401, 'Invalid token'));

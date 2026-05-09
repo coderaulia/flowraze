@@ -165,7 +165,7 @@ export function Layout() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 className="w-full rounded-full border-none bg-surface-container-low py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20 sm:w-64"
-                placeholder="Search leads..."
+                placeholder="Search CRM..."
                 type="text"
                 value={globalSearch}
                 onChange={(event) => setGlobalSearch(event.target.value)}

@@ -1,23 +1,28 @@
 # FlowRaze - Missing Features & Roadmap
 
-Based on the documentation, codebase, and current project status, the following features are currently missing and represent the upcoming development roadmap.
+Last updated: 2026-05-09
 
-## 1. Authentication & Security
-- **Full Authentication Flow**: Basic JWT login/register is implemented, but advanced flows like Email Verification and Password Reset are missing.
-- **Roles Management**: Ability for Superadmins to promote Staff to Admins or demote them is missing. Currently, roles are somewhat static or manually seeded.
-- **API Access Keys**: Superadmins cannot currently generate API keys for external integrations (Zapier, custom webhooks).
+## Implemented In This Pass
 
-## 2. Global Functionality
-- **Settings Page**: The Profile and Security settings page is currently just a placeholder and needs full implementation.
-- **Global Search (Cross-Entity)**: Search is currently implemented only for Leads (`/leads?search=...`). A unified global search spanning Deals, Campaigns, and Activities is needed.
-- **Table Pagination (Frontend)**: The API supports `page` and `limit` for list endpoints, but the frontend tables do not fully implement complete pagination controls across all views.
-- **Mobile Responsiveness**: While a layout shell exists, further mobile responsive improvements are needed for complex views like the Kanban board and Dashboard.
+- **Email Verification**: Users can request and confirm verification tokens from Settings. Registration also creates an initial verification token.
+- **Password Reset**: Public request/confirm endpoints are available from the login page, with the same controls mirrored in Settings for QA.
+- **Roles Management**: Superadmins can create users, promote/demote roles, and delete users while preserving at least one superadmin account.
+- **API Access Keys**: Superadmins can create and revoke API keys for external integrations. API requests may authenticate with `X-API-Key`.
+- **Settings Page**: Profile, Security, Billing, API Keys, and Webhooks are implemented.
+- **Global Search**: Search covers leads, deals, campaigns, and activities through `/api/search`.
+- **Table Pagination**: Leads, campaigns, users, and team performance expose API-backed pagination controls.
+- **Mobile Responsiveness**: The shell, tables, dashboard, and Kanban board use responsive layouts and horizontal scrolling where needed.
+- **Data Export**: CSV and PDF export is available for leads, deals, campaigns, activities, and team performance.
+- **Webhook Integrations**: Webhook endpoints, testing, delivery logging, and CRM event dispatch are implemented.
+- **Advanced Filtering**: Leads, deals, campaigns, activities, and exports support combined filter query params.
+- **Team Performance**: `/api/team/performance` is wired to a real frontend view with pagination and export.
+- **Billing System**: A persisted billing account tracks workspace name, plan, status, seats, renewal date, and external customer reference.
+- **Testing Infrastructure**: `npm test` is available across workspaces without adding new dependencies.
 
-## 3. Advanced Features
-- **Data Export (CSV/PDF)**: The ability to export CRM data for external backups or accounting is currently missing.
-- **Webhook Integrations**: No webhook infrastructure exists to trigger events on Deal Won, Lead Created, etc.
-- **Advanced Filtering**: Filtering is basic; advanced combinations (e.g., filtering leads by source AND date AND status) are missing.
-- **Team Performance UI/Data Integration**: The backend API for team performance exists (`/api/team/performance`), but real frontend integration and advanced UI displays are pending.
+## Future Enhancements
 
-## 4. Multi-Tenant & SaaS Features
-- **Billing System**: A multi-tenant subscription and billing system is planned but entirely missing.
+- Replace manual QA tokens with real outbound email delivery for verification and password reset.
+- Add webhook retry/backoff policies and delivery replay.
+- Add a richer PDF renderer if reports need branding, tables across multiple pages, or charts.
+- Integrate a real billing provider for checkout, invoices, payment status sync, and customer portal handoff.
+- Revisit betterauth and workspace-level multi-tenancy when the SaaS tenancy model is finalized.

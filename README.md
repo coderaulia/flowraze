@@ -10,6 +10,9 @@ A modern CRM + Operations Analytics web app for growing teams. Built with React,
 - **Activity Logging** - Log calls, notes, and follow-ups
 - **Dashboard** - Real-time sales metrics and analytics
 - **Team Performance** - Track team member performance
+- **Global Search** - Search leads, deals, campaigns, and activities
+- **Settings & Security** - Profile updates, email verification, password reset, API keys, webhooks, and billing state
+- **Exports** - Download CRM data as CSV or PDF reports
 
 ## Tech Stack
 
@@ -103,17 +106,19 @@ After seeding the database:
 - `npm run dev` - Start all apps in dev mode
 - `npm run build` - Build all apps
 - `npm run lint` - Run ESLint
+- `npm test` - Run workspace tests
 - `npm run typecheck` - TypeScript check
 
 ### Frontend (apps/web)
 - `npm run dev` - Vite dev server
 - `npm run build` - Production build
-- No frontend test script exists yet
+- `npm test` - Run frontend utility tests
 
 ### Backend (apps/api)
 - `npm run dev` - Start dev server
 - `npm run build` - Compile TypeScript
 - `npm run start` - Production server
+- `npm test` - Run API utility tests
 - `npm run prisma:generate` - Generate Prisma client
 - `npm run prisma:migrate` - Run migrations
 - `npm run prisma:seed` - Seed database
@@ -126,6 +131,10 @@ List endpoints support optional `page` and `limit` query params and return pagin
 |--------|----------|-------------|
 | POST | /api/auth/login | User login |
 | POST | /api/auth/register | User registration |
+| POST | /api/auth/email-verification/request | Request email verification token |
+| POST | /api/auth/verify-email | Confirm email verification |
+| POST | /api/auth/password-reset/request | Request password reset token |
+| POST | /api/auth/password-reset/confirm | Confirm password reset |
 | GET | /api/leads | List leads |
 | POST | /api/leads | Create lead |
 | PUT | /api/leads/:id | Update lead |
@@ -139,16 +148,19 @@ List endpoints support optional `page` and `limit` query params and return pagin
 | POST | /api/activities | Create activity |
 | GET | /api/dashboard | Dashboard stats |
 | GET | /api/team/performance | Team performance |
+| GET | /api/search | Cross-entity search |
+| GET | /api/exports/:entity.csv | CSV export |
+| GET | /api/exports/:entity.pdf | PDF export |
+| GET/POST/DELETE | /api/api-keys | Superadmin API key management |
+| GET/PUT | /api/billing | Workspace billing state |
+| GET/POST/PUT/DELETE | /api/webhooks | Superadmin webhook management |
 
 ## Roadmap
 
-- [ ] Full authentication implementation
-- [ ] Email/password reset flow
-- [ ] Advanced filtering and search
-- [ ] Export functionality (CSV/PDF)
-- [ ] Webhook integrations
-- [ ] Mobile responsive improvements
-- [ ] Multi-tenant billing system
+- [ ] Real email provider for verification and reset delivery
+- [ ] Webhook retry/replay policy
+- [ ] Payment provider integration for checkout, invoices, and customer portal
+- [ ] Future betterauth migration decision
 
 ## VPS Deployment Guide
 

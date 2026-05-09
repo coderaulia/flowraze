@@ -1,19 +1,41 @@
 # FlowRaze - Code Audit & Technical Debt
 
-This document outlines the current technical debt, missing development configurations, and areas for codebase improvement.
+Last updated: 2026-05-09
 
-## 1. Testing Infrastructure
-- **Frontend Tests Missing**: There is no test runner (e.g., Vitest, Jest) or testing library (e.g., React Testing Library) configured in `apps/web/package.json`. No `test` script exists, meaning the frontend relies solely on manual testing and TypeScript/ESLint for correctness.
-- **Backend Tests Missing**: Similarly, the Express API (`apps/api/package.json`) lacks a testing framework. There are no unit or integration tests for the routes, middleware, or services.
+## Current Status
 
-## 2. Architectural Limitations
-- **Search Implementation**: The header search component (`apps/web/src/components/layout/index.tsx`) is currently hardwired to lead search (`/leads?search=...`). Implementing cross-entity search will require a dedicated global search API and UI workflow.
-- **Authentication Token Management**: While MVP auth uses `bcryptjs` and `jsonwebtoken`, there is a planned migration to `betterauth` in the future for a more robust identity management solution.
+The audit items from the previous pass are now implemented in the codebase:
 
-## 3. Dependency Optimization
-- Both projects heavily rely on `tsx` for development. Ensure that production builds properly compile via `tsc` and that no dev dependencies leak into the production bundle.
-- The monorepo currently does not use tools like Turborepo for optimized build caching, relying on basic `npm workspaces`.
+- **Testing Infrastructure**: Root, API, web, and shared workspaces now expose `npm test`. API and web tests use Node's built-in test runner through the existing `tsx` dev dependency, so no new packages were added.
+- **Global Search**: Header search now routes to `/search` and the backend searches leads, deals, campaigns, and activities.
+- **Security Workflows**: Auth now supports email verification tokens and password-reset request/confirm endpoints. Settings and login expose manual MVP controls for these flows.
+- **API Keys**: Superadmins can create/revoke API keys. API key authentication is supported through `X-API-Key`.
+- **Webhooks**: Superadmins can create, pause, test, and delete event webhooks. Lead, deal, and activity writes dispatch persisted webhook deliveries.
+- **Billing**: A persisted workspace billing account exists with editable plan, status, seats, renewal date, and external customer reference.
+- **Exporting**: Leads, deals, campaigns, activities, and team performance can be exported as CSV or lightweight PDF reports.
+- **Advanced Filtering**: List/export endpoints support combined search/filter query params for common CRM fields and date/value ranges.
+- **Pagination Syncing**: Table views retain API-backed pagination controls, and exports remove page/limit to export the filtered dataset.
+- **Error Handling Consistency**: Settings, auth, forms, API keys, webhooks, billing, and export controls use the existing API response pattern and inline feedback.
 
-## 4. Pending Refactors
-- **Pagination Syncing**: While the API returns pagination metadata, the frontend table components need a unified refactor to consistently expose API-backed pagination controls and handle loading states smoothly.
-- **Error Handling Consistency**: Ensure that all frontend components correctly utilize the inline validation and API error feedback patterns established during the dashboard/form refactors.
+## Verification Snapshot
+
+Run on 2026-05-09:
+
+```bash
+npm run typecheck --workspaces
+npm test
+npm run lint --workspaces
+```
+
+The final build should be run after every follow-up patch:
+
+```bash
+npm run build
+```
+
+## Remaining Watch Items
+
+- The email verification and password reset flows generate tokens for manual QA because no email provider is configured yet.
+- PDF export is dependency-free and intentionally simple. Replace it with a richer renderer only after choosing a PDF dependency.
+- Webhook delivery is synchronous per event dispatch worker and records status; production deployments may later want retries/backoff.
+- `betterauth`, Turborepo, and paid subscription provider integration remain future architecture choices, not current blockers.

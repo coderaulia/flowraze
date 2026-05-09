@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FieldError } from '@/components/ui/field-error';
+import { ExportControls } from '@/components/export-controls';
 import { get, post, put, del } from '@/lib/api';
 import {
   hasFormErrors,
@@ -65,6 +67,7 @@ function validateDealForm(data: DealFormData): FormErrors {
 }
 
 export function DealsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +78,11 @@ export function DealsPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState('');
+  const search = searchParams.get('search') ?? '';
+  const stageFilter = searchParams.get('stage') ?? 'all';
+  const statusFilter = searchParams.get('status') ?? 'all';
+  const minValue = searchParams.get('minValue') ?? '';
+  const maxValue = searchParams.get('maxValue') ?? '';
 
   const [formData, setFormData] = useState<DealFormData>({
     leadId: '',
@@ -85,19 +93,40 @@ export function DealsPage() {
     notes: '',
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (stageFilter !== 'all') params.set('stage', stageFilter);
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    if (minValue) params.set('minValue', minValue);
+    if (maxValue) params.set('maxValue', maxValue);
+    const query = params.toString();
+
     const [dealsRes, leadsRes] = await Promise.all([
-      get<Deal[]>('/deals'),
+      get<Deal[]>(`/deals${query ? `?${query}` : ''}`),
       get<Lead[]>('/leads'),
     ]);
     if (dealsRes.success && dealsRes.data) setDeals(dealsRes.data);
     if (leadsRes.success && leadsRes.data) setLeads(leadsRes.data);
     setIsLoading(false);
-  };
+  }, [maxValue, minValue, search, stageFilter, statusFilter]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  const handleFilterChange = (key: string, value: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (!value || value === 'all') {
+      nextParams.delete(key);
+    } else {
+      nextParams.set(key, value);
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,17 +242,69 @@ export function DealsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Deals</h1>
           <p className="text-on-surface-variant mt-1">
             Track your sales pipeline
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Deal
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportControls entity="deals" queryParams={searchParams} />
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Deal
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            className="pl-10"
+            placeholder="Search deals..."
+            value={search}
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+          />
+        </div>
+        <Select value={stageFilter} onValueChange={(value) => handleFilterChange('stage', value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Stage" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All stages</SelectItem>
+            {STAGES.map((stage) => (
+              <SelectItem key={stage.id} value={stage.id}>
+                {stage.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={(value) => handleFilterChange('status', value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="closed">Closed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          min="0"
+          placeholder="Min value"
+          type="number"
+          value={minValue}
+          onChange={(e) => handleFilterChange('minValue', e.target.value)}
+        />
+        <Input
+          min="0"
+          placeholder="Max value"
+          type="number"
+          value={maxValue}
+          onChange={(e) => handleFilterChange('maxValue', e.target.value)}
+        />
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-p-4">

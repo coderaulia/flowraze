@@ -54,6 +54,7 @@ npm run build            # Build all apps
 npm run dev              # Dev mode (all apps)
 npm run lint             # ESLint all packages
 npm run lint:fix         # Auto-fix lint
+npm test                 # Run API/web/shared tests
 npm run typecheck        # TypeScript check all
 ```
 
@@ -65,8 +66,8 @@ npm run build            # Production build
 npm run preview          # Preview build
 npm run lint             # ESLint
 npm run lint:fix         # Fix lint
+npm test                 # Node test runner via tsx
 npm run typecheck        # TSC check
-# No test script exists yet for apps/web
 ```
 
 ### Backend (apps/api)
@@ -77,6 +78,7 @@ npm run build            # Compile TS to dist/
 npm run start            # Production server
 npm run lint             # ESLint
 npm run lint:fix         # Fix lint
+npm test                 # Node test runner via tsx
 npm run typecheck        # TSC check
 npm run prisma:generate  # Generate Prisma client
 npm run prisma:migrate   # Run migrations
@@ -179,7 +181,7 @@ The UI follows the "Kinetic Architect" design system:
 - **Background:** `surface` (#0b1326), `surface-container` (#171f33)
 - **Primary:** `#bcc3ff` text, `#1e2a78` container
 - **Secondary/Growth:** `#4ae176` (positive metrics)
-- **Text:** min `on_surface_variant` (#c6c5d3) for body
+- **Text:** min `on-surface-variant` for body
 
 ### Key Rules
 - **NO 1px borders** for sectioning - use background color shifts
@@ -242,16 +244,22 @@ NODE_ENV=development
 - [x] Frontend forms show inline validation and API error feedback before writes
 - [x] Layout shell supports mobile navigation and responsive table scrolling
 - [x] Deals Kanban board supports stage totals, drag updates, edit, and delete
+- [x] Frontend and backend workspaces expose `npm test` with initial coverage
+- [x] Global search covers leads, deals, campaigns, and activities
+- [x] Settings includes profile, security, billing, API key, and webhook controls
+- [x] Auth supports email verification and password-reset token flows
+- [x] Superadmins can manage roles, API keys, webhooks, and billing state
+- [x] Leads, deals, campaigns, activities, and team performance support CSV/PDF export
+- [x] List/export endpoints support combined filters for core CRM views
 
 ### In Progress
 - None
 
 ### Placeholder/Todo
-- [ ] Team Performance real integration
-- [ ] Settings Page (Profile/Security)
-- [ ] Global Search functionality
-- [ ] Pagination for all tables
-- [ ] CSV/PDF Export
+- [ ] Email delivery provider for verification and password reset tokens
+- [ ] Webhook retry/replay policy
+- [ ] Payment provider integration for checkout/invoices/customer portal
+- [ ] Future betterauth migration decision
 
 ---
 
@@ -259,8 +267,9 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| MEDIUM | No frontend test runner/script exists yet | `apps/web/package.json` |
-| MEDIUM | Search is lead-only; cross-entity search still needs a dedicated API/UI flow | `apps/web/src/components/layout/index.tsx` |
+| LOW | Auth tokens are surfaced for manual QA until email delivery is configured | `apps/api/src/routes/auth.ts` |
+| LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
+| LOW | Webhook dispatch records deliveries but does not retry failed calls yet | `apps/api/src/utils/webhooks.ts` |
 
 ---
 

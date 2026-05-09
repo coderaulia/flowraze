@@ -14,6 +14,8 @@ import {
   requireString,
   setIfPresent,
 } from '../utils/request.js';
+import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
+import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
 
 const router = Router();
 const DEAL_STAGES = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
@@ -23,15 +25,62 @@ router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const { stage, status } = req.query;
-    const where: Record<string, unknown> = {};
+    const stage = getQueryString(req.query.stage);
+    const status = getQueryString(req.query.status);
+    const search = getQueryString(req.query.search);
+    const ownerId = getQueryString(req.query.ownerId);
+    const leadId = getQueryString(req.query.leadId);
+    const minValue = getQueryNumber(req.query.minValue, 'minValue');
+    const maxValue = getQueryNumber(req.query.maxValue, 'maxValue');
+    const createdFrom = getQueryDate(req.query.createdFrom, 'createdFrom');
+    const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
+    const expectedCloseFrom = getQueryDate(req.query.expectedCloseFrom, 'expectedCloseFrom');
+    const expectedCloseTo = getQueryDate(req.query.expectedCloseTo, 'expectedCloseTo');
+    const where: Prisma.DealWhereInput = {};
 
     if (stage) {
-      where.stage = stage;
+      where.stage = stage as Prisma.EnumDealStageFilter['equals'];
     }
 
     if (status) {
-      where.status = status;
+      where.status = status as Prisma.EnumDealStatusFilter['equals'];
+    }
+
+    if (ownerId) {
+      where.ownerId = ownerId;
+    }
+
+    if (leadId) {
+      where.leadId = leadId;
+    }
+
+    if (minValue !== undefined || maxValue !== undefined) {
+      where.value = {
+        ...(minValue !== undefined ? { gte: minValue } : {}),
+        ...(maxValue !== undefined ? { lte: maxValue } : {}),
+      };
+    }
+
+    if (createdFrom || createdTo) {
+      where.createdAt = {
+        ...(createdFrom ? { gte: createdFrom } : {}),
+        ...(createdTo ? { lte: createdTo } : {}),
+      };
+    }
+
+    if (expectedCloseFrom || expectedCloseTo) {
+      where.expectedCloseDate = {
+        ...(expectedCloseFrom ? { gte: expectedCloseFrom } : {}),
+        ...(expectedCloseTo ? { lte: expectedCloseTo } : {}),
+      };
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { lead: { fullName: { contains: search, mode: 'insensitive' } } },
+        { lead: { companyName: { contains: search, mode: 'insensitive' } } },
+      ];
     }
 
     const pagination = getPagination(req.query);
@@ -96,6 +145,15 @@ router.post('/', async (req: AuthRequest, res, next) => {
       },
     });
 
+    void dispatchWebhookEvent('deal_created', toWebhookPayload({ deal })).catch((error) => {
+      console.error('Deal webhook dispatch failed:', error);
+    });
+    if (deal.stage === 'won') {
+      void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal })).catch((error) => {
+        console.error('Deal won webhook dispatch failed:', error);
+      });
+    }
+
     res.status(201).json({ success: true, data: deal });
   } catch (error) {
     next(error);
@@ -114,6 +172,15 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'status', optionalEnum(DEAL_STATUSES, 'Status'));
     requireAtLeastOneField(data);
 
+    const existingDeal = await prisma.deal.findUnique({
+      where: { id: req.params.id },
+      select: { stage: true },
+    });
+
+    if (!existingDeal) {
+      throw new AppError(404, 'Deal not found');
+    }
+
     const deal = await prisma.deal.update({
       where: { id: req.params.id },
       data: data as Prisma.DealUncheckedUpdateInput,
@@ -122,6 +189,12 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
         owner: { select: { id: true, name: true } },
       },
     });
+
+    if (existingDeal.stage !== 'won' && deal.stage === 'won') {
+      void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal })).catch((error) => {
+        console.error('Deal won webhook dispatch failed:', error);
+      });
+    }
 
     res.json({ success: true, data: deal });
   } catch (error) {

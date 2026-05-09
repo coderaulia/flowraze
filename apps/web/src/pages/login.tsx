@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,12 +12,18 @@ import type { User } from '@/types';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setAuth } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState(searchParams.get('token') ?? '');
+  const [resetPassword, setResetPassword] = useState('');
+  const [verificationToken, setVerificationToken] = useState(searchParams.get('token') ?? '');
+  const [securityMessage, setSecurityMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +59,44 @@ export function LoginPage() {
       setError(response.error || 'Login failed');
     }
     setIsLoading(false);
+  };
+
+  const handleRequestReset = async () => {
+    setSecurityMessage('');
+    const response = await post<{ resetToken?: string }>('/auth/password-reset/request', {
+      email: resetEmail || email,
+    });
+    if (response.success) {
+      if (response.data?.resetToken) {
+        setResetToken(response.data.resetToken);
+      }
+      setSecurityMessage('Password reset token generated.');
+    } else {
+      setSecurityMessage(response.error || 'Unable to request password reset.');
+    }
+  };
+
+  const handleConfirmReset = async () => {
+    setSecurityMessage('');
+    const response = await post<{ reset: boolean }>('/auth/password-reset/confirm', {
+      token: resetToken,
+      password: resetPassword,
+    });
+    if (response.success) {
+      setResetToken('');
+      setResetPassword('');
+      setSecurityMessage('Password reset confirmed.');
+    } else {
+      setSecurityMessage(response.error || 'Unable to reset password.');
+    }
+  };
+
+  const handleVerifyEmail = async () => {
+    setSecurityMessage('');
+    const response = await post<{ user: User }>('/auth/verify-email', {
+      token: verificationToken,
+    });
+    setSecurityMessage(response.success ? 'Email verified.' : response.error || 'Unable to verify email.');
   };
 
   return (
@@ -101,6 +145,64 @@ export function LoginPage() {
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+          <div className="mt-6 space-y-4 border-t border-surface-container-high pt-5">
+            {securityMessage && (
+              <div className="rounded-round-eight bg-surface-container p-3 text-sm text-on-surface-variant">
+                {securityMessage}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="resetEmail">Password Reset Email</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="resetEmail"
+                  type="email"
+                  value={resetEmail}
+                  onChange={(event) => setResetEmail(event.target.value)}
+                  placeholder="you@company.com"
+                />
+                <Button type="button" variant="secondary" onClick={handleRequestReset}>
+                  Request
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                value={resetToken}
+                onChange={(event) => setResetToken(event.target.value)}
+                placeholder="Reset token"
+              />
+              <Input
+                type="password"
+                value={resetPassword}
+                onChange={(event) => setResetPassword(event.target.value)}
+                placeholder="New password"
+              />
+            </div>
+            <Button
+              type="button"
+              className="w-full"
+              variant="secondary"
+              disabled={!resetToken || !resetPassword}
+              onClick={handleConfirmReset}
+            >
+              Confirm Password Reset
+            </Button>
+            <div className="space-y-2">
+              <Label htmlFor="verifyToken">Email Verification Token</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="verifyToken"
+                  value={verificationToken}
+                  onChange={(event) => setVerificationToken(event.target.value)}
+                  placeholder="Verification token"
+                />
+                <Button type="button" variant="secondary" disabled={!verificationToken} onClick={handleVerifyEmail}>
+                  Verify
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

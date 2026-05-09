@@ -144,6 +144,21 @@ async function main() {
 
   console.log('Created activities:', activitiesData.length);
 
+  const billingAccount = await prisma.billingAccount.upsert({
+    where: { id: 'default-workspace' },
+    update: {},
+    create: {
+      id: 'default-workspace',
+      workspaceName: 'FlowRaze Demo Workspace',
+      plan: 'growth',
+      status: 'trialing',
+      seats: 8,
+      renewalDate: new Date('2026-06-01'),
+    },
+  });
+
+  console.log('Created billing account:', billingAccount);
+
   console.log('Database seeded successfully!');
 }
 

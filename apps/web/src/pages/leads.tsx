@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
+import { ExportControls } from '@/components/export-controls';
 import { FieldError } from '@/components/ui/field-error';
 import { get, post, put, del } from '@/lib/api';
 import { hasFormErrors, isValidEmail, type FormErrors } from '@/lib/form-validation';
@@ -72,6 +73,10 @@ export function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const search = searchParams.get('search') ?? '';
+  const statusFilter = searchParams.get('status') ?? 'all';
+  const sourceFilter = searchParams.get('source') ?? '';
+  const createdFrom = searchParams.get('createdFrom') ?? '';
+  const createdTo = searchParams.get('createdTo') ?? '';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -101,6 +106,18 @@ export function LeadsPage() {
     if (search) {
       params.set('search', search);
     }
+    if (statusFilter !== 'all') {
+      params.set('status', statusFilter);
+    }
+    if (sourceFilter) {
+      params.set('source', sourceFilter);
+    }
+    if (createdFrom) {
+      params.set('createdFrom', createdFrom);
+    }
+    if (createdTo) {
+      params.set('createdTo', createdTo);
+    }
     params.set('page', String(page));
     params.set('limit', String(PAGE_LIMIT));
 
@@ -111,7 +128,7 @@ export function LeadsPage() {
       setPagination(response.pagination ?? { page, limit: PAGE_LIMIT, total: response.data.length });
     }
     setIsLoading(false);
-  }, [page, search]);
+  }, [createdFrom, createdTo, page, search, sourceFilter, statusFilter]);
 
   useEffect(() => {
     fetchLeads();
@@ -221,6 +238,19 @@ export function LeadsPage() {
     setSearchParams(nextParams, { replace: true });
   };
 
+  const handleFilterChange = (key: string, value: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (!value || value === 'all') {
+      nextParams.delete(key);
+    } else {
+      nextParams.set(key, value);
+    }
+    nextParams.set('page', '1');
+
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const handlePageChange = (nextPage: number) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('page', String(nextPage));
@@ -229,21 +259,24 @@ export function LeadsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Leads</h1>
           <p className="text-on-surface-variant mt-1">
             Manage your leads and track their progress
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Lead
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportControls entity="leads" queryParams={searchParams} />
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Lead
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search leads..."
@@ -252,6 +285,33 @@ export function LeadsPage() {
             className="pl-10"
           />
         </div>
+        <Select value={statusFilter} onValueChange={(value) => handleFilterChange('status', value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="contacted">Contacted</SelectItem>
+            <SelectItem value="qualified">Qualified</SelectItem>
+            <SelectItem value="unqualified">Unqualified</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          placeholder="Source"
+          value={sourceFilter}
+          onChange={(e) => handleFilterChange('source', e.target.value)}
+        />
+        <Input
+          type="date"
+          value={createdFrom}
+          onChange={(e) => handleFilterChange('createdFrom', e.target.value)}
+        />
+        <Input
+          type="date"
+          value={createdTo}
+          onChange={(e) => handleFilterChange('createdTo', e.target.value)}
+        />
       </div>
 
       <div className="rounded-lg bg-white border border-gray-200 overflow-x-auto">

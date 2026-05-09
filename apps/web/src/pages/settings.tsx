@@ -1,98 +1,358 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { CreditCard, KeyRound, ShieldCheck, Webhook } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import { put } from '@/lib/api';
+import { del, get, post, put } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
+import type {
+  ApiKey,
+  BillingAccount,
+  BillingStatus,
+  PlanTier,
+  User,
+  WebhookEndpoint,
+  WebhookEvent,
+} from '@/types';
+
+type Message = { type: 'success' | 'error' | 'info'; text: string };
+
+const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
+  { value: 'lead_created', label: 'Lead created' },
+  { value: 'deal_created', label: 'Deal created' },
+  { value: 'deal_won', label: 'Deal won' },
+  { value: 'activity_created', label: 'Activity created' },
+];
+
+const PLAN_OPTIONS: { value: PlanTier; label: string }[] = [
+  { value: 'free', label: 'Free' },
+  { value: 'growth', label: 'Growth' },
+  { value: 'pro', label: 'Pro' },
+  { value: 'custom', label: 'Custom' },
+];
+
+const BILLING_STATUSES: { value: BillingStatus; label: string }[] = [
+  { value: 'trialing', label: 'Trialing' },
+  { value: 'active', label: 'Active' },
+  { value: 'past_due', label: 'Past due' },
+  { value: 'canceled', label: 'Canceled' },
+];
+
+function AlertMessage({ message }: { message: Message }) {
+  const classes = {
+    error: 'bg-error/10 text-error',
+    success: 'bg-secondary/10 text-secondary',
+    info: 'bg-surface-container text-on-surface-variant',
+  };
+
+  return (
+    <div className={`rounded-lg px-3 py-2 text-sm font-medium ${classes[message.type]}`}>
+      {message.text}
+    </div>
+  );
+}
+
+function toDateInputValue(value: Date | string | null | undefined) {
+  if (!value) return '';
+  return new Date(value).toISOString().split('T')[0] ?? '';
+}
 
 export function SettingsPage() {
-  const { user, updateUser } = useAuthStore();
+  const { user, updateUser, isSuperadmin } = useAuthStore();
+  const canManageAdminTools = isSuperadmin();
   const [name, setName] = useState(user?.name || '');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [profileMessage, setProfileMessage] = useState<Message | null>(null);
+  const [securityMessage, setSecurityMessage] = useState<Message | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [verificationToken, setVerificationToken] = useState('');
+  const [resetEmail, setResetEmail] = useState(user?.email || '');
+  const [resetToken, setResetToken] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [createdApiKey, setCreatedApiKey] = useState('');
+  const [apiKeyMessage, setApiKeyMessage] = useState<Message | null>(null);
+  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([]);
+  const [webhookMessage, setWebhookMessage] = useState<Message | null>(null);
+  const [webhookForm, setWebhookForm] = useState({
+    name: '',
+    url: '',
+    event: 'lead_created' as WebhookEvent,
+    isActive: 'true',
+  });
+  const [billing, setBilling] = useState<BillingAccount | null>(null);
+  const [billingMessage, setBillingMessage] = useState<Message | null>(null);
+  const [billingForm, setBillingForm] = useState({
+    workspaceName: '',
+    plan: 'free' as PlanTier,
+    status: 'trialing' as BillingStatus,
+    seats: '3',
+    renewalDate: '',
+    externalCustomer: '',
+  });
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage({ type: '', text: '' });
+  const fetchAdminTools = useCallback(async () => {
+    const billingResponse = await get<BillingAccount>('/billing');
+    if (billingResponse.success && billingResponse.data) {
+      const account = billingResponse.data;
+      setBilling(account);
+      setBillingForm({
+        workspaceName: account.workspaceName,
+        plan: account.plan,
+        status: account.status,
+        seats: String(account.seats),
+        renewalDate: toDateInputValue(account.renewalDate),
+        externalCustomer: account.externalCustomer || '',
+      });
+    }
 
-    const payload: Record<string, string> = {};
-    if (name.trim() && name !== user?.name) payload.name = name.trim();
-    if (password) payload.password = password;
-
-    if (Object.keys(payload).length === 0) {
-      setMessage({ type: 'info', text: 'No changes to save.' });
-      setIsLoading(false);
+    if (!canManageAdminTools) {
       return;
     }
 
-    const response = await put<{ name: string; email: string }>('/users/me', payload);
+    const [keysResponse, webhooksResponse] = await Promise.all([
+      get<ApiKey[]>('/api-keys'),
+      get<WebhookEndpoint[]>('/webhooks'),
+    ]);
 
+    if (keysResponse.success && keysResponse.data) {
+      setApiKeys(keysResponse.data);
+    }
+
+    if (webhooksResponse.success && webhooksResponse.data) {
+      setWebhooks(webhooksResponse.data);
+    }
+  }, [canManageAdminTools]);
+
+  useEffect(() => {
+    fetchAdminTools();
+  }, [fetchAdminTools]);
+
+  const handleSaveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSavingProfile(true);
+    setProfileMessage(null);
+
+    const payload: Record<string, string> = {};
+    if (name.trim() && name.trim() !== user?.name) payload.name = name.trim();
+    if (password) payload.password = password;
+
+    if (Object.keys(payload).length === 0) {
+      setProfileMessage({ type: 'info', text: 'No changes to save.' });
+      setIsSavingProfile(false);
+      return;
+    }
+
+    const response = await put<User>('/users/me', payload);
     if (response.success && response.data) {
       updateUser({ name: response.data.name });
       setPassword('');
-      setMessage({ type: 'success', text: 'Profile updated successfully.' });
+      setProfileMessage({ type: 'success', text: 'Profile updated.' });
     } else {
-      setMessage({ type: 'error', text: response.error || 'Failed to update profile.' });
+      setProfileMessage({ type: 'error', text: response.error || 'Failed to update profile.' });
     }
 
-    setIsLoading(false);
+    setIsSavingProfile(false);
+  };
+
+  const handleRequestVerification = async () => {
+    setSecurityMessage(null);
+    const response = await post<{
+      verified: boolean;
+      verificationToken?: string;
+      verificationUrl?: string;
+      message?: string;
+    }>('/auth/email-verification/request', {});
+
+    if (response.success && response.data) {
+      if (response.data.verificationToken) {
+        setVerificationToken(response.data.verificationToken);
+      }
+      setSecurityMessage({
+        type: response.data.verified ? 'success' : 'info',
+        text: response.data.message || 'Verification token generated.',
+      });
+    } else {
+      setSecurityMessage({ type: 'error', text: response.error || 'Unable to request verification.' });
+    }
+  };
+
+  const handleVerifyEmail = async () => {
+    setSecurityMessage(null);
+    const response = await post<{ user: User }>('/auth/verify-email', { token: verificationToken });
+    if (response.success && response.data) {
+      updateUser({ emailVerifiedAt: response.data.user.emailVerifiedAt });
+      setVerificationToken('');
+      setSecurityMessage({ type: 'success', text: 'Email verified.' });
+    } else {
+      setSecurityMessage({ type: 'error', text: response.error || 'Unable to verify email.' });
+    }
+  };
+
+  const handleRequestPasswordReset = async () => {
+    setSecurityMessage(null);
+    const response = await post<{ resetToken?: string; sent: boolean }>('/auth/password-reset/request', {
+      email: resetEmail,
+    });
+
+    if (response.success && response.data) {
+      if (response.data.resetToken) {
+        setResetToken(response.data.resetToken);
+      }
+      setSecurityMessage({ type: 'info', text: 'Password reset token generated.' });
+    } else {
+      setSecurityMessage({ type: 'error', text: response.error || 'Unable to request reset.' });
+    }
+  };
+
+  const handleConfirmPasswordReset = async () => {
+    setSecurityMessage(null);
+    const response = await post<{ reset: boolean }>('/auth/password-reset/confirm', {
+      token: resetToken,
+      password: resetPassword,
+    });
+
+    if (response.success) {
+      setResetToken('');
+      setResetPassword('');
+      setSecurityMessage({ type: 'success', text: 'Password reset confirmed.' });
+    } else {
+      setSecurityMessage({ type: 'error', text: response.error || 'Unable to reset password.' });
+    }
+  };
+
+  const handleCreateApiKey = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setApiKeyMessage(null);
+    const response = await post<ApiKey & { key: string }>('/api-keys', { name: newKeyName });
+
+    if (response.success && response.data) {
+      setCreatedApiKey(response.data.key);
+      setNewKeyName('');
+      setApiKeyMessage({ type: 'success', text: 'API key created.' });
+      fetchAdminTools();
+    } else {
+      setApiKeyMessage({ type: 'error', text: response.error || 'Unable to create API key.' });
+    }
+  };
+
+  const handleRevokeApiKey = async (id: string) => {
+    const response = await del<void>(`/api-keys/${id}`);
+    if (response.success) {
+      setApiKeyMessage({ type: 'success', text: 'API key revoked.' });
+      fetchAdminTools();
+    } else {
+      setApiKeyMessage({ type: 'error', text: response.error || 'Unable to revoke API key.' });
+    }
+  };
+
+  const handleCreateWebhook = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setWebhookMessage(null);
+    const response = await post<WebhookEndpoint>('/webhooks', {
+      ...webhookForm,
+      isActive: webhookForm.isActive === 'true',
+    });
+
+    if (response.success) {
+      setWebhookForm({ name: '', url: '', event: 'lead_created', isActive: 'true' });
+      setWebhookMessage({ type: 'success', text: 'Webhook saved.' });
+      fetchAdminTools();
+    } else {
+      setWebhookMessage({ type: 'error', text: response.error || 'Unable to save webhook.' });
+    }
+  };
+
+  const handleToggleWebhook = async (webhook: WebhookEndpoint) => {
+    const response = await put<WebhookEndpoint>(`/webhooks/${webhook.id}`, {
+      isActive: !webhook.isActive,
+    });
+
+    if (response.success) {
+      fetchAdminTools();
+    } else {
+      setWebhookMessage({ type: 'error', text: response.error || 'Unable to update webhook.' });
+    }
+  };
+
+  const handleTestWebhook = async (id: string) => {
+    const response = await post<{ sent: boolean }>(`/webhooks/${id}/test`, {});
+    setWebhookMessage({
+      type: response.success ? 'success' : 'error',
+      text: response.success ? 'Test webhook sent.' : response.error || 'Unable to test webhook.',
+    });
+    fetchAdminTools();
+  };
+
+  const handleDeleteWebhook = async (id: string) => {
+    const response = await del<void>(`/webhooks/${id}`);
+    if (response.success) {
+      setWebhookMessage({ type: 'success', text: 'Webhook deleted.' });
+      fetchAdminTools();
+    } else {
+      setWebhookMessage({ type: 'error', text: response.error || 'Unable to delete webhook.' });
+    }
+  };
+
+  const handleSaveBilling = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBillingMessage(null);
+    const response = await put<BillingAccount>('/billing', {
+      ...billingForm,
+      seats: Number(billingForm.seats),
+      renewalDate: billingForm.renewalDate || null,
+      externalCustomer: billingForm.externalCustomer || undefined,
+    });
+
+    if (response.success && response.data) {
+      setBilling(response.data);
+      setBillingMessage({ type: 'success', text: 'Billing settings saved.' });
+    } else {
+      setBillingMessage({ type: 'error', text: response.error || 'Unable to save billing settings.' });
+    }
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-primary">Settings</h1>
-          <p className="text-on-surface-variant mt-1">
-          Manage your account settings
-        </p>
+        <p className="mt-1 text-on-surface-variant">Manage account access, integrations, and subscription state</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Profile</CardTitle>
-          <CardDescription>Update your profile information</CardDescription>
+          <CardDescription>Update your visible name and password</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <form onSubmit={handleSaveProfile} className="space-y-4">
-            {message.text && (
-              <div className={`rounded-lg px-3 py-2 text-sm font-medium ${
-                message.type === 'error' ? 'bg-error/10 text-error' :
-                message.type === 'success' ? 'bg-secondary/10 text-secondary' :
-                'bg-blue-100 text-blue-800'
-              }`}>
-                {message.text}
-              </div>
-            )}
+            {profileMessage && <AlertMessage message={profileMessage} />}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
-                <Input 
-                  id="name" 
-                  placeholder="Your name" 
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                <Input id="name" value={name} onChange={(event) => setName(event.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email (Cannot be changed)</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input id="email" type="email" value={user?.email || ''} disabled />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">New Password (leave blank to keep current)</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="New password" 
+              <Label htmlFor="password">New Password</Label>
+              <Input
+                id="password"
+                type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
               />
             </div>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Saving...' : 'Save Changes'}
+            <Button type="submit" disabled={isSavingProfile}>
+              {isSavingProfile ? 'Saving...' : 'Save Changes'}
             </Button>
           </form>
         </CardContent>
@@ -100,29 +360,297 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Notifications</CardTitle>
-          <CardDescription>
-            Configure how you receive notifications
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-secondary" />
+            Security
+          </CardTitle>
+          <CardDescription>Email verification and password reset controls</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-on-surface-variant text-sm">
-            Notification settings coming soon...
-          </p>
+        <CardContent className="space-y-5">
+          {securityMessage && <AlertMessage message={securityMessage} />}
+          <div className="flex flex-col gap-3 rounded-lg bg-surface-container p-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-semibold text-on-surface">Email status</p>
+              <p className="text-sm text-on-surface-variant">
+                {user?.emailVerifiedAt ? `Verified ${formatDate(user.emailVerifiedAt)}` : 'Not verified'}
+              </p>
+            </div>
+            <Badge variant={user?.emailVerifiedAt ? 'secondary' : 'warning'}>
+              {user?.emailVerifiedAt ? 'Verified' : 'Pending'}
+            </Badge>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
+            <Input
+              value={verificationToken}
+              onChange={(event) => setVerificationToken(event.target.value)}
+              placeholder="Verification token"
+            />
+            <Button type="button" variant="secondary" onClick={handleRequestVerification}>
+              Request Token
+            </Button>
+            <Button type="button" onClick={handleVerifyEmail} disabled={!verificationToken}>
+              Verify Email
+            </Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input value={resetEmail} onChange={(event) => setResetEmail(event.target.value)} placeholder="Email" />
+            <Input value={resetToken} onChange={(event) => setResetToken(event.target.value)} placeholder="Reset token" />
+            <Input
+              type="password"
+              value={resetPassword}
+              onChange={(event) => setResetPassword(event.target.value)}
+              placeholder="New password"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={handleRequestPasswordReset}>
+              Request Reset
+            </Button>
+            <Button type="button" onClick={handleConfirmPasswordReset} disabled={!resetToken || !resetPassword}>
+              Confirm Reset
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Billing</CardTitle>
-          <CardDescription>Manage your subscription and billing</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-secondary" />
+            Billing
+          </CardTitle>
+          <CardDescription>Workspace plan and subscription state</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-on_surface_variant text-sm">
-            Billing settings coming soon...
-          </p>
+        <CardContent className="space-y-4">
+          {billingMessage && <AlertMessage message={billingMessage} />}
+          {billing && !canManageAdminTools && (
+            <div className="grid gap-3 md:grid-cols-4">
+              <div>
+                <p className="text-xs uppercase text-on-surface-variant">Plan</p>
+                <p className="font-semibold text-on-surface">{billing.plan}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-on-surface-variant">Status</p>
+                <p className="font-semibold text-on-surface">{billing.status}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-on-surface-variant">Seats</p>
+                <p className="font-semibold text-on-surface">{billing.seats}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-on-surface-variant">Renewal</p>
+                <p className="font-semibold text-on-surface">
+                  {billing.renewalDate ? formatDate(billing.renewalDate) : '-'}
+                </p>
+              </div>
+            </div>
+          )}
+          {canManageAdminTools && (
+            <form onSubmit={handleSaveBilling} className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <Input
+                  value={billingForm.workspaceName}
+                  onChange={(event) => setBillingForm({ ...billingForm, workspaceName: event.target.value })}
+                  placeholder="Workspace name"
+                />
+                <Select
+                  value={billingForm.plan}
+                  onValueChange={(value) => setBillingForm({ ...billingForm, plan: value as PlanTier })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLAN_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={billingForm.status}
+                  onValueChange={(value) => setBillingForm({ ...billingForm, status: value as BillingStatus })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BILLING_STATUSES.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  min="1"
+                  type="number"
+                  value={billingForm.seats}
+                  onChange={(event) => setBillingForm({ ...billingForm, seats: event.target.value })}
+                  placeholder="Seats"
+                />
+                <Input
+                  type="date"
+                  value={billingForm.renewalDate}
+                  onChange={(event) => setBillingForm({ ...billingForm, renewalDate: event.target.value })}
+                />
+                <Input
+                  value={billingForm.externalCustomer}
+                  onChange={(event) => setBillingForm({ ...billingForm, externalCustomer: event.target.value })}
+                  placeholder="External customer id"
+                />
+              </div>
+              <Button type="submit">Save Billing</Button>
+            </form>
+          )}
         </CardContent>
       </Card>
+
+      {canManageAdminTools && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-secondary" />
+                API Keys
+              </CardTitle>
+              <CardDescription>Generate and revoke integration keys</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {apiKeyMessage && <AlertMessage message={apiKeyMessage} />}
+              {createdApiKey && (
+                <div className="rounded-lg bg-surface-container p-3 font-mono text-sm text-on-surface">
+                  {createdApiKey}
+                </div>
+              )}
+              <form onSubmit={handleCreateApiKey} className="grid gap-3 md:grid-cols-[1fr_auto]">
+                <Input
+                  value={newKeyName}
+                  onChange={(event) => setNewKeyName(event.target.value)}
+                  placeholder="Key name"
+                  required
+                />
+                <Button type="submit">Create Key</Button>
+              </form>
+              <div className="space-y-2">
+                {apiKeys.map((apiKey) => (
+                  <div key={apiKey.id} className="flex flex-col gap-3 rounded-lg bg-surface-container p-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="font-semibold text-on-surface">{apiKey.name}</p>
+                      <p className="text-sm text-on-surface-variant">
+                        {apiKey.keyPrefix}... • Created {formatDate(apiKey.createdAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={apiKey.revokedAt ? 'error' : 'secondary'}>
+                        {apiKey.revokedAt ? 'Revoked' : 'Active'}
+                      </Badge>
+                      {!apiKey.revokedAt && (
+                        <Button type="button" size="sm" variant="secondary" onClick={() => handleRevokeApiKey(apiKey.id)}>
+                          Revoke
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Webhook className="h-5 w-5 text-secondary" />
+                Webhooks
+              </CardTitle>
+              <CardDescription>Send CRM events to external systems</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {webhookMessage && <AlertMessage message={webhookMessage} />}
+              <form onSubmit={handleCreateWebhook} className="grid gap-3 xl:grid-cols-[1fr_1.5fr_1fr_1fr_auto]">
+                <Input
+                  value={webhookForm.name}
+                  onChange={(event) => setWebhookForm({ ...webhookForm, name: event.target.value })}
+                  placeholder="Name"
+                  required
+                />
+                <Input
+                  type="url"
+                  value={webhookForm.url}
+                  onChange={(event) => setWebhookForm({ ...webhookForm, url: event.target.value })}
+                  placeholder="https://example.com/webhook"
+                  required
+                />
+                <Select
+                  value={webhookForm.event}
+                  onValueChange={(value) => setWebhookForm({ ...webhookForm, event: value as WebhookEvent })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WEBHOOK_EVENTS.map((event) => (
+                      <SelectItem key={event.value} value={event.value}>
+                        {event.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={webhookForm.isActive}
+                  onValueChange={(value) => setWebhookForm({ ...webhookForm, isActive: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Active</SelectItem>
+                    <SelectItem value="false">Paused</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="submit">Add</Button>
+              </form>
+              <div className="space-y-2">
+                {webhooks.map((webhook) => (
+                  <div key={webhook.id} className="rounded-lg bg-surface-container p-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-on-surface">{webhook.name}</p>
+                        <p className="truncate text-sm text-on-surface-variant">{webhook.url}</p>
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          {webhook.event.replace('_', ' ')}
+                          {webhook.lastTriggeredAt ? ` • Last ${formatDate(webhook.lastTriggeredAt)}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={webhook.isActive ? 'secondary' : 'warning'}>
+                          {webhook.isActive ? 'Active' : 'Paused'}
+                        </Badge>
+                        <Button type="button" size="sm" variant="secondary" onClick={() => handleToggleWebhook(webhook)}>
+                          {webhook.isActive ? 'Pause' : 'Resume'}
+                        </Button>
+                        <Button type="button" size="sm" variant="secondary" onClick={() => handleTestWebhook(webhook.id)}>
+                          Test
+                        </Button>
+                        <Button type="button" size="sm" variant="secondary" onClick={() => handleDeleteWebhook(webhook.id)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                    {webhook.deliveries?.[0] && (
+                      <p className="mt-3 text-xs text-on-surface-variant">
+                        Last delivery: {webhook.deliveries[0].status}
+                        {webhook.deliveries[0].responseStatus ? ` (${webhook.deliveries[0].responseStatus})` : ''}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

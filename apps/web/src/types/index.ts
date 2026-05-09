@@ -9,6 +9,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  emailVerifiedAt?: Date | string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +61,64 @@ export interface Activity {
   createdAt: Date;
   lead?: { id: string; fullName: string };
   creator?: { id: string; name: string };
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdAt: Date | string;
+  lastUsedAt?: Date | string | null;
+  revokedAt?: Date | string | null;
+  createdBy?: { id: string; name: string; email: string };
+}
+
+export type WebhookEvent = 'lead_created' | 'deal_created' | 'deal_won' | 'activity_created';
+export type WebhookStatus = 'success' | 'failed';
+
+export interface WebhookDelivery {
+  id: string;
+  endpointId: string;
+  event: WebhookEvent;
+  status: WebhookStatus;
+  responseStatus?: number | null;
+  error?: string | null;
+  createdAt: Date | string;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  name: string;
+  url: string;
+  event: WebhookEvent;
+  secret: string;
+  isActive: boolean;
+  lastTriggeredAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deliveries?: WebhookDelivery[];
+}
+
+export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
+export type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+
+export interface BillingAccount {
+  id: string;
+  workspaceName: string;
+  plan: PlanTier;
+  status: BillingStatus;
+  seats: number;
+  renewalDate?: Date | string | null;
+  externalCustomer?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface SearchResults {
+  leads: Lead[];
+  deals: Deal[];
+  campaigns: Campaign[];
+  activities: Activity[];
 }
 
 export interface DashboardStats {

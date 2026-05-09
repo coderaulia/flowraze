@@ -7,6 +7,7 @@ import type { Activity, ActivityType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ExportControls } from '@/components/export-controls';
 import { cn } from '@/lib/utils';
 
 interface ActivityFeedProps {
@@ -74,8 +75,12 @@ export function ActivityFeed({ leadId, className, title = 'Recent Activity' }: A
 
   return (
     <Card className={cn('flex flex-col', className)}>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>{title}</CardTitle>
+        <ExportControls
+          entity="activities"
+          queryParams={leadId ? new URLSearchParams({ leadId }) : undefined}
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-4 flex-1">
         {leadId && (

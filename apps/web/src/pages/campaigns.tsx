@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
+import { ExportControls } from '@/components/export-controls';
 import { FieldError } from '@/components/ui/field-error';
 import { get, post, put } from '@/lib/api';
 import {
@@ -86,6 +87,9 @@ export function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const search = searchParams.get('search') ?? '';
+  const channelFilter = searchParams.get('channel') ?? '';
+  const startFrom = searchParams.get('startFrom') ?? '';
+  const startTo = searchParams.get('startTo') ?? '';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -111,6 +115,15 @@ export function CampaignsPage() {
     if (search) {
       params.set('search', search);
     }
+    if (channelFilter) {
+      params.set('channel', channelFilter);
+    }
+    if (startFrom) {
+      params.set('startFrom', startFrom);
+    }
+    if (startTo) {
+      params.set('startTo', startTo);
+    }
     params.set('page', String(page));
     params.set('limit', String(PAGE_LIMIT));
 
@@ -120,7 +133,7 @@ export function CampaignsPage() {
       setPagination(response.pagination ?? { page, limit: PAGE_LIMIT, total: response.data.length });
     }
     setIsLoading(false);
-  }, [page, search]);
+  }, [channelFilter, page, search, startFrom, startTo]);
 
   useEffect(() => {
     fetchCampaigns();
@@ -207,6 +220,19 @@ export function CampaignsPage() {
     setSearchParams(nextParams, { replace: true });
   };
 
+  const handleFilterChange = (key: string, value: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (value) {
+      nextParams.set(key, value);
+    } else {
+      nextParams.delete(key);
+    }
+    nextParams.set('page', '1');
+
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const handlePageChange = (nextPage: number) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('page', String(nextPage));
@@ -215,21 +241,24 @@ export function CampaignsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Campaigns</h1>
           <p className="text-on-surface-variant mt-1">
             Track your marketing campaigns and their performance
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Campaign
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportControls entity="campaigns" queryParams={searchParams} />
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Campaign
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search campaigns..."
@@ -238,6 +267,21 @@ export function CampaignsPage() {
             className="pl-10"
           />
         </div>
+        <Input
+          placeholder="Channel"
+          value={channelFilter}
+          onChange={(e) => handleFilterChange('channel', e.target.value)}
+        />
+        <Input
+          type="date"
+          value={startFrom}
+          onChange={(e) => handleFilterChange('startFrom', e.target.value)}
+        />
+        <Input
+          type="date"
+          value={startTo}
+          onChange={(e) => handleFilterChange('startTo', e.target.value)}
+        />
       </div>
 
       <div className="rounded-lg bg-white border border-gray-200 overflow-x-auto">

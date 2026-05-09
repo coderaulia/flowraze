@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { PaginationControls, type PaginationMeta } from '@/components/pagination-controls';
+import { ExportControls } from '@/components/export-controls';
 import { get } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import type { TeamPerformance } from '@/types';
@@ -61,11 +62,14 @@ export function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
           <h1 className="text-2xl font-bold text-primary">Team Performance</h1>
           <p className="text-on-surface-variant mt-1">
           Track your team's sales performance
         </p>
+        </div>
+        <ExportControls entity="team-performance" queryParams={searchParams} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -79,23 +83,23 @@ export function TeamPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-on_surface_variant">Leads</span>
+                <span className="text-xs text-on-surface-variant">Leads</span>
                 <span className="text-sm font-semibold text-primary">
                   {member.leadsAssigned}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-on_surface_variant">Deals Won</span>
+                <span className="text-xs text-on-surface-variant">Deals Won</span>
                 <Badge variant="secondary">{member.dealsWon}</Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-on_surface_variant">Revenue</span>
+                <span className="text-xs text-on-surface-variant">Revenue</span>
                 <span className="text-sm font-semibold text-secondary">
                   {formatCurrency(member.revenueClosed)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-on_surface_variant">Activities</span>
+                <span className="text-xs text-on-surface-variant">Activities</span>
                 <span className="text-sm text-tertiary">
                   {member.activitiesLogged}
                 </span>
@@ -139,7 +143,7 @@ export function TeamPage() {
               ))}
               {teamPerformance.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-on_surface_variant">
+                  <TableCell colSpan={5} className="text-center text-on-surface-variant">
                     No team data available
                   </TableCell>
                 </TableRow>

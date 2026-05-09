@@ -14,6 +14,7 @@ import {
   requireString,
   setIfPresent,
 } from '../utils/request.js';
+import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
 
 const router = Router();
 
@@ -21,13 +22,45 @@ router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const { search } = req.query;
+    const search = getQueryString(req.query.search);
+    const channel = getQueryString(req.query.channel);
+    const minCost = getQueryNumber(req.query.minCost, 'minCost');
+    const maxCost = getQueryNumber(req.query.maxCost, 'maxCost');
+    const createdFrom = getQueryDate(req.query.createdFrom, 'createdFrom');
+    const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
+    const startFrom = getQueryDate(req.query.startFrom, 'startFrom');
+    const startTo = getQueryDate(req.query.startTo, 'startTo');
     const where: Prisma.CampaignWhereInput = {};
+
+    if (channel) {
+      where.channel = { contains: channel, mode: 'insensitive' };
+    }
+
+    if (minCost !== undefined || maxCost !== undefined) {
+      where.cost = {
+        ...(minCost !== undefined ? { gte: minCost } : {}),
+        ...(maxCost !== undefined ? { lte: maxCost } : {}),
+      };
+    }
+
+    if (createdFrom || createdTo) {
+      where.createdAt = {
+        ...(createdFrom ? { gte: createdFrom } : {}),
+        ...(createdTo ? { lte: createdTo } : {}),
+      };
+    }
+
+    if (startFrom || startTo) {
+      where.startDate = {
+        ...(startFrom ? { gte: startFrom } : {}),
+        ...(startTo ? { lte: startTo } : {}),
+      };
+    }
 
     if (search) {
       where.OR = [
-        { name: { contains: String(search), mode: 'insensitive' } },
-        { channel: { contains: String(search), mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { channel: { contains: search, mode: 'insensitive' } },
       ];
     }
 

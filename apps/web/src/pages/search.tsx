@@ -3,12 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { get } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Lead, Deal, Campaign } from '@/types';
+import type { Activity, SearchResults } from '@/types';
 
-interface SearchResults {
-  leads: Lead[];
-  deals: Deal[];
-  campaigns: Campaign[];
+type SearchSection = 'leads' | 'deals' | 'campaigns' | 'activities';
+
+function resultCount(results: SearchResults | null, section: SearchSection) {
+  return results?.[section].length ?? 0;
 }
 
 export function SearchPage() {
@@ -36,7 +36,7 @@ export function SearchPage() {
   if (!q) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant">
-        <p>Type in the search bar to find leads, deals, and campaigns.</p>
+        <p>Type in the search bar to find leads, deals, campaigns, and activities.</p>
       </div>
     );
   }
@@ -55,7 +55,7 @@ export function SearchPage() {
       ) : results ? (
         <div className="space-y-8">
           <section>
-            <h2 className="text-lg font-semibold text-primary mb-4">Leads ({results.leads.length})</h2>
+            <h2 className="text-lg font-semibold text-primary mb-4">Leads ({resultCount(results, 'leads')})</h2>
             {results.leads.length === 0 ? (
               <p className="text-sm text-on-surface-variant">No leads found.</p>
             ) : (
@@ -77,7 +77,7 @@ export function SearchPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-primary mb-4">Deals ({results.deals.length})</h2>
+            <h2 className="text-lg font-semibold text-primary mb-4">Deals ({resultCount(results, 'deals')})</h2>
             {results.deals.length === 0 ? (
               <p className="text-sm text-on-surface-variant">No deals found.</p>
             ) : (
@@ -89,7 +89,7 @@ export function SearchPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm font-semibold mb-2">IDR {deal.value?.toLocaleString()}</p>
-                      <div className="mt-4"><Badge variant="outline">{deal.stage}</Badge></div>
+                      <div className="mt-4"><Badge variant="default">{deal.stage}</Badge></div>
                     </CardContent>
                   </Card>
                 ))}
@@ -98,7 +98,7 @@ export function SearchPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-primary mb-4">Campaigns ({results.campaigns.length})</h2>
+            <h2 className="text-lg font-semibold text-primary mb-4">Campaigns ({resultCount(results, 'campaigns')})</h2>
             {results.campaigns.length === 0 ? (
               <p className="text-sm text-on-surface-variant">No campaigns found.</p>
             ) : (
@@ -111,6 +111,30 @@ export function SearchPage() {
                     <CardContent>
                       <p className="text-sm text-on-surface-variant mb-2">{campaign.channel}</p>
                       <div className="mt-4"><Badge variant="secondary">IDR {campaign.cost?.toLocaleString() || 0}</Badge></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-primary mb-4">Activities ({resultCount(results, 'activities')})</h2>
+            {results.activities.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">No activities found.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {results.activities.map((activity: Activity) => (
+                  <Card key={activity.id}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{activity.type.replace('_', ' ')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-on-surface-variant line-clamp-3">{activity.content}</p>
+                      <p className="mt-3 text-xs text-on-surface-variant">
+                        {activity.creator?.name || 'Unknown user'}
+                        {activity.lead ? ` • ${activity.lead.fullName}` : ''}
+                      </p>
                     </CardContent>
                   </Card>
                 ))}

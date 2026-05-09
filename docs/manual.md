@@ -50,18 +50,19 @@ Admins have all the capabilities of a Staff member, plus access to team manageme
 Superadmins have full unrestricted access to the entire FlowRaze system. This role is typically reserved for founders, IT administrators, or system integrators.
 
 ### System Settings & Security
-- **Global Configuration**: Manage system-wide settings, default currencies, and application behaviors.
+- **Profile & Security**: Update your profile, request/confirm email verification, and run password reset flows from Settings.
+- **Billing**: Manage the workspace plan, status, seats, renewal date, and external customer reference.
 - **Role Management**: Superadmins can promote Staff to Admins or demote Admins as necessary.
-- **Data Export & Import**: (Feature coming soon) Superadmins will have the authority to bulk export CRM data (CSV/PDF) for external backups or accounting purposes.
+- **Data Export**: Export leads, deals, campaigns, activities, and team performance as CSV or PDF reports.
 
 ### Technical Administration
-- **API Access**: Superadmins can generate API keys for integrating FlowRaze with external tools (e.g., Zapier, Custom Webhooks).
-- **Billing & Subscription**: If FlowRaze is deployed in a multi-tenant or SaaS environment, Superadmins handle the subscription tier and billing details.
+- **API Access**: Superadmins can generate and revoke API keys for integrating FlowRaze with external tools.
+- **Webhooks**: Superadmins can create, pause, test, and delete webhook endpoints for CRM events such as lead creation, deal wins, and activity logs.
 
 ---
 
 ## Troubleshooting & Support
 
-- **Forgot Password**: Use the "Forgot Password" link on the login screen. An admin can also manually reset your access if needed.
+- **Forgot Password**: Use the password reset controls on the login screen. In the MVP, reset tokens are surfaced directly for manual QA until email delivery is connected.
 - **Data Not Loading**: Try refreshing the page. If the issue persists, ensure you are connected to the internet. If you see a "Network Error", contact your Superadmin to ensure the backend API is running.
 - **Missing Features**: If you cannot see certain pages (like "Users" or "Campaigns"), it is likely because your account is set to the **Staff** role. Contact your Admin to request a role change if necessary.

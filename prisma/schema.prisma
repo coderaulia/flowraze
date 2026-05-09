@@ -8,17 +8,24 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(staff)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                       String    @id @default(cuid())
+  email                    String    @unique
+  password                 String
+  name                     String
+  role                     Role      @default(staff)
+  emailVerifiedAt          DateTime?
+  emailVerificationToken   String?   @unique
+  passwordResetToken       String?   @unique
+  passwordResetRequestedAt DateTime?
+  passwordResetExpiresAt   DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  leads     Lead[]
-  deals     Deal[]
-  activities Activity[]
+  leads                    Lead[]
+  deals                    Deal[]
+  activities               Activity[]
+  apiKeys                  ApiKey[]
+  webhookEndpoints         WebhookEndpoint[]
 }
 
 enum Role {
@@ -112,4 +119,84 @@ enum ActivityType {
   note
   call
   follow_up
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  keyPrefix   String
+  createdById String
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  createdBy   User      @relation(fields: [createdById], references: [id])
+}
+
+model WebhookEndpoint {
+  id              String            @id @default(cuid())
+  name            String
+  url             String
+  event           WebhookEvent
+  secret          String
+  isActive        Boolean           @default(true)
+  createdById     String
+  lastTriggeredAt DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  createdBy       User              @relation(fields: [createdById], references: [id])
+  deliveries      WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id              String          @id @default(cuid())
+  endpointId      String
+  event           WebhookEvent
+  payload         Json
+  status          WebhookStatus
+  responseStatus  Int?
+  error           String?
+  createdAt       DateTime        @default(now())
+
+  endpoint        WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+}
+
+enum WebhookEvent {
+  lead_created
+  deal_created
+  deal_won
+  activity_created
+}
+
+enum WebhookStatus {
+  success
+  failed
+}
+
+model BillingAccount {
+  id               String        @id @default(cuid())
+  workspaceName    String        @default("FlowRaze Workspace")
+  plan             PlanTier      @default(free)
+  status           BillingStatus @default(trialing)
+  seats            Int           @default(3)
+  renewalDate      DateTime?
+  externalCustomer String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+enum PlanTier {
+  free
+  growth
+  pro
+  custom
+}
+
+enum BillingStatus {
+  trialing
+  active
+  past_due
+  canceled
 }

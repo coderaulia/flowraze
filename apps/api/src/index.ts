@@ -10,6 +10,10 @@ import dashboardRoutes from './routes/dashboard.js';
 import teamRoutes from './routes/team.js';
 import usersRoutes from './routes/users.js';
 import searchRoutes from './routes/search.js';
+import apiKeysRoutes from './routes/api-keys.js';
+import billingRoutes from './routes/billing.js';
+import exportsRoutes from './routes/exports.js';
+import webhooksRoutes from './routes/webhooks.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -39,6 +43,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/api-keys', apiKeysRoutes);
+app.use('/api/billing', billingRoutes);
+app.use('/api/exports', exportsRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

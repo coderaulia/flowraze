@@ -13,6 +13,8 @@ import {
   requireString,
   setIfPresent,
 } from '../utils/request.js';
+import { getQueryDate, getQueryString } from '../utils/query.js';
+import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
 
 const router = Router();
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified'] as const;
@@ -21,22 +23,44 @@ router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const { status, source, search } = req.query;
-    const where: Record<string, unknown> = {};
+    const status = getQueryString(req.query.status);
+    const source = getQueryString(req.query.source);
+    const search = getQueryString(req.query.search);
+    const ownerId = getQueryString(req.query.ownerId);
+    const campaignId = getQueryString(req.query.campaignId);
+    const createdFrom = getQueryDate(req.query.createdFrom, 'createdFrom');
+    const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
+    const where: Prisma.LeadWhereInput = {};
 
     if (status) {
-      where.status = status;
+      where.status = status as Prisma.EnumLeadStatusFilter['equals'];
     }
 
     if (source) {
-      where.source = { contains: String(source), mode: 'insensitive' };
+      where.source = { contains: source, mode: 'insensitive' };
+    }
+
+    if (ownerId) {
+      where.ownerId = ownerId;
+    }
+
+    if (campaignId) {
+      where.campaignId = campaignId;
+    }
+
+    if (createdFrom || createdTo) {
+      where.createdAt = {
+        ...(createdFrom ? { gte: createdFrom } : {}),
+        ...(createdTo ? { lte: createdTo } : {}),
+      };
     }
 
     if (search) {
       where.OR = [
-        { fullName: { contains: String(search), mode: 'insensitive' } },
-        { email: { contains: String(search), mode: 'insensitive' } },
-        { companyName: { contains: String(search), mode: 'insensitive' } },
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { companyName: { contains: search, mode: 'insensitive' } },
+        { notes: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -104,6 +128,10 @@ router.post('/', async (req: AuthRequest, res, next) => {
       include: {
         owner: { select: { id: true, name: true } },
       },
+    });
+
+    void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead })).catch((error) => {
+      console.error('Lead webhook dispatch failed:', error);
     });
 
     res.status(201).json({ success: true, data: lead });

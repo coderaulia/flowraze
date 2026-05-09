@@ -19,6 +19,49 @@ const USER_ROLES = ['superadmin', 'admin', 'staff'] as const;
 
 router.use(authenticate);
 
+const userSelect = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  emailVerifiedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
+
+async function ensureNotRemovingLastSuperadmin(userId: string, nextRole?: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (!user || user.role !== 'superadmin' || nextRole === 'superadmin') {
+    return;
+  }
+
+  const superadminCount = await prisma.user.count({ where: { role: 'superadmin' } });
+  if (superadminCount <= 1) {
+    throw new AppError(400, 'At least one superadmin is required');
+  }
+}
+
+router.get('/me', async (req: AuthRequest, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: userSelect,
+    });
+
+    if (!user) {
+      throw new AppError(404, 'User not found');
+    }
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.put('/me', async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
@@ -42,14 +85,7 @@ router.put('/me', async (req: AuthRequest, res, next) => {
     const user = await prisma.user.update({
       where: { id: req.userId },
       data: updateData as Prisma.UserUpdateInput,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: userSelect,
     });
 
     res.json({ success: true, data: user });
@@ -63,14 +99,7 @@ router.get('/', requireRole('superadmin'), async (req: AuthRequest, res, next) =
     const pagination = getPagination(req.query);
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: userSelect,
         orderBy: { createdAt: 'desc' },
         ...getPaginationArgs(pagination),
       }),
@@ -87,14 +116,7 @@ router.get('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: userSelect,
     });
 
     if (!user) {
@@ -129,14 +151,7 @@ router.post('/', requireRole('superadmin'), async (req: AuthRequest, res, next) 
         name,
         role: optionalEnum(USER_ROLES, 'Role')(body.role) || 'staff',
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: userSelect,
     });
 
     res.status(201).json({ success: true, data: user });
@@ -147,6 +162,11 @@ router.post('/', requireRole('superadmin'), async (req: AuthRequest, res, next) 
 
 router.put('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
   try {
+    const userId = req.params.id;
+    if (!userId) {
+      throw new AppError(400, 'User id is required');
+    }
+
     const body = requireObjectBody(req.body);
     const updateData: Record<string, unknown> = {};
 
@@ -163,18 +183,12 @@ router.put('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next
       }
     }
     requireAtLeastOneField(updateData);
+    await ensureNotRemovingLastSuperadmin(userId, updateData.role as string | undefined);
 
     const user = await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: userId },
       data: updateData as Prisma.UserUpdateInput,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: userSelect,
     });
 
     res.json({ success: true, data: user });
@@ -185,11 +199,18 @@ router.put('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next
 
 router.delete('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
   try {
-    if (req.params.id === req.userId) {
+    const userId = req.params.id;
+    if (!userId) {
+      throw new AppError(400, 'User id is required');
+    }
+
+    if (userId === req.userId) {
       throw new AppError(400, 'Cannot delete your own account');
     }
 
-    await prisma.user.delete({ where: { id: req.params.id } });
+    await ensureNotRemovingLastSuperadmin(userId);
+
+    await prisma.user.delete({ where: { id: userId } });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);
