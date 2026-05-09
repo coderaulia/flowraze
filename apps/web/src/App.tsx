@@ -12,6 +12,7 @@ import { CampaignsPage } from './pages/campaigns';
 import { TeamPage } from './pages/team';
 import { SettingsPage } from './pages/settings';
 import { UsersPage } from './pages/users';
+import { SearchPage } from './pages/search';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -110,6 +111,17 @@ function App() {
           }
         >
           <Route index element={<UsersPage />} />
+        </Route>
+        
+        <Route
+          path="/search"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<SearchPage />} />
         </Route>
         
         {/* Catch all - redirect to landing */}

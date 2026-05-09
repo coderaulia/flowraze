@@ -26,7 +26,7 @@ export function Layout() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    setGlobalSearch(location.pathname === '/leads' ? params.get('search') ?? '' : '');
+    setGlobalSearch(location.pathname === '/search' ? params.get('q') ?? '' : '');
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export function Layout() {
     event.preventDefault();
 
     const query = globalSearch.trim();
-    navigate(query ? `/leads?search=${encodeURIComponent(query)}` : '/leads');
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
   };
 
   const navItems = [

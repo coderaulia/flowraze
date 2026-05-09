@@ -226,11 +226,11 @@ export function DealsPage() {
         </Button>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-p-4">
         {STAGES.map((stage) => (
           <div
             key={stage.id}
-            className="flex-shrink-0 w-72"
+            className="flex-shrink-0 w-[85vw] sm:w-72 snap-center"
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, stage.id)}
           >

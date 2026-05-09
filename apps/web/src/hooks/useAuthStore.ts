@@ -16,6 +16,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
+  updateUser: (user: Partial<User>) => void;
   isSuperadmin: () => boolean;
   isAdmin: () => boolean;
 }
@@ -33,6 +34,12 @@ export const useAuthStore = create<AuthState>()(
       
       clearAuth: () => {
         set({ user: null, token: null, isAuthenticated: false });
+      },
+      
+      updateUser: (updatedUser) => {
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updatedUser } : null,
+        }));
       },
       
       isSuperadmin: () => {

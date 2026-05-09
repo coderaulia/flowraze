@@ -293,7 +293,7 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-64 sm:h-72 lg:h-80">
               {hasSourceData ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={leadsBySourceData} margin={{ left: -18, right: 8, top: 12 }}>
@@ -323,7 +323,7 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center">
+            <div className="h-64 sm:h-72 lg:h-80 flex items-center justify-center">
               {hasStageData ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -365,7 +365,7 @@ export function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
+              <div className="h-64 sm:h-72 lg:h-80">
                 {hasRevenueData ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={stats?.revenueOverTime || []} margin={{ left: 0, right: 20, top: 12 }}>
@@ -397,7 +397,7 @@ export function DashboardPage() {
           </Card>
         </div>
         <div className="lg:col-span-1">
-          <ActivityFeed className="h-[360px]" />
+          <ActivityFeed className="h-[360px] lg:h-full lg:min-h-[400px]" />
         </div>
       </div>
     </div>

@@ -19,6 +19,45 @@ const USER_ROLES = ['superadmin', 'admin', 'staff'] as const;
 
 router.use(authenticate);
 
+router.put('/me', async (req: AuthRequest, res, next) => {
+  try {
+    const body = requireObjectBody(req.body);
+    const updateData: Record<string, unknown> = {};
+
+    setIfPresent(updateData, body, 'name', optionalNonEmptyString);
+    if (Object.prototype.hasOwnProperty.call(body, 'password')) {
+      const password = body.password;
+      if (typeof password !== 'string') {
+        throw new AppError(400, 'Password must be a string');
+      }
+      if (password) {
+        updateData.password = await bcrypt.hash(password, 10);
+      }
+    }
+    
+    if (Object.keys(updateData).length === 0) {
+      throw new AppError(400, 'No valid fields provided for update');
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: updateData as Prisma.UserUpdateInput,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
   try {
     const pagination = getPagination(req.query);
