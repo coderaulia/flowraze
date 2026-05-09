@@ -13,7 +13,10 @@ import {
   Search,
   Menu,
   X,
+  Target,
+  Activity,
 } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/hooks/useAuthStore';
 
@@ -47,12 +50,15 @@ export function Layout() {
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/targets', icon: Target, label: 'Targets' },
     { to: '/leads', icon: Users, label: 'Leads' },
     { to: '/deals', icon: Briefcase, label: 'Deals' },
     { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
+    { to: '/activities', icon: Activity, label: 'Activities' },
     { to: '/team', icon: UserCircle, label: 'Team' },
     ...(isSuperadmin() ? [{ to: '/users', icon: Shield, label: 'Users' }] : []),
   ];
+
 
   return (
     <div className="flex min-h-full">
@@ -111,20 +117,10 @@ export function Layout() {
           ))}
         </nav>
 
-        <div className="px-4 py-4">
-          <button 
-            className="w-full py-3 px-4 bg-gradient-to-br from-primary to-[#2A3BB0] text-white rounded-xl font-semibold shadow-md flex items-center justify-center gap-2"
-            onClick={() => {
-              setIsSidebarOpen(false);
-              navigate('/leads?new=true');
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Lead
-          </button>
-        </div>
 
-        <div className="mt-auto px-3 py-4 space-y-1 border-t border-slate-200/50">
+
+        <div className="mt-auto">
+          <div className="px-3 py-4 space-y-1 border-t border-slate-200/50">
           <NavLink
             to="/settings"
             className={({ isActive }) =>
@@ -146,6 +142,7 @@ export function Layout() {
             <LogOut className="h-5 w-5" />
             Sign out
           </button>
+          </div>
         </div>
       </aside>
 
@@ -182,6 +179,17 @@ export function Layout() {
         <main className="flex-1 overflow-auto bg-surface px-4 pb-8 pt-32 sm:px-6 sm:pt-24 lg:px-8">
           <Outlet />
         </main>
+      </div>
+
+      {/* Floating Action Button (FAB) */}
+      <div className="fixed bottom-6 right-6 z-40 sm:bottom-8 sm:right-8">
+        <button
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#2A3BB0] text-white shadow-2xl shadow-primary/40 transition-all duration-300 hover:scale-110 hover:rotate-90 active:scale-95 group"
+          onClick={() => navigate('/leads?new=true')}
+          title="Add Lead"
+        >
+          <Plus className="h-7 w-7 transition-transform group-hover:scale-110" />
+        </button>
       </div>
     </div>
   );

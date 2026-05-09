@@ -399,7 +399,11 @@ export function DashboardPage() {
           </Card>
         </div>
         <div className="lg:col-span-1">
-          <ActivityFeed className="h-[360px] lg:h-full lg:min-h-[400px]" />
+          <ActivityFeed 
+            className="h-[360px] lg:h-full lg:min-h-[400px]" 
+            maxItems={5}
+            showViewAll={true}
+          />
         </div>
       </div>
 

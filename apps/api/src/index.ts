@@ -16,7 +16,9 @@ import apiKeysRoutes from './routes/api-keys.js';
 import billingRoutes from './routes/billing.js';
 import exportsRoutes from './routes/exports.js';
 import webhooksRoutes from './routes/webhooks.js';
+import targetsRoutes from './routes/targets.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { processPendingWebhooks } from './utils/webhooks.js';
 
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
@@ -56,6 +58,7 @@ app.use('/api/api-keys', apiKeysRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/exports', exportsRoutes);
 app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/targets', targetsRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -65,5 +68,12 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  
+  // Start webhook retry processor
+  setInterval(() => {
+    processPendingWebhooks().catch(err => {
+      console.error('Webhook retry processor error:', err);
+    });
+  }, 60 * 1000); // Check every minute
 });
 

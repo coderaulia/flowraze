@@ -13,6 +13,8 @@ import { TeamPage } from './pages/team';
 import { SettingsPage } from './pages/settings';
 import { UsersPage } from './pages/users';
 import { SearchPage } from './pages/search';
+import { TargetsPage } from './pages/targets';
+import { ActivitiesPage } from './pages/activities';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -44,6 +46,17 @@ function App() {
           }
         >
           <Route index element={<DashboardPage />} />
+        </Route>
+
+        <Route
+          path="/targets"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<TargetsPage />} />
         </Route>
         
         <Route
@@ -110,6 +123,17 @@ function App() {
           }
         >
           <Route index element={<UsersPage />} />
+        </Route>
+        
+        <Route
+          path="/activities"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<ActivitiesPage />} />
         </Route>
         
         <Route

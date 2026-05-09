@@ -251,6 +251,7 @@ NODE_ENV=development
 - [x] Superadmins can manage roles, API keys, webhooks, and billing state
 - [x] Leads, deals, campaigns, activities, and team performance support CSV/PDF export
 - [x] List/export endpoints support combined filters for core CRM views
+- [x] Sales Targets Tracking (company, team, and individual achievement)
 
 ### In Progress
 - None

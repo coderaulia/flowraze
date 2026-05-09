@@ -299,6 +299,16 @@ export function SettingsPage() {
     }
   };
 
+  const handleReplayWebhook = async (id: string, deliveryId: string) => {
+    const response = await post<{ replayed: boolean }>(`/webhooks/${id}/deliveries/${deliveryId}/replay`, {});
+    setWebhookMessage({
+      type: response.success ? 'success' : 'error',
+      text: response.success ? 'Webhook delivery replay scheduled.' : response.error || 'Unable to replay delivery.',
+    });
+    // Optional: wait a moment for the replay to process before fetching
+    setTimeout(fetchAdminTools, 1000);
+  };
+
   const handleSaveBilling = async (event: React.FormEvent) => {
     event.preventDefault();
     setBillingMessage(null);
@@ -639,10 +649,23 @@ export function SettingsPage() {
                       </div>
                     </div>
                     {webhook.deliveries?.[0] && (
-                      <p className="mt-3 text-xs text-on-surface-variant">
-                        Last delivery: {webhook.deliveries[0].status}
-                        {webhook.deliveries[0].responseStatus ? ` (${webhook.deliveries[0].responseStatus})` : ''}
-                      </p>
+                      <div className="mt-3 flex items-center justify-between text-xs text-on-surface-variant">
+                        <span>
+                          Last delivery: {webhook.deliveries[0].status}
+                          {webhook.deliveries[0].responseStatus ? ` (${webhook.deliveries[0].responseStatus})` : ''}
+                        </span>
+                        {(webhook.deliveries[0].status === 'failed' || webhook.deliveries[0].status === 'pending') && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="h-6 text-xs"
+                            onClick={() => handleReplayWebhook(webhook.id, webhook.deliveries![0].id)}
+                          >
+                            Replay
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}

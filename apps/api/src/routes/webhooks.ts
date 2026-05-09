@@ -12,7 +12,7 @@ import {
 } from '../utils/request.js';
 import { getQueryBoolean } from '../utils/query.js';
 import { createWebhookSecret } from '../utils/security.js';
-import { dispatchWebhookEvent } from '../utils/webhooks.js';
+import { dispatchWebhookEvent, processWebhookDelivery } from '../utils/webhooks.js';
 
 const router = Router();
 const WEBHOOK_EVENTS = ['lead_created', 'deal_created', 'deal_won', 'activity_created'] as const;
@@ -139,6 +139,38 @@ router.post('/:id/test', async (req: AuthRequest, res, next) => {
     });
 
     res.json({ success: true, data: { sent: true } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:id/deliveries/:deliveryId/replay', async (req: AuthRequest, res, next) => {
+  try {
+    const delivery = await prisma.webhookDelivery.findUnique({
+      where: {
+        id: req.params.deliveryId,
+        endpointId: req.params.id,
+      },
+    });
+
+    if (!delivery) {
+      throw new AppError(404, 'Webhook delivery not found');
+    }
+
+    await prisma.webhookDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        status: 'pending',
+        retryCount: 0,
+        nextRetryAt: new Date(),
+        error: null,
+      },
+    });
+
+    // We can run it in the background or immediately
+    processWebhookDelivery(delivery.id).catch(console.error);
+
+    res.json({ success: true, data: { replayed: true } });
   } catch (error) {
     next(error);
   }

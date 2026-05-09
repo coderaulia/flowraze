@@ -191,6 +191,12 @@ async function main() {
 
   console.log('Created activities:', activitiesData.length);
 
+  // Update campaigns to have types (matching Campaign.type used by target categories)
+  await prisma.campaign.update({ where: { id: campaign1.id }, data: { type: 'Project' } });
+  await prisma.campaign.update({ where: { id: campaign2.id }, data: { type: 'Retainer' } });
+  await prisma.campaign.update({ where: { id: campaign3.id }, data: { type: 'GMV' } });
+  await prisma.campaign.update({ where: { id: campaign4.id }, data: { type: 'Project' } });
+
   const billingAccount = await prisma.billingAccount.upsert({
     where: { id: 'default-workspace' },
     update: {},
@@ -203,8 +209,99 @@ async function main() {
       renewalDate: new Date('2026-12-01'),
     },
   });
+  console.log('Created billing account:', billingAccount.id);
 
-  console.log('Created billing account:', billingAccount);
+  // ── Sales Teams ────────────────────────────────────────────────────────────
+  const teamAlpha = await prisma.salesTeam.upsert({
+    where: { id: 'team-alpha' },
+    update: {},
+    create: { id: 'team-alpha', name: 'Team Alpha', managerId: admin.id },
+  });
+  const teamBeta = await prisma.salesTeam.upsert({
+    where: { id: 'team-beta' },
+    update: {},
+    create: { id: 'team-beta', name: 'Team Beta', managerId: superadmin.id },
+  });
+
+  // Members
+  for (const [teamId, userId] of [
+    [teamAlpha.id, staff1.id],
+    [teamAlpha.id, admin.id],
+    [teamBeta.id, staff2.id],
+  ]) {
+    await prisma.salesTeamMember.upsert({
+      where: { teamId_userId: { teamId, userId } },
+      update: {},
+      create: { teamId, userId },
+    });
+  }
+  console.log('Created sales teams');
+
+  // ── Sales Targets 2026 ────────────────────────────────────────────────────
+  // Annual company target: Rp 24.6B
+  const ANNUAL = 24_643_948_000;
+
+  // Quarterly shares (manual, seasonal): Q1=30%, Q2=30%, Q3=20%, Q4=20%
+  const qShares = [30, 30, 20, 20];
+  // Monthly shares within each quarter (manual): equal thirds for now
+  const mSharesInQ = [33.3, 33.3, 33.4];
+
+  // Category split per quarter (approx): Project 91.6%, GMV 7.7%, Retainer 0.7%
+  const catSplits: Record<string, number> = { Project: 0.916, GMV: 0.077, Retainer: 0.007 };
+
+  // Yearly company target
+  await prisma.salesTarget.create({
+    data: { name: 'Company Revenue 2026', scope: 'company', period: 'yearly', year: 2026, targetValue: ANNUAL, targetLeads: 200, targetDeals: 80 },
+  });
+
+  for (let q = 1; q <= 4; q++) {
+    const qTarget = ANNUAL * (qShares[q - 1]! / 100);
+
+    // Quarterly company target
+    await prisma.salesTarget.create({
+      data: { name: `Company Q${q} 2026`, scope: 'company', period: 'quarterly', year: 2026, quarter: q, targetValue: qTarget, shareOfParent: qShares[q - 1] },
+    });
+
+    // Quarterly category targets
+    for (const [cat, split] of Object.entries(catSplits)) {
+      await prisma.salesTarget.create({
+        data: { name: `Company Q${q} 2026 - ${cat}`, scope: 'company', period: 'quarterly', year: 2026, quarter: q, targetValue: qTarget * split, category: cat, shareOfParent: qShares[q - 1] },
+      });
+    }
+
+    // Monthly targets within quarter
+    for (let m = 0; m < 3; m++) {
+      const monthIndex = (q - 1) * 3 + m + 1;
+      const mTarget = qTarget * (mSharesInQ[m]! / 100);
+      await prisma.salesTarget.create({
+        data: { name: `Company M${monthIndex} 2026`, scope: 'company', period: 'monthly', year: 2026, quarter: q, month: monthIndex, targetValue: mTarget, shareOfParent: mSharesInQ[m] },
+      });
+      // Monthly category targets
+      for (const [cat, split] of Object.entries(catSplits)) {
+        await prisma.salesTarget.create({
+          data: { name: `Company M${monthIndex} 2026 - ${cat}`, scope: 'company', period: 'monthly', year: 2026, quarter: q, month: monthIndex, targetValue: mTarget * split, category: cat, shareOfParent: mSharesInQ[m] },
+        });
+      }
+    }
+  }
+
+  // Individual targets for staff (yearly)
+  await prisma.salesTarget.create({
+    data: { name: 'Sarah 2026', scope: 'individual', period: 'yearly', year: 2026, userId: staff1.id, targetValue: 8_000_000_000, targetLeads: 70, targetDeals: 28 },
+  });
+  await prisma.salesTarget.create({
+    data: { name: 'Michael 2026', scope: 'individual', period: 'yearly', year: 2026, userId: staff2.id, targetValue: 6_000_000_000, targetLeads: 50, targetDeals: 20 },
+  });
+  await prisma.salesTarget.create({
+    data: { name: 'Admin 2026', scope: 'individual', period: 'yearly', year: 2026, userId: admin.id, targetValue: 10_000_000_000, targetLeads: 80, targetDeals: 32 },
+  });
+
+  // Team Alpha yearly target
+  await prisma.salesTarget.create({
+    data: { name: 'Team Alpha 2026', scope: 'team', period: 'yearly', year: 2026, teamId: teamAlpha.id, targetValue: 18_000_000_000 },
+  });
+
+  console.log('Created sales teams and targets');
   console.log('Database seeded successfully!');
 }
 

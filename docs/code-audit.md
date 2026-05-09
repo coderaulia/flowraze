@@ -10,7 +10,7 @@ The audit items from the previous pass are now implemented in the codebase:
 - **Global Search**: Header search now routes to `/search` and the backend searches leads, deals, campaigns, and activities.
 - **Security Workflows**: Auth now supports email verification tokens and password-reset request/confirm endpoints. Manual QA tokens have been replaced with a `nodemailer` service that safely logs locally and supports SMTP configuration.
 - **API Keys**: Superadmins can create/revoke API keys. API key authentication is supported through `X-API-Key`.
-- **Webhooks**: Superadmins can create, pause, test, and delete event webhooks. Lead, deal, and activity writes dispatch persisted webhook deliveries.
+- **Webhooks**: Superadmins can create, pause, test, and delete event webhooks. Lead, deal, and activity writes dispatch persisted webhook deliveries with exponential backoff for failures and UI controls for manual replay.
 - **Billing**: A persisted workspace billing account exists with editable plan, status, seats, renewal date, and external customer reference.
 - **Exporting**: Leads, deals, campaigns, activities, and team performance can be exported as CSV or lightweight PDF reports.
 - **Advanced Filtering**: List/export endpoints support combined search/filter query params for common CRM fields and date/value ranges.
@@ -38,5 +38,4 @@ npm run build
 ## Remaining Watch Items
 
 - PDF export is dependency-free and intentionally simple. Replace it with a richer renderer only after choosing a PDF dependency.
-- Webhook delivery is synchronous per event dispatch worker and records status; production deployments may later want retries/backoff.
 - `betterauth`, Turborepo, and paid subscription provider integration remain future architecture choices, not current blockers.

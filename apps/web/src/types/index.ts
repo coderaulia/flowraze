@@ -82,7 +82,7 @@ export interface ApiKey {
 }
 
 export type WebhookEvent = 'lead_created' | 'deal_created' | 'deal_won' | 'activity_created';
-export type WebhookStatus = 'success' | 'failed';
+export type WebhookStatus = 'pending' | 'success' | 'failed';
 
 export interface WebhookDelivery {
   id: string;
@@ -91,6 +91,8 @@ export interface WebhookDelivery {
   status: WebhookStatus;
   responseStatus?: number | null;
   error?: string | null;
+  retryCount: number;
+  nextRetryAt?: Date | string | null;
   createdAt: Date | string;
 }
 
@@ -148,6 +150,90 @@ export interface TeamPerformance {
   dealsWon: number;
   revenueClosed: number;
   activitiesLogged: number;
+}
+
+export type TargetScope = 'company' | 'team' | 'individual';
+export type TargetPeriod = 'monthly' | 'quarterly' | 'yearly';
+
+export interface SalesTeam {
+  id: string;
+  name: string;
+  managerId: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  manager?: { id: string; name: string; email: string };
+  members?: { teamId: string; userId: string; user: User }[];
+}
+
+export interface SalesTarget {
+  id: string;
+  name: string;
+  scope: TargetScope;
+  userId?: string | null;
+  teamId?: string | null;
+  period: TargetPeriod;
+  year: number;
+  quarter?: number | null;
+  month?: number | null;
+  targetValue: number;
+  targetLeads?: number | null;
+  targetDeals?: number | null;
+  category?: string | null;
+  shareOfParent?: number | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  user?: { id: string; name: string };
+  team?: { id: string; name: string };
+}
+
+export interface TargetAchievement {
+  year: number;
+  quarter: number | null;
+  month: number | null;
+  period: TargetPeriod;
+  scope: TargetScope;
+  revenueTarget: number;
+  revenueActual: number;
+  achievementPct: number;
+  remainingTarget: number;
+  leadsTarget: number | null;
+  leadsActual: number;
+  dealsTarget: number | null;
+  dealsActual: number;
+  activeCampaigns: number;
+  categories: {
+    name: string;
+    target: number;
+    actual: number;
+    pct: number;
+  }[];
+  monthlyBreakdown: {
+    month: string;
+    monthIndex: number;
+    quarter: number;
+    target: number;
+    actual: number;
+    pct: number;
+    shareOfParent: number | null;
+    remaining: number;
+    qTarget: number;
+  }[];
+  quarterlyBreakdown: {
+    quarter: string;
+    quarterIndex: number;
+    target: number;
+    actual: number;
+    pct: number;
+    shareOfParent: number | null;
+    remaining: number;
+  }[];
+  leaderboard: {
+    userId: string;
+    userName: string;
+    actual: number;
+    target: number;
+    pct: number;
+  }[];
 }
 
 export interface ApiResponse<T> {

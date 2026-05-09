@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Phone, Calendar, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -14,6 +15,8 @@ interface ActivityFeedProps {
   leadId?: string;
   className?: string;
   title?: string;
+  maxItems?: number;
+  showViewAll?: boolean;
 }
 
 const ACTIVITY_ICONS: Record<ActivityType, React.ElementType> = {
@@ -28,7 +31,13 @@ const ACTIVITY_COLORS: Record<ActivityType, string> = {
   follow_up: 'bg-tertiary/15 text-tertiary',
 };
 
-export function ActivityFeed({ leadId, className, title = 'Recent Activity' }: ActivityFeedProps) {
+export function ActivityFeed({ 
+  leadId, 
+  className, 
+  title = 'Recent Activity',
+  maxItems,
+  showViewAll = false
+}: ActivityFeedProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -124,7 +133,7 @@ export function ActivityFeed({ leadId, className, title = 'Recent Activity' }: A
             </div>
           ) : (
             <div className="space-y-4">
-              {activities.map((activity) => {
+              {(maxItems ? activities.slice(0, maxItems) : activities).map((activity) => {
                 const Icon = ACTIVITY_ICONS[activity.type];
                 return (
                   <div key={activity.id} className="flex gap-3">
@@ -157,6 +166,18 @@ export function ActivityFeed({ leadId, className, title = 'Recent Activity' }: A
             </div>
           )}
         </div>
+
+        {showViewAll && activities.length > (maxItems || 0) && (
+          <div className="mt-2 pt-4 border-t border-surface-container-high">
+            <Button
+              variant="ghost"
+              className="w-full text-primary hover:bg-primary/5 font-semibold"
+              asChild
+            >
+              <Link to="/activities">View All Activities</Link>
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

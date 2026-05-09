@@ -28,6 +28,9 @@ model User {
   webhookEndpoints         WebhookEndpoint[]
   campaigns                Campaign[] @relation("CampaignOwner")
   salesCampaigns           Campaign[] @relation("CampaignSalesOwner")
+  managedTeams             SalesTeam[]        @relation("TeamManager")
+  teamMemberships          SalesTeamMember[]
+  salesTargets             SalesTarget[]
 }
 
 enum Role {
@@ -167,6 +170,8 @@ model WebhookDelivery {
   status          WebhookStatus
   responseStatus  Int?
   error           String?
+  retryCount      Int             @default(0)
+  nextRetryAt     DateTime?
   createdAt       DateTime        @default(now())
 
   endpoint        WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
@@ -180,6 +185,7 @@ enum WebhookEvent {
 }
 
 enum WebhookStatus {
+  pending
   success
   failed
 }
@@ -209,3 +215,65 @@ enum BillingStatus {
   past_due
   canceled
 }
+
+// ─── Sales Teams ────────────────────────────────────────────────────────────
+
+model SalesTeam {
+  id        String            @id @default(cuid())
+  name      String
+  managerId String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  manager   User              @relation("TeamManager", fields: [managerId], references: [id])
+  members   SalesTeamMember[]
+  targets   SalesTarget[]
+}
+
+model SalesTeamMember {
+  teamId    String
+  userId    String
+  createdAt DateTime  @default(now())
+
+  team      SalesTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@id([teamId, userId])
+}
+
+// ─── Sales Targets ───────────────────────────────────────────────────────────
+
+model SalesTarget {
+  id            String       @id @default(cuid())
+  name          String
+  scope         TargetScope  @default(company)
+  userId        String?      // set when scope = individual
+  teamId        String?      // set when scope = team
+  period        TargetPeriod
+  year          Int
+  quarter       Int?         // 1-4, set when period = quarterly
+  month         Int?         // 1-12, set when period = monthly
+  targetValue   Float        // revenue target in IDR
+  targetLeads   Int?         // optional lead-count goal
+  targetDeals   Int?         // optional deal-count goal
+  category      String?      // maps to Campaign.type (null = all categories)
+  shareOfParent Float?       // % of quarterly/annual target this period represents (0-100)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user          User?        @relation(fields: [userId], references: [id])
+  team          SalesTeam?   @relation(fields: [teamId], references: [id])
+}
+
+enum TargetScope {
+  company
+  team
+  individual
+}
+
+enum TargetPeriod {
+  monthly
+  quarterly
+  yearly
+}
+
