@@ -65,7 +65,31 @@ router.get('/', async (req: AuthRequest, res, next) => {
       ...(startDate ? { closedAt: { gte: startDate } } : {}),
     };
 
-    const [totalLeads, totalDeals, wonDeals, allLeads] = await Promise.all([
+    const campaignWhere: Prisma.CampaignWhereInput = startDate
+      ? { startDate: { gte: startDate } }
+      : {};
+
+    const activeCampaignWhere: Prisma.CampaignWhereInput = {
+      startDate: { lte: new Date() },
+      OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
+    };
+
+    const campaignLeadWhere: Prisma.LeadWhereInput = {
+      ...leadWhere,
+      campaignId: { not: null },
+    };
+
+    const [
+      totalLeads,
+      totalDeals,
+      wonDeals,
+      allLeads,
+      totalCampaigns,
+      activeCampaigns,
+      campaignCost,
+      campaignsByChannel,
+      campaignLeads,
+    ] = await Promise.all([
       prisma.lead.count({ where: leadWhere }),
       prisma.deal.count({ where: dealWhere }),
       prisma.deal.findMany({
@@ -76,6 +100,18 @@ router.get('/', async (req: AuthRequest, res, next) => {
         where: leadWhere,
         select: { createdAt: true },
       }),
+      prisma.campaign.count({ where: campaignWhere }),
+      prisma.campaign.count({ where: activeCampaignWhere }),
+      prisma.campaign.aggregate({
+        where: campaignWhere,
+        _sum: { cost: true },
+      }),
+      prisma.campaign.groupBy({
+        by: ['channel'],
+        where: campaignWhere,
+        _count: { id: true },
+      }),
+      prisma.lead.count({ where: campaignLeadWhere }),
     ]);
 
     const wonRevenue = wonDeals.reduce((sum, d) => sum + d.value, 0);
@@ -151,6 +187,9 @@ router.get('/', async (req: AuthRequest, res, next) => {
       leads: value,
     }));
 
+    const topCampaignChannel = campaignsByChannel
+      .sort((first, second) => second._count.id - first._count.id)[0]?.channel ?? null;
+
     res.json({
       success: true,
       data: {
@@ -163,6 +202,13 @@ router.get('/', async (req: AuthRequest, res, next) => {
         dealsByStage: dealsByStageMap,
         revenueOverTime,
         leadsOverTime,
+        campaignOverview: {
+          total: totalCampaigns,
+          active: activeCampaigns,
+          totalCost: campaignCost._sum.cost ?? 0,
+          leadsGenerated: campaignLeads,
+          topChannel: topCampaignChannel,
+        },
       },
     });
   } catch (error) {

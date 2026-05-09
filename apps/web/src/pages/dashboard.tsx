@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ActivityFeed } from '@/components/activity-feed';
 import {
   TrendingUp,
@@ -9,6 +10,10 @@ import {
   FolderOpen,
   CalendarRange,
   RefreshCw,
+  ArrowRight,
+  BadgePercent,
+  Megaphone,
+  Target,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -41,10 +46,26 @@ interface DashboardStats {
   revenueOverTime: { month: string; revenue: number }[];
   leadsOverTime: { month: string; leads: number }[];
   dealsByStage: Record<string, number>;
+  campaignOverview: {
+    total: number;
+    active: number;
+    totalCost: number;
+    leadsGenerated: number;
+    topChannel: string | null;
+  };
 }
 
 type DashboardRange = '7d' | '30d' | '90d' | '12m' | 'all';
 type ChartDatum = { name: string; value: number };
+
+interface TargetAchievementSummary {
+  year: number;
+  revenueTarget: number;
+  revenueActual: number;
+  achievementPct: number;
+  remainingTarget: number;
+  activeCampaigns: number;
+}
 
 const RANGE_OPTIONS: { value: DashboardRange; label: string }[] = [
   { value: '7d', label: '7D' },
@@ -121,12 +142,16 @@ function StatCard({
   value,
   detail,
   tone,
+  actionHref,
+  actionLabel,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
   detail: string;
   tone: 'primary' | 'secondary' | 'tertiary' | 'neutral';
+  actionHref?: string;
+  actionLabel?: string;
 }) {
   const tones = {
     primary: 'bg-primary/10 text-primary',
@@ -149,33 +174,58 @@ function StatCard({
         <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">{label}</p>
         <h3 className="mt-2 text-2xl font-black text-on-surface">{value}</h3>
         <p className="mt-2 text-sm text-on-surface-variant">{detail}</p>
+        {actionHref && actionLabel && (
+          <Button asChild className="mt-5 w-full justify-between" size="sm" variant="secondary">
+            <Link to={actionHref}>
+              {actionLabel}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
 }
 
+function OverviewMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-surface-container-high px-4 py-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-on-surface-variant">{label}</p>
+      <p className="mt-1 text-sm font-black text-on-surface">{value}</p>
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [targetSummary, setTargetSummary] = useState<TargetAchievementSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [range, setRange] = useState<DashboardRange>('30d');
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const targetYear = new Date().getFullYear();
 
   useEffect(() => {
     const fetchStats = async () => {
       setIsLoading(true);
       setError('');
-      const response = await get<DashboardStats>(`/dashboard?range=${range}`);
-      if (response.success && response.data) {
-        setStats(response.data);
+      const [dashboardResponse, targetResponse] = await Promise.all([
+        get<DashboardStats>(`/dashboard?range=${range}`),
+        get<TargetAchievementSummary>(`/dashboard/targets?year=${targetYear}&scope=company&period=yearly`),
+      ]);
+
+      if (dashboardResponse.success && dashboardResponse.data) {
+        setStats(dashboardResponse.data);
       } else {
         setStats(null);
-        setError(response.error || 'Unable to load dashboard data');
+        setError(dashboardResponse.error || 'Unable to load dashboard data');
       }
+
+      setTargetSummary(targetResponse.success && targetResponse.data ? targetResponse.data : null);
       setIsLoading(false);
     };
     fetchStats();
-  }, [range, refreshNonce]);
+  }, [range, refreshNonce, targetYear]);
 
   const leadsBySourceData = useMemo<ChartDatum[]>(
     () =>
@@ -264,6 +314,8 @@ export function DashboardPage() {
           value={formatCurrency(stats?.wonRevenue ?? 0)}
         />
         <StatCard
+          actionHref="/leads"
+          actionLabel="Open Leads"
           detail="Leads created in range"
           icon={UserPlus}
           label="New Leads"
@@ -271,6 +323,8 @@ export function DashboardPage() {
           value={(stats?.totalLeads ?? 0).toLocaleString('id-ID')}
         />
         <StatCard
+          actionHref="/deals"
+          actionLabel="Open Deals"
           detail="Deals created in range"
           icon={FolderOpen}
           label="Deals"
@@ -284,6 +338,99 @@ export function DashboardPage() {
           tone="neutral"
           value={`${((stats?.conversionRate ?? 0) * 100).toFixed(1)}%`}
         />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-secondary" />
+                Target Overview
+              </CardTitle>
+              <p className="mt-1 text-sm text-on-surface-variant">Company revenue target for {targetYear}.</p>
+            </div>
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/targets">
+                Manage
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-on-surface-variant">Achievement</p>
+                <p className="mt-2 text-3xl font-black text-on-surface">
+                  {(targetSummary?.achievementPct ?? 0).toFixed(1)}%
+                </p>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  {formatCurrency(targetSummary?.revenueActual ?? 0)} of {formatCurrency(targetSummary?.revenueTarget ?? 0)}
+                </p>
+              </div>
+              <div className="grid w-full gap-3 sm:grid-cols-2 md:max-w-sm">
+                <OverviewMetric
+                  label="Remaining"
+                  value={formatCurrency(Math.max(0, targetSummary?.remainingTarget ?? 0))}
+                />
+                <OverviewMetric
+                  label="Active Campaigns"
+                  value={(targetSummary?.activeCampaigns ?? 0).toLocaleString('id-ID')}
+                />
+              </div>
+            </div>
+            <div className="mt-6 h-3 overflow-hidden rounded-full bg-surface-container-high">
+              <div
+                className="h-full rounded-full bg-secondary"
+                style={{ width: `${Math.min(targetSummary?.achievementPct ?? 0, 100)}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Megaphone className="h-5 w-5 text-secondary" />
+                Campaign Overview
+              </CardTitle>
+              <p className="mt-1 text-sm text-on-surface-variant">Campaign activity for the selected range.</p>
+            </div>
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/campaigns">
+                View
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <OverviewMetric
+                label="Campaigns"
+                value={(stats?.campaignOverview.total ?? 0).toLocaleString('id-ID')}
+              />
+              <OverviewMetric
+                label="Active"
+                value={(stats?.campaignOverview.active ?? 0).toLocaleString('id-ID')}
+              />
+              <OverviewMetric
+                label="Budget Used"
+                value={formatCurrency(stats?.campaignOverview.totalCost ?? 0)}
+              />
+              <OverviewMetric
+                label="Top Channel"
+                value={stats?.campaignOverview.topChannel ?? '-'}
+              />
+            </div>
+            <div className="mt-5 flex items-center gap-3 rounded-lg bg-secondary/10 px-4 py-3 text-secondary">
+              <BadgePercent className="h-5 w-5" />
+              <p className="text-sm font-semibold">
+                {(stats?.campaignOverview.leadsGenerated ?? 0).toLocaleString('id-ID')} leads generated in this range
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">

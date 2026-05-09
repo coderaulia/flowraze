@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
   Briefcase,
+  ChevronDown,
+  ChevronRight,
   Pencil,
   PieChart as PieChartIcon,
   Plus,
@@ -73,6 +75,11 @@ const PERIOD_OPTIONS: { value: TargetPeriod; label: string }[] = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
+const TARGET_SET_PERIOD_OPTIONS: { value: TargetPeriod; label: string }[] = [
+  { value: 'yearly', label: 'Yearly' },
+  { value: 'monthly', label: 'Monthly' },
+];
+
 const SCOPE_OPTIONS: { value: TargetScope; label: string }[] = [
   { value: 'company', label: 'Company' },
   { value: 'team', label: 'Team' },
@@ -93,6 +100,33 @@ const MONTH_OPTIONS = [
   'Nov',
   'Dec',
 ];
+
+const TARGET_QUARTER_STYLES: Record<number, { badge: string; marker: string; row: string; summaryRow: string }> = {
+  1: {
+    badge: 'bg-primary/15 text-primary',
+    marker: 'bg-primary',
+    row: 'bg-primary/[0.055] hover:bg-primary/[0.09]',
+    summaryRow: 'bg-primary/[0.14] hover:bg-primary/[0.18]',
+  },
+  2: {
+    badge: 'bg-[#4ae176]/15 text-[#4ae176]',
+    marker: 'bg-[#4ae176]',
+    row: 'bg-[#4ae176]/[0.055] hover:bg-[#4ae176]/[0.09]',
+    summaryRow: 'bg-[#4ae176]/[0.14] hover:bg-[#4ae176]/[0.18]',
+  },
+  3: {
+    badge: 'bg-amber-400/15 text-amber-300',
+    marker: 'bg-amber-400',
+    row: 'bg-amber-400/[0.065] hover:bg-amber-400/[0.1]',
+    summaryRow: 'bg-amber-400/[0.16] hover:bg-amber-400/[0.2]',
+  },
+  4: {
+    badge: 'bg-sky-400/15 text-sky-300',
+    marker: 'bg-sky-400',
+    row: 'bg-sky-400/[0.06] hover:bg-sky-400/[0.095]',
+    summaryRow: 'bg-sky-400/[0.15] hover:bg-sky-400/[0.19]',
+  },
+};
 
 const emptyTargetForm = (year: number, scope: TargetScope): TargetFormData => ({
   name: '',
@@ -173,6 +207,65 @@ function buildTargetForm(target: SalesTarget): TargetFormData {
   };
 }
 
+function getTargetFamilyKey(target: SalesTarget) {
+  return [
+    target.scope,
+    target.scope === 'team' ? target.teamId ?? 'unassigned-team' : '',
+    target.scope === 'individual' ? target.userId ?? 'unassigned-user' : '',
+    target.year,
+  ].join(':');
+}
+
+function isTargetSet(target: SalesTarget, yearlyTargetKeys: Set<string>) {
+  if (target.category) return false;
+  if (target.period === 'yearly') return true;
+  return target.period === 'monthly' && !yearlyTargetKeys.has(getTargetFamilyKey(target));
+}
+
+function isTargetDetail(parent: SalesTarget, detail: SalesTarget) {
+  if (parent.id === detail.id) return false;
+  if (getTargetFamilyKey(parent) !== getTargetFamilyKey(detail)) return false;
+
+  if (parent.period === 'yearly') return true;
+
+  return (
+    parent.period === 'monthly' &&
+    detail.period === 'monthly' &&
+    detail.month === parent.month
+  );
+}
+
+function sortTargetDetails(first: SalesTarget, second: SalesTarget) {
+  const periodOrder: Record<TargetPeriod, number> = {
+    quarterly: 1,
+    monthly: 2,
+    yearly: 3,
+  };
+
+  return (
+    periodOrder[first.period] - periodOrder[second.period] ||
+    (first.quarter ?? 0) - (second.quarter ?? 0) ||
+    (first.month ?? 0) - (second.month ?? 0) ||
+    first.name.localeCompare(second.name)
+  );
+}
+
+function getTargetQuarterIndex(target: SalesTarget) {
+  if (target.quarter) return target.quarter;
+  if (target.month) return Math.ceil(target.month / 3);
+  return 0;
+}
+
+function getQuarterStyle(target: SalesTarget) {
+  const quarter = getTargetQuarterIndex(target);
+  return TARGET_QUARTER_STYLES[quarter] ?? {
+    badge: 'bg-white/10 text-on-surface-variant',
+    marker: 'bg-white/30',
+    row: 'bg-white/[0.025] hover:bg-white/[0.045]',
+    summaryRow: 'bg-white/[0.09] hover:bg-white/[0.12]',
+  };
+}
+
 export function TargetsPage() {
   const { isAdmin, isSuperadmin } = useAuthStore();
   const canManageTargets = isAdmin();
@@ -197,6 +290,7 @@ export function TargetsPage() {
     emptyTargetForm(year, 'company')
   );
   const [targetFormError, setTargetFormError] = useState('');
+  const [expandedTargetIds, setExpandedTargetIds] = useState<Set<string>>(() => new Set());
 
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<SalesTeam | null>(null);
@@ -208,6 +302,28 @@ export function TargetsPage() {
     () => (canManageTeams ? SCOPE_OPTIONS : SCOPE_OPTIONS.filter((item) => item.value === 'individual')),
     [canManageTeams]
   );
+
+  const selectablePeriodOptions = useMemo(
+    () => (editingTarget?.period === 'quarterly' ? PERIOD_OPTIONS : TARGET_SET_PERIOD_OPTIONS),
+    [editingTarget?.period]
+  );
+
+  const targetGroups = useMemo(() => {
+    const yearlyTargetKeys = new Set(
+      targets
+        .filter((target) => !target.category && target.period === 'yearly')
+        .map(getTargetFamilyKey)
+    );
+
+    return targets
+      .filter((target) => isTargetSet(target, yearlyTargetKeys))
+      .map((target) => ({
+        target,
+        details: targets
+          .filter((detail) => isTargetDetail(target, detail))
+          .sort(sortTargetDetails),
+      }));
+  }, [targets]);
 
   const fetchLookups = useCallback(async () => {
     const [teamsRes, usersRes, targetsRes] = await Promise.all([
@@ -380,6 +496,18 @@ export function TargetsPage() {
 
     setMessage('Target deleted.');
     await refreshTargetWorkspace();
+  };
+
+  const toggleTargetDetails = (targetId: string) => {
+    setExpandedTargetIds((current) => {
+      const next = new Set(current);
+      if (next.has(targetId)) {
+        next.delete(targetId);
+      } else {
+        next.add(targetId);
+      }
+      return next;
+    });
   };
 
   const handleTeamSubmit = async (event: React.FormEvent) => {
@@ -760,36 +888,156 @@ export function TargetsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {targets.map((target) => (
-                    <tr key={target.id} className="hover:bg-white/[0.02]">
-                      <td className="px-4 py-4">
-                        <p className="font-bold text-on-surface">{target.name}</p>
-                        {target.category && <p className="text-xs text-on-surface-variant">Category: {target.category}</p>}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-on-surface">{targetScopeLabel(target)}</td>
-                      <td className="px-4 py-4 text-sm text-on-surface-variant">{targetPeriodLabel(target)}</td>
-                      <td className="px-4 py-4 text-sm font-semibold text-on-surface">{formatCurrency(target.targetValue)}</td>
-                      <td className="px-4 py-4 text-sm text-on-surface-variant">{target.targetLeads ?? '-'}</td>
-                      <td className="px-4 py-4 text-sm text-on-surface-variant">{target.targetDeals ?? '-'}</td>
-                      <td className="px-4 py-4">
-                        {canManageTargets && (
-                          <div className="flex justify-end gap-2">
-                            <Button size="icon" type="button" variant="ghost" onClick={() => openTargetModal(target)}>
-                              <Pencil className="h-4 w-4" />
-                              <span className="sr-only">Edit target</span>
-                            </Button>
-                            {canManageTeams && (
-                              <Button size="icon" type="button" variant="ghost" onClick={() => handleDeleteTarget(target)}>
-                                <Trash2 className="h-4 w-4 text-red-400" />
-                                <span className="sr-only">Delete target</span>
+                  {targetGroups.map(({ target, details }) => {
+                    const isExpanded = expandedTargetIds.has(target.id);
+
+                    return (
+                      <Fragment key={target.id}>
+                        <tr key={target.id} className="hover:bg-white/[0.02]">
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-3">
+                              <Button
+                                aria-expanded={isExpanded}
+                                className={cn('h-8 w-8 shrink-0', details.length === 0 && 'opacity-40')}
+                                disabled={details.length === 0}
+                                onClick={() => toggleTargetDetails(target.id)}
+                                size="icon"
+                                title={details.length > 0 ? 'Toggle target details' : 'No details'}
+                                type="button"
+                                variant="ghost"
+                              >
+                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                <span className="sr-only">Toggle target details</span>
                               </Button>
+                              <div>
+                                <p className="font-bold text-on-surface">{target.name}</p>
+                                {details.length > 0 && (
+                                  <p className="text-xs text-on-surface-variant">{details.length} detail rows</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-on-surface">{targetScopeLabel(target)}</td>
+                          <td className="px-4 py-4 text-sm text-on-surface-variant">{targetPeriodLabel(target)}</td>
+                          <td className="px-4 py-4 text-sm font-semibold text-on-surface">{formatCurrency(target.targetValue)}</td>
+                          <td className="px-4 py-4 text-sm text-on-surface-variant">{target.targetLeads ?? '-'}</td>
+                          <td className="px-4 py-4 text-sm text-on-surface-variant">{target.targetDeals ?? '-'}</td>
+                          <td className="px-4 py-4">
+                            {canManageTargets && (
+                              <div className="flex justify-end gap-2">
+                                <Button size="icon" type="button" variant="ghost" onClick={() => openTargetModal(target)}>
+                                  <Pencil className="h-4 w-4" />
+                                  <span className="sr-only">Edit target</span>
+                                </Button>
+                                {canManageTeams && (
+                                  <Button size="icon" type="button" variant="ghost" onClick={() => handleDeleteTarget(target)}>
+                                    <Trash2 className="h-4 w-4 text-red-400" />
+                                    <span className="sr-only">Delete target</span>
+                                  </Button>
+                                )}
+                              </div>
                             )}
-                          </div>
+                          </td>
+                        </tr>
+                        {isExpanded && details.length > 0 && (
+                          <tr key={`${target.id}-details`}>
+                            <td className="bg-white/[0.02] px-4 pb-5 pt-0" colSpan={7}>
+                              <div className="overflow-hidden rounded-2xl bg-surface/70">
+                                <table className="w-full text-left">
+                                  <thead>
+                                    <tr className="bg-white/[0.03]">
+                                      <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Detail</th>
+                                      <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Period</th>
+                                      <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Revenue</th>
+                                      <th className="px-4 py-3 text-[10px] font-black uppercase text-on-surface-variant">Share</th>
+                                      <th className="px-4 py-3 text-right text-[10px] font-black uppercase text-on-surface-variant">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-white/5">
+                                    {details.map((detail) => {
+                                      const quarter = getTargetQuarterIndex(detail);
+                                      const quarterStyle = getQuarterStyle(detail);
+                                      const isQuarterSummary = detail.period === 'quarterly' && !detail.category;
+
+                                      return (
+                                      <tr
+                                        key={detail.id}
+                                        className={cn(
+                                          isQuarterSummary
+                                            ? quarterStyle.summaryRow
+                                            : quarterStyle.row,
+                                          isQuarterSummary && 'font-semibold uppercase tracking-wide'
+                                        )}
+                                      >
+                                        <td className={cn('px-4', isQuarterSummary ? 'py-4' : 'py-3')}>
+                                          <div className="flex items-start gap-3">
+                                            <span
+                                              className={cn(
+                                                'mt-1 rounded-full',
+                                                quarterStyle.marker,
+                                                isQuarterSummary ? 'h-12 w-2.5' : 'h-10 w-1.5'
+                                              )}
+                                            />
+                                            <div>
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                {quarter > 0 && (
+                                                  <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-black uppercase', quarterStyle.badge)}>
+                                                    Q{quarter}
+                                                  </span>
+                                                )}
+                                                {isQuarterSummary && (
+                                                  <span className="rounded-full bg-surface px-2.5 py-1 text-[10px] font-black uppercase text-on-surface">
+                                                    Quarter total
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <p className={cn('mt-2 text-sm font-semibold text-on-surface', isQuarterSummary && 'text-base font-black')}>
+                                                {detail.name}
+                                              </p>
+                                              {detail.category && (
+                                                <p className="text-xs text-on-surface-variant">Category: {detail.category}</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className={cn('px-4 text-sm', isQuarterSummary ? 'py-4 font-black text-on-surface' : 'py-3 text-on-surface-variant')}>
+                                          {targetPeriodLabel(detail)}
+                                        </td>
+                                        <td className={cn('px-4 text-sm text-on-surface', isQuarterSummary ? 'py-4 font-black' : 'py-3 font-semibold')}>
+                                          {formatCurrency(detail.targetValue)}
+                                        </td>
+                                        <td className={cn('px-4 text-sm', isQuarterSummary ? 'py-4 font-black text-on-surface' : 'py-3 text-on-surface-variant')}>
+                                          {detail.shareOfParent ? `${detail.shareOfParent}%` : '-'}
+                                        </td>
+                                        <td className={cn('px-4', isQuarterSummary ? 'py-4' : 'py-3')}>
+                                          {canManageTargets && (
+                                            <div className="flex justify-end gap-2">
+                                              <Button size="icon" type="button" variant="ghost" onClick={() => openTargetModal(detail)}>
+                                                <Pencil className="h-4 w-4" />
+                                                <span className="sr-only">Edit target detail</span>
+                                              </Button>
+                                              {canManageTeams && (
+                                                <Button size="icon" type="button" variant="ghost" onClick={() => handleDeleteTarget(detail)}>
+                                                  <Trash2 className="h-4 w-4 text-red-400" />
+                                                  <span className="sr-only">Delete target detail</span>
+                                                </Button>
+                                              )}
+                                            </div>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                  {targets.length === 0 && (
+                      </Fragment>
+                    );
+                  })}
+                  {targetGroups.length === 0 && (
                     <tr>
                       <td className="px-4 py-8 text-center text-sm text-on-surface-variant" colSpan={7}>
                         No sales targets have been created yet.
@@ -1018,7 +1266,7 @@ export function TargetsPage() {
                   disabled={Boolean(editingTarget)}
                   className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
                 >
-                  {PERIOD_OPTIONS.map((option) => (
+                  {selectablePeriodOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
@@ -1071,14 +1319,14 @@ export function TargetsPage() {
                 />
               </div>
 
-              {targetForm.period !== 'yearly' && (
+              {targetForm.period === 'quarterly' && (
                 <div className="space-y-2">
                   <Label htmlFor="target-quarter">Quarter</Label>
                   <select
                     id="target-quarter"
-                    value={targetForm.period === 'monthly' ? String(quarterForMonth(targetForm.month) ?? '') : targetForm.quarter}
+                    value={targetForm.quarter}
                     onChange={(event) => setTargetForm({ ...targetForm, quarter: event.target.value })}
-                    disabled={Boolean(editingTarget) || targetForm.period === 'monthly'}
+                    disabled={Boolean(editingTarget)}
                     className="h-10 w-full rounded-lg bg-surface-container-lowest px-3 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
                   >
                     <option value="">Select quarter</option>

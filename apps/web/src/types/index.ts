@@ -132,7 +132,7 @@ export interface SearchResults {
 }
 
 export interface DashboardStats {
-  range: '30d' | '90d' | '6m' | '12m' | 'all';
+  range: '7d' | '30d' | '90d' | '12m' | 'all';
   totalLeads: number;
   totalDeals: number;
   wonRevenue: number;
@@ -141,6 +141,13 @@ export interface DashboardStats {
   revenueOverTime: { month: string; revenue: number }[];
   leadsOverTime: { month: string; leads: number }[];
   dealsByStage: Record<DealStage, number>;
+  campaignOverview: {
+    total: number;
+    active: number;
+    totalCost: number;
+    leadsGenerated: number;
+    topChannel: string | null;
+  };
 }
 
 export interface TeamPerformance {
