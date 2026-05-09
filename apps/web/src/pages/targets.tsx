@@ -128,6 +128,17 @@ const TARGET_QUARTER_STYLES: Record<number, { badge: string; marker: string; row
   },
 };
 
+const CHART_TOOLTIP_STYLES = {
+  contentStyle: {
+    backgroundColor: '#171f33',
+    border: 'none',
+    borderRadius: '1rem',
+    color: '#f8fafc',
+  },
+  itemStyle: { color: '#f8fafc' },
+  labelStyle: { color: '#f8fafc', fontWeight: 700 },
+};
+
 const emptyTargetForm = (year: number, scope: TargetScope): TargetFormData => ({
   name: '',
   scope,
@@ -785,8 +796,10 @@ export function TargetsPage() {
                           ))}
                         </Pie>
                         <Tooltip
-                          contentStyle={{ backgroundColor: '#171f33', border: 'none', borderRadius: '1rem', color: '#fff' }}
+                          contentStyle={CHART_TOOLTIP_STYLES.contentStyle}
                           formatter={(value: number) => formatCurrency(value)}
+                          itemStyle={CHART_TOOLTIP_STYLES.itemStyle}
+                          labelStyle={CHART_TOOLTIP_STYLES.labelStyle}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -845,9 +858,11 @@ export function TargetsPage() {
                       tickLine={false}
                     />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#171f33', border: 'none', borderRadius: '1rem', color: '#fff' }}
+                      contentStyle={CHART_TOOLTIP_STYLES.contentStyle}
                       cursor={{ fill: '#ffffff05' }}
                       formatter={(value: number) => [formatCurrency(value), '']}
+                      itemStyle={CHART_TOOLTIP_STYLES.itemStyle}
+                      labelStyle={CHART_TOOLTIP_STYLES.labelStyle}
                     />
                     <Bar dataKey="target" fill="#ffffff10" name="Target" radius={[8, 8, 0, 0]} />
                     <Bar dataKey="actual" name="Actual" radius={[8, 8, 0, 0]}>

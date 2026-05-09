@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import { requireEnum, requireObjectBody, requireString } from '../utils/request.js';
 import { getQueryDate, getQueryString } from '../utils/query.js';
@@ -70,6 +71,15 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const leadId = requireString(body, 'leadId', 'Lead');
     const type = requireEnum(body, 'type', ACTIVITY_TYPES, 'Type');
     const content = requireString(body, 'content', 'Content');
+
+    const existingActivity = await prisma.activity.findFirst({
+      where: { leadId, type, content, createdBy: req.userId! },
+      select: { id: true },
+    });
+
+    if (existingActivity) {
+      throw new AppError(409, 'Activity already exists for this lead', 'DUPLICATE_ACTIVITY');
+    }
 
     const activity = await prisma.activity.create({
       data: {

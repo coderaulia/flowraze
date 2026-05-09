@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import { ExportControls } from '@/components/export-controls';
 import { FieldError } from '@/components/ui/field-error';
 import { get, post, put, del } from '@/lib/api';
 import { hasFormErrors, isValidEmail, type FormErrors } from '@/lib/form-validation';
+import { parseLeadImportFile, type LeadImportRow } from '@/lib/lead-import';
 import type { Lead } from '@/types';
 
 const PAGE_LIMIT = 10;
@@ -48,6 +49,13 @@ type LeadFormData = {
   status: Lead['status'];
   campaignId: string;
   notes: string;
+};
+
+type LeadImportResult = {
+  createdCount: number;
+  skippedCount: number;
+  totalRows: number;
+  errors: { rowNumber: number; email?: string; reason: string }[];
 };
 
 function validateLeadForm(data: LeadFormData): FormErrors {
@@ -86,11 +94,17 @@ export function LeadsPage() {
     total: 0,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState('');
+  const [importRows, setImportRows] = useState<LeadImportRow[]>([]);
+  const [importFileName, setImportFileName] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importResult, setImportResult] = useState<LeadImportResult | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const [formData, setFormData] = useState<LeadFormData>({
     fullName: '',
@@ -122,15 +136,16 @@ export function LeadsPage() {
     fetchCampaigns();
   }, []);
 
-  useEffect(() => {
-    async function fetchLookups() {
-      const response = await get<{ sources: string[], companies: string[], serviceTypes: string[] }>('/leads/lookups');
-      if (response.success && response.data) {
-        setLookups(response.data);
-      }
+  const fetchLookups = useCallback(async () => {
+    const response = await get<{ sources: string[], companies: string[], serviceTypes: string[] }>('/leads/lookups');
+    if (response.success && response.data) {
+      setLookups(response.data);
     }
-    fetchLookups();
   }, []);
+
+  useEffect(() => {
+    fetchLookups();
+  }, [fetchLookups]);
 
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
@@ -227,6 +242,56 @@ export function LeadsPage() {
     }
   };
 
+  const handleImportFileChange = async (file: File | null) => {
+    setImportError('');
+    setImportResult(null);
+    setImportRows([]);
+    setImportFileName(file?.name ?? '');
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const rows = await parseLeadImportFile(file);
+      setImportRows(rows);
+      if (rows.length === 0) {
+        setImportError('No lead rows were found in the selected file');
+      }
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Unable to read import file');
+    }
+  };
+
+  const handleImportSubmit = async () => {
+    if (importRows.length === 0) {
+      setImportError('Choose a CSV or .xlsx file with lead rows first');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError('');
+    const response = await post<LeadImportResult>('/leads/import', { leads: importRows });
+    setIsImporting(false);
+
+    if (response.success && response.data) {
+      setImportResult(response.data);
+      fetchLeads();
+      fetchLookups();
+    } else {
+      setImportError(response.error || 'Unable to import leads');
+    }
+  };
+
+  const closeImportModal = () => {
+    setIsImportModalOpen(false);
+    setImportRows([]);
+    setImportFileName('');
+    setImportError('');
+    setImportResult(null);
+    setIsImporting(false);
+  };
+
   const openEditModal = (lead: Lead) => {
     setEditingLead(lead);
     setFormData({
@@ -306,6 +371,10 @@ export function LeadsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportControls entity="leads" queryParams={searchParams} />
+          <Button variant="secondary" onClick={() => setIsImportModalOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
           <Button onClick={() => setIsModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
@@ -592,6 +661,88 @@ export function LeadsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isImportModalOpen} onOpenChange={(open) => open ? setIsImportModalOpen(true) : closeImportModal()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import Leads</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {importError && (
+              <div className="rounded-lg bg-error/10 px-3 py-2 text-sm font-medium text-error">
+                {importError}
+              </div>
+            )}
+            {importResult && (
+              <div className="rounded-lg bg-secondary/10 px-3 py-2 text-sm text-on-surface">
+                Imported {importResult.createdCount} of {importResult.totalRows} leads
+                {importResult.skippedCount > 0 ? `, skipped ${importResult.skippedCount}` : ''}.
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="leadImportFile">CSV or Excel File</Label>
+              <Input
+                id="leadImportFile"
+                type="file"
+                accept=".csv,.tsv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={(event) => handleImportFileChange(event.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-on-surface-variant">
+                Required columns: fullName, email, source. Optional: phone, companyName, serviceType, status, campaignId, notes.
+              </p>
+            </div>
+            {importFileName && (
+              <div className="rounded-lg bg-surface px-3 py-2 text-sm text-on-surface-variant">
+                {importFileName} · {importRows.length} rows ready
+              </div>
+            )}
+            {importRows.length > 0 && (
+              <div className="max-h-52 overflow-auto rounded-lg bg-white border border-gray-200">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importRows.slice(0, 5).map((row) => (
+                      <TableRow key={`${row.rowNumber}-${row.email ?? row.fullName ?? 'row'}`}>
+                        <TableCell>{row.fullName || '-'}</TableCell>
+                        <TableCell>{row.email || '-'}</TableCell>
+                        <TableCell>{row.source || '-'}</TableCell>
+                        <TableCell>{row.status || 'new'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {importResult && importResult.errors.length > 0 && (
+              <div className="max-h-40 overflow-auto rounded-lg bg-error/10 px-3 py-2 text-sm text-error">
+                {importResult.errors.slice(0, 8).map((error) => (
+                  <p key={`${error.rowNumber}-${error.email ?? error.reason}`}>
+                    Row {error.rowNumber}: {error.reason}{error.email ? ` (${error.email})` : ''}
+                  </p>
+                ))}
+                {importResult.errors.length > 8 && (
+                  <p>And {importResult.errors.length - 8} more skipped rows.</p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={closeImportModal}>
+              Close
+            </Button>
+            <Button type="button" onClick={handleImportSubmit} disabled={isImporting || importRows.length === 0}>
+              {isImporting ? 'Importing...' : 'Import Leads'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
