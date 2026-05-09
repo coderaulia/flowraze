@@ -181,8 +181,8 @@ export function DashboardPage() {
     () =>
       stats
         ? Object.entries(stats.leadsBySource)
-            .map(([source, count]) => ({ name: source, value: count }))
-            .sort((a, b) => b.value - a.value)
+          .map(([source, count]) => ({ name: source, value: count }))
+          .sort((a, b) => b.value - a.value)
         : [],
     [stats]
   );
@@ -191,11 +191,11 @@ export function DashboardPage() {
     () =>
       stats
         ? Object.entries(stats.dealsByStage)
-            .map(([stage, count]) => ({
-              name: STAGE_LABELS[stage] || stage,
-              value: count,
-            }))
-            .filter((stage) => stage.value > 0)
+          .map(([stage, count]) => ({
+            name: STAGE_LABELS[stage] || stage,
+            value: count,
+          }))
+          .filter((stage) => stage.value > 0)
         : [],
     [stats]
   );
@@ -217,7 +217,7 @@ export function DashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-on-surface">Architectural Overview</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-on-surface">Performance Overview</h1>
           <p className="mt-1 text-on-surface-variant">
             Pipeline movement, conversion, and revenue for the selected period.
           </p>

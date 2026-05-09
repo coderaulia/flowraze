@@ -41,6 +41,7 @@ model Lead {
   phone        String?
   companyName  String?
   source       String
+  serviceType  String?
   campaignId   String?
   ownerId      String
   status       LeadStatus  @default(new)

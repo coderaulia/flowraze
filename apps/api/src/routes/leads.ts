@@ -84,6 +84,27 @@ router.get('/', async (req: AuthRequest, res, next) => {
   }
 });
 
+router.get('/lookups', async (req: AuthRequest, res, next) => {
+  try {
+    const [sources, companies, serviceTypes] = await Promise.all([
+      prisma.lead.findMany({ select: { source: true }, distinct: ['source'], where: { source: { not: '' } } }),
+      prisma.lead.findMany({ select: { companyName: true }, distinct: ['companyName'], where: { companyName: { not: null } } }),
+      prisma.lead.findMany({ select: { serviceType: true }, distinct: ['serviceType'], where: { serviceType: { not: null } } }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        sources: sources.map((s) => s.source),
+        companies: companies.map((c) => c.companyName).filter(Boolean),
+        serviceTypes: serviceTypes.map((s) => s.serviceType).filter(Boolean),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/:id', async (req: AuthRequest, res, next) => {
   try {
     const lead = await prisma.lead.findUnique({
@@ -120,6 +141,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
         phone: optionalString(body.phone),
         companyName: optionalString(body.companyName),
         source,
+        serviceType: optionalString(body.serviceType),
         campaignId: optionalString(body.campaignId),
         status: optionalEnum(LEAD_STATUSES, 'Status')(body.status) || 'new',
         notes: optionalString(body.notes),
@@ -150,6 +172,7 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'phone', optionalString);
     setIfPresent(data, body, 'companyName', optionalString);
     setIfPresent(data, body, 'source', optionalNonEmptyString);
+    setIfPresent(data, body, 'serviceType', optionalString);
     setIfPresent(data, body, 'campaignId', optionalString);
     setIfPresent(data, body, 'status', optionalEnum(LEAD_STATUSES, 'Status'));
     setIfPresent(data, body, 'notes', optionalString);

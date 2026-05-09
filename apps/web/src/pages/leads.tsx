@@ -44,6 +44,7 @@ type LeadFormData = {
   phone: string;
   companyName: string;
   source: string;
+  serviceType: string;
   status: Lead['status'];
   notes: string;
 };
@@ -96,9 +97,26 @@ export function LeadsPage() {
     phone: '',
     companyName: '',
     source: '',
+    serviceType: '',
     status: 'new' as Lead['status'],
     notes: '',
   });
+
+  const [lookups, setLookups] = useState<{ sources: string[], companies: string[], serviceTypes: string[] }>({
+    sources: [],
+    companies: [],
+    serviceTypes: [],
+  });
+
+  useEffect(() => {
+    async function fetchLookups() {
+      const response = await get<{ sources: string[], companies: string[], serviceTypes: string[] }>('/leads/lookups');
+      if (response.success && response.data) {
+        setLookups(response.data);
+      }
+    }
+    fetchLookups();
+  }, []);
 
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
@@ -160,6 +178,7 @@ export function LeadsPage() {
       phone: formData.phone.trim(),
       companyName: formData.companyName.trim(),
       source: formData.source.trim(),
+      serviceType: formData.serviceType.trim(),
       notes: formData.notes.trim(),
     };
 
@@ -198,9 +217,10 @@ export function LeadsPage() {
     setFormData({
       fullName: lead.fullName,
       email: lead.email,
-      phone: lead.phone,
-      companyName: lead.companyName,
+      phone: lead.phone || '',
+      companyName: lead.companyName || '',
       source: lead.source,
+      serviceType: lead.serviceType || '',
       status: lead.status,
       notes: lead.notes || '',
     });
@@ -218,6 +238,7 @@ export function LeadsPage() {
       phone: '',
       companyName: '',
       source: '',
+      serviceType: '',
       status: 'new',
       notes: '',
     });
@@ -333,6 +354,7 @@ export function LeadsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Company</TableHead>
+                <TableHead>Service</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
@@ -345,6 +367,7 @@ export function LeadsPage() {
                   <TableCell className="font-medium">{lead.fullName}</TableCell>
                   <TableCell>{lead.email}</TableCell>
                   <TableCell>{lead.companyName}</TableCell>
+                  <TableCell>{lead.serviceType}</TableCell>
                   <TableCell>{lead.source}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_COLORS[lead.status]}>
@@ -443,11 +466,15 @@ export function LeadsPage() {
                 <Label htmlFor="companyName">Company</Label>
                 <Input
                   id="companyName"
+                  list="companies-list"
                   value={formData.companyName}
                   onChange={(e) =>
                     setFormData({ ...formData, companyName: e.target.value })
                   }
                 />
+                <datalist id="companies-list">
+                  {lookups.companies.map((c) => <option key={c} value={c} />)}
+                </datalist>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -455,6 +482,7 @@ export function LeadsPage() {
                 <Label htmlFor="source">Source</Label>
                 <Input
                   id="source"
+                  list="sources-list"
                   value={formData.source}
                   onChange={(e) =>
                     setFormData({ ...formData, source: e.target.value })
@@ -463,29 +491,47 @@ export function LeadsPage() {
                   required
                 />
                 <FieldError message={formErrors.source} />
+                <datalist id="sources-list">
+                  {lookups.sources.map((s) => <option key={s} value={s} />)}
+                </datalist>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      status: value as Lead['status'],
-                    })
+                <Label htmlFor="serviceType">Project / Service</Label>
+                <Input
+                  id="serviceType"
+                  list="service-types-list"
+                  value={formData.serviceType}
+                  onChange={(e) =>
+                    setFormData({ ...formData, serviceType: e.target.value })
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="qualified">Qualified</SelectItem>
-                    <SelectItem value="unqualified">Unqualified</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="e.g., Development, Consulting"
+                />
+                <datalist id="service-types-list">
+                  {lookups.serviceTypes.map((s) => <option key={s} value={s} />)}
+                </datalist>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    status: value as Lead['status'],
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="qualified">Qualified</SelectItem>
+                  <SelectItem value="unqualified">Unqualified</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>

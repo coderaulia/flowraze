@@ -21,6 +21,7 @@ export interface Lead {
   phone: string;
   companyName: string;
   source: string;
+  serviceType?: string;
   campaignId?: string;
   ownerId: string;
   status: LeadStatus;
