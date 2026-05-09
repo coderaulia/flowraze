@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
-import { authenticate, requireRole, AuthRequest } from '../middleware/auth.js';
+import { authenticate, requireRole, requireAdminOrManager, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import {
   requireString,
   requireNumber,
@@ -11,16 +11,17 @@ import { AppError } from '../middleware/errorHandler.js';
 import type { Prisma } from '@prisma/client';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
 const VALID_SCOPES = ['company', 'team', 'individual'] as const;
 const VALID_PERIODS = ['monthly', 'quarterly', 'yearly'] as const;
 
 // ─── SalesTeam CRUD ──────────────────────────────────────────────────────────
 
-router.get('/teams', async (_req: AuthRequest, res, next) => {
+router.get('/teams', async (req: AuthRequest, res, next) => {
   try {
     const teams = await prisma.salesTeam.findMany({
+      where: { companyId: req.companyId! },
       include: {
         manager: { select: { id: true, name: true, email: true } },
         members: {
@@ -36,13 +37,13 @@ router.get('/teams', async (_req: AuthRequest, res, next) => {
   }
 });
 
-router.post('/teams', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.post('/teams', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
     const body = req.body as Record<string, unknown>;
     const name = requireString(body, 'name');
     const managerId = requireString(body, 'managerId');
     const existingTeam = await prisma.salesTeam.findFirst({
-      where: { name },
+      where: { companyId: req.companyId!, name },
       select: { id: true },
     });
 
@@ -51,7 +52,7 @@ router.post('/teams', requireRole('superadmin'), async (req: AuthRequest, res, n
     }
 
     const team = await prisma.salesTeam.create({
-      data: { name, managerId },
+      data: { companyId: req.companyId!, name, managerId },
       include: { manager: { select: { id: true, name: true } } },
     });
     res.status(201).json({ success: true, data: team });
@@ -60,9 +61,16 @@ router.post('/teams', requireRole('superadmin'), async (req: AuthRequest, res, n
   }
 });
 
-router.put('/teams/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.put('/teams/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
     const body = req.body as Record<string, unknown>;
+    const existing = await prisma.salesTeam.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+    });
+    if (!existing) throw new AppError(404, 'Team not found');
+    if (req.userRole === 'manager' && existing.managerId !== req.userId!) {
+      throw new AppError(403, 'Managers can only update their own team');
+    }
     const updates: { name?: string; managerId?: string } = {};
     if (body.name !== undefined) updates.name = requireString(body, 'name');
     if (body.managerId !== undefined) updates.managerId = requireString(body, 'managerId');
@@ -74,8 +82,15 @@ router.put('/teams/:id', requireRole('superadmin'), async (req: AuthRequest, res
   }
 });
 
-router.delete('/teams/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.delete('/teams/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    const existing = await prisma.salesTeam.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+    });
+    if (!existing) throw new AppError(404, 'Team not found');
+    if (req.userRole === 'manager' && existing.managerId !== req.userId!) {
+      throw new AppError(403, 'Managers can only delete their own team');
+    }
     await prisma.salesTeam.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (error) {
@@ -83,10 +98,17 @@ router.delete('/teams/:id', requireRole('superadmin'), async (req: AuthRequest, 
   }
 });
 
-router.post('/teams/:id/members', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.post('/teams/:id/members', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
     const body = req.body as Record<string, unknown>;
     const userId = requireString(body, 'userId');
+    const existing = await prisma.salesTeam.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+    });
+    if (!existing) throw new AppError(404, 'Team not found');
+    if (req.userRole === 'manager' && existing.managerId !== req.userId!) {
+      throw new AppError(403, 'Managers can only add members to their own team');
+    }
     await prisma.salesTeamMember.create({ data: { teamId: req.params.id!, userId } });
     res.status(201).json({ success: true });
   } catch (error) {
@@ -94,8 +116,15 @@ router.post('/teams/:id/members', requireRole('superadmin'), async (req: AuthReq
   }
 });
 
-router.delete('/teams/:id/members/:userId', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.delete('/teams/:id/members/:userId', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    const existing = await prisma.salesTeam.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+    });
+    if (!existing) throw new AppError(404, 'Team not found');
+    if (req.userRole === 'manager' && existing.managerId !== req.userId!) {
+      throw new AppError(403, 'Managers can only remove members from their own team');
+    }
     await prisma.salesTeamMember.delete({
       where: { teamId_userId: { teamId: req.params.id!, userId: req.params.userId! } },
     });
@@ -110,7 +139,7 @@ router.delete('/teams/:id/members/:userId', requireRole('superadmin'), async (re
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const q = req.query as Record<string, string>;
-    const where: Prisma.SalesTargetWhereInput = {};
+    const where: Prisma.SalesTargetWhereInput = { companyId: req.companyId! };
     if (q.scope) where.scope = q.scope as typeof VALID_SCOPES[number];
     if (q.period) where.period = q.period as typeof VALID_PERIODS[number];
     if (q.year) where.year = parseInt(q.year, 10);
@@ -133,11 +162,9 @@ router.get('/', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.post('/', async (req: AuthRequest, res, next) => {
+router.post('/', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
     const role = req.userRole;
-    if (role !== 'superadmin' && role !== 'admin') throw new AppError(403, 'Admin or superadmin required');
-
     const body = req.body as Record<string, unknown>;
     const scope = requireEnum(body, 'scope', VALID_SCOPES);
     const period = requireEnum(body, 'period', VALID_PERIODS);
@@ -145,28 +172,34 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const year = requireNumber(body, 'year');
     const targetValue = requireNumber(body, 'targetValue');
 
-    if (role === 'admin' && scope !== 'individual') {
-      throw new AppError(403, 'Admins can only set individual targets');
+    // manager can only set team or individual targets (not company-wide)
+    if (role === 'manager' && scope === 'company') {
+      throw new AppError(403, 'Managers cannot set company-wide targets');
     }
 
-    const data: Prisma.SalesTargetCreateInput = { name, scope, period, year, targetValue };
+    const userId = typeof body.userId === 'string' && body.userId ? body.userId : null;
+    const teamId = typeof body.teamId === 'string' && body.teamId ? body.teamId : null;
+
+    const data: Prisma.SalesTargetUncheckedCreateInput = {
+      companyId: req.companyId!,
+      name,
+      scope,
+      period,
+      year,
+      targetValue,
+    };
     if (body.quarter !== undefined) data.quarter = optionalNumber(body.quarter) as number | undefined;
     if (body.month !== undefined) data.month = optionalNumber(body.month) as number | undefined;
     if (body.targetLeads !== undefined) data.targetLeads = optionalNumber(body.targetLeads) as number | undefined;
     if (body.targetDeals !== undefined) data.targetDeals = optionalNumber(body.targetDeals) as number | undefined;
     if (body.shareOfParent !== undefined) data.shareOfParent = optionalNumber(body.shareOfParent) as number | undefined;
     if (body.category !== undefined) data.category = (body.category as string) || null;
-    const userId = typeof body.userId === 'string' && body.userId ? body.userId : null;
-    const teamId = typeof body.teamId === 'string' && body.teamId ? body.teamId : null;
-    if (scope === 'individual' && body.userId) {
-      data.user = { connect: { id: userId! } };
-    }
-    if (scope === 'team' && body.teamId) {
-      data.team = { connect: { id: teamId! } };
-    }
+    if (scope === 'individual' && userId) data.userId = userId;
+    if (scope === 'team' && teamId) data.teamId = teamId;
 
     const existingTarget = await prisma.salesTarget.findFirst({
       where: {
+        companyId: req.companyId!,
         scope,
         period,
         year,
@@ -196,11 +229,8 @@ router.post('/', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.put('/:id', async (req: AuthRequest, res, next) => {
+router.put('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
-    const role = req.userRole;
-    if (role !== 'superadmin' && role !== 'admin') throw new AppError(403, 'Admin or superadmin required');
-
     const body = req.body as Record<string, unknown>;
     const updates: Prisma.SalesTargetUpdateInput = {};
     if (body.name !== undefined) updates.name = requireString(body, 'name');
@@ -212,13 +242,13 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
     if (Object.keys(updates).length === 0) throw new AppError(400, 'No fields to update');
 
-    const existing = await prisma.salesTarget.findUnique({
-      where: { id: req.params.id },
+    const existing = await prisma.salesTarget.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
       select: { scope: true },
     });
     if (!existing) throw new AppError(404, 'Target not found');
-    if (role === 'admin' && existing.scope !== 'individual') {
-      throw new AppError(403, 'Admins can only update individual targets');
+    if (req.userRole === 'manager' && existing.scope === 'company') {
+      throw new AppError(403, 'Managers cannot update company-wide targets');
     }
 
     const target = await prisma.salesTarget.update({
@@ -235,8 +265,15 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.delete('/:id', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.delete('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    const existing = await prisma.salesTarget.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+    });
+    if (!existing) throw new AppError(404, 'Target not found');
+    if (req.userRole === 'manager' && existing.scope === 'company') {
+      throw new AppError(403, 'Managers cannot delete company-wide targets');
+    }
     await prisma.salesTarget.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (error) {

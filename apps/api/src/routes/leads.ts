@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import {
@@ -23,7 +23,7 @@ type ImportedLead = Prisma.LeadGetPayload<{
   include: { owner: { select: { id: true; name: true } } };
 }>;
 
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
@@ -34,7 +34,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const campaignId = getQueryString(req.query.campaignId);
     const createdFrom = getQueryDate(req.query.createdFrom, 'createdFrom');
     const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
-    const where: Prisma.LeadWhereInput = {};
+    const where: Prisma.LeadWhereInput = { companyId: req.companyId! };
 
     if (status) {
       where.status = status as Prisma.EnumLeadStatusFilter['equals'];
@@ -112,11 +112,11 @@ router.get('/lookups', async (req: AuthRequest, res, next) => {
 router.post('/import', async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
-    const { candidates, errors, totalRows } = buildLeadImportCandidates(body.leads, req.userId!);
+    const { candidates, errors, totalRows } = buildLeadImportCandidates(body.leads, req.userId!, req.companyId!);
     const existingLeads = candidates.length > 0
       ? await prisma.lead.findMany({
         where: {
-          ownerId: req.userId!,
+          companyId: req.companyId!,
           OR: candidates.map((candidate) => ({
             email: { equals: candidate.email, mode: 'insensitive' },
           })),
@@ -133,7 +133,7 @@ router.post('/import', async (req: AuthRequest, res, next) => {
       errors.push({
         rowNumber: candidate.rowNumber,
         email: candidate.email,
-        reason: 'Lead already exists for this owner and email',
+        reason: 'Lead already exists for this company and email',
       });
       return false;
     });
@@ -219,18 +219,19 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const existingLead = await prisma.lead.findFirst({
       where: {
-        ownerId: req.userId!,
+        companyId: req.companyId!,
         email: { equals: email, mode: 'insensitive' },
       },
       select: { id: true },
     });
 
     if (existingLead) {
-      throw new AppError(409, 'Lead already exists for this owner and email', 'DUPLICATE_LEAD');
+      throw new AppError(409, 'Lead already exists for this company and email', 'DUPLICATE_LEAD');
     }
 
     const lead = await prisma.lead.create({
       data: {
+        companyId: req.companyId!,
         fullName,
         email,
         phone: optionalString(body.phone),

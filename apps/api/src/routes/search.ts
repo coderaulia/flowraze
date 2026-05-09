@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { getQueryString } from '../utils/query.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
-router.get('/', async (req, res, next) => {
+router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const q = getQueryString(req.query.q);
     if (!q) {
@@ -24,6 +24,7 @@ router.get('/', async (req, res, next) => {
     const [leads, deals, campaigns, activities] = await prisma.$transaction([
       prisma.lead.findMany({
         where: {
+          companyId: req.companyId!,
           OR: [
             { fullName: { contains: q, mode: 'insensitive' } },
             { email: { contains: q, mode: 'insensitive' } },
@@ -38,6 +39,7 @@ router.get('/', async (req, res, next) => {
       }),
       prisma.deal.findMany({
         where: {
+          companyId: req.companyId!,
           OR: [
             { title: { contains: q, mode: 'insensitive' } },
             { lead: { fullName: { contains: q, mode: 'insensitive' } } },
@@ -52,12 +54,14 @@ router.get('/', async (req, res, next) => {
       }),
       prisma.campaign.findMany({
         where: {
+          companyId: req.companyId!,
           name: { contains: q, mode: 'insensitive' },
         },
         take: 10,
       }),
       prisma.activity.findMany({
         where: {
+          companyId: req.companyId!,
           OR: [
             { content: { contains: q, mode: 'insensitive' } },
             { lead: { fullName: { contains: q, mode: 'insensitive' } } },

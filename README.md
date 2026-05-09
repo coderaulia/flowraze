@@ -1,6 +1,6 @@
 # FlowRaze
 
-FlowRaze is a CRM and operations analytics platform for growing sales teams. It provides lead and deal management, campaign tracking, activity logging, team performance reporting, and system integrations — all in a single application.
+FlowRaze is a Multi-Tenant CRM and operations analytics platform for growing sales teams. It provides data-isolated workspaces for companies to manage leads, deals, campaigns, and team performance.
 
 ## Features
 
@@ -55,10 +55,23 @@ npm run dev
 
 Frontend runs at `http://localhost:5173`, backend at `http://localhost:3000`.
 
-### Default Login
+### Default Logins (Development Seed)
 
+**Superadmin (Platform)**
+```
+Email:    superadmin@flowraze.com
+Password: admin123
+```
+
+**Admin (Company)**
 ```
 Email:    admin@flowraze.com
+Password: admin123
+```
+
+**Employee (Staff)**
+```
+Email:    staff@flowraze.com
 Password: admin123
 ```
 
@@ -78,7 +91,7 @@ Password: admin123
 |----------|-------------|
 | [docs/api.md](docs/api.md) | Full API endpoint reference |
 | [docs/deployment.md](docs/deployment.md) | VPS deployment guide |
-| [docs/manual.md](docs/manual.md) | User manual (Staff, Admin, Superadmin) |
+| [docs/manual.md](docs/manual.md) | User manual (Employee, Manager, Admin, Superadmin) |
 
 ## License
 

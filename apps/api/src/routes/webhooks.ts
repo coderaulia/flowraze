@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest, requireRole } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import {
   optionalEnum,
@@ -17,7 +17,7 @@ import { dispatchWebhookEvent, processWebhookDelivery } from '../utils/webhooks.
 const router = Router();
 const WEBHOOK_EVENTS = ['lead_created', 'deal_created', 'deal_won', 'activity_created'] as const;
 
-router.use(authenticate, requireRole('superadmin'));
+router.use(authenticate, requireAdmin());
 
 function requireHttpUrl(value: unknown) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -40,6 +40,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const isActive = getQueryBoolean(req.query.isActive, 'isActive');
     const webhooks = await prisma.webhookEndpoint.findMany({
       where: {
+        companyId: req.companyId!,
         ...(isActive === undefined ? {} : { isActive }),
       },
       orderBy: { createdAt: 'desc' },
@@ -71,6 +72,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const webhook = await prisma.webhookEndpoint.create({
       data: {
+        companyId: req.companyId!,
         name,
         url,
         event,

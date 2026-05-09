@@ -1,17 +1,18 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest, requireRole } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { createApiKey, getKeyPrefix, hashSecret } from '../utils/security.js';
 import { requireObjectBody, requireString } from '../utils/request.js';
 
 const router = Router();
 
-router.use(authenticate, requireRole('superadmin'));
+router.use(authenticate, requireAdmin());
 
-router.get('/', async (_req: AuthRequest, res, next) => {
+router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const apiKeys = await prisma.apiKey.findMany({
+      where: { companyId: req.companyId! },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -38,6 +39,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const apiKey = await prisma.apiKey.create({
       data: {
+        companyId: req.companyId!,
         name,
         keyHash: hashSecret(key),
         keyPrefix: getKeyPrefix(key),
@@ -67,7 +69,9 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const apiKey = await prisma.apiKey.findUnique({ where: { id: req.params.id } });
+    const apiKey = await prisma.apiKey.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+    });
 
     if (!apiKey) {
       throw new AppError(404, 'API key not found');

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Prisma, SalesTarget, SalesTeamMember } from '@prisma/client';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router = Router();
@@ -45,32 +45,36 @@ function buildMonthMap(windowStart: Date, windowEnd: Date): Map<string, { month:
   return map;
 }
 
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const range = parseDateRange(req.query.range);
     const startDate = getStartDate(range);
 
+    const companyId = req.companyId!;
+
     const leadWhere: Prisma.LeadWhereInput = startDate
-      ? { createdAt: { gte: startDate } }
-      : {};
+      ? { companyId, createdAt: { gte: startDate } }
+      : { companyId };
 
     // Deals are scoped by createdAt for counts; won revenue by closedAt
     const dealWhere: Prisma.DealWhereInput = startDate
-      ? { createdAt: { gte: startDate } }
-      : {};
+      ? { companyId, createdAt: { gte: startDate } }
+      : { companyId };
 
     const wonWhere: Prisma.DealWhereInput = {
+      companyId,
       stage: 'won',
       ...(startDate ? { closedAt: { gte: startDate } } : {}),
     };
 
     const campaignWhere: Prisma.CampaignWhereInput = startDate
-      ? { startDate: { gte: startDate } }
-      : {};
+      ? { companyId, startDate: { gte: startDate } }
+      : { companyId };
 
     const activeCampaignWhere: Prisma.CampaignWhereInput = {
+      companyId,
       startDate: { lte: new Date() },
       OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
     };
@@ -267,6 +271,7 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
     // -- Fetch all relevant targets for the year and scope --
     const allTargets = await prisma.salesTarget.findMany({
       where: {
+        companyId: req.companyId!,
         year,
         scope: effectiveScope as 'company' | 'team' | 'individual',
         ...(effectiveScope === 'team' && teamId ? { teamId } : {}),
@@ -298,6 +303,7 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
 
     const wonDeals = await prisma.deal.findMany({
       where: {
+        companyId: req.companyId!,
         stage: 'won',
         closedAt: { gte: periodStart, lte: periodEnd },
         ...dealOwnerFilter,
@@ -328,14 +334,14 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
     }
 
     const [leadsActual, dealsActual, activeCampaigns] = await Promise.all([
-      prisma.lead.count({ where: { createdAt: { gte: periodStart, lte: periodEnd }, ...leadOwnerFilter } }),
-      prisma.deal.count({ where: { createdAt: { gte: periodStart, lte: periodEnd }, ...dealOwnerFilter } }),
-      prisma.campaign.count({ where: { startDate: { lte: periodEnd }, OR: [{ endDate: null }, { endDate: { gte: periodStart } }] } }),
+      prisma.lead.count({ where: { companyId: req.companyId!, createdAt: { gte: periodStart, lte: periodEnd }, ...leadOwnerFilter } }),
+      prisma.deal.count({ where: { companyId: req.companyId!, createdAt: { gte: periodStart, lte: periodEnd }, ...dealOwnerFilter } }),
+      prisma.campaign.count({ where: { companyId: req.companyId!, startDate: { lte: periodEnd }, OR: [{ endDate: null }, { endDate: { gte: periodStart } }] } }),
     ]);
 
     // -- Category breakdown from Campaign.type --
     const campaignTypes = await prisma.campaign.findMany({
-      where: { type: { not: null } },
+      where: { companyId: req.companyId!, type: { not: null } },
       select: { type: true },
       distinct: ['type'],
     });
@@ -443,7 +449,7 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
       leaderboard = await Promise.all(
         individualTargets.map(async (t) => {
           const userDeals = await prisma.deal.findMany({
-            where: { stage: 'won', ownerId: t.userId!, closedAt: { gte: periodStart, lte: periodEnd } },
+            where: { companyId: req.companyId!, stage: 'won', ownerId: t.userId!, closedAt: { gte: periodStart, lte: periodEnd } },
             select: { value: true },
           });
           const actual = userDeals.reduce((s, d) => s + d.value, 0);

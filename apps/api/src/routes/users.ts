@@ -17,8 +17,8 @@ import { createOpaqueToken, hashSecret } from '../utils/security.js';
 import { sendInviteEmail } from '../utils/email.js';
 
 const router = Router();
-const USER_ROLES = ['superadmin', 'admin', 'staff'] as const;
-const ADMIN_ASSIGNABLE_ROLES = ['admin', 'staff'] as const;
+const USER_ROLES = ['superadmin', 'admin', 'manager', 'employee'] as const;
+const ADMIN_ASSIGNABLE_ROLES = ['admin', 'manager', 'employee'] as const;
 
 router.use(authenticate);
 
@@ -182,7 +182,7 @@ router.post('/', requireRole('superadmin', 'admin'), async (req: AuthRequest, re
     const roleValidator = isSuperadmin(req)
       ? optionalEnum(USER_ROLES, 'Role')
       : optionalEnum(ADMIN_ASSIGNABLE_ROLES, 'Role');
-    const role = roleValidator(body.role) || 'staff';
+    const role = roleValidator(body.role) || 'employee';
 
     if (!isSuperadmin(req) && role === 'superadmin') {
       throw new AppError(403, 'Admins cannot assign superadmin role');
@@ -286,7 +286,7 @@ router.post('/invite', requireRole('superadmin', 'admin'), async (req: AuthReque
     const roleValidator = isSuperadmin(req)
       ? optionalEnum(USER_ROLES, 'Role')
       : optionalEnum(ADMIN_ASSIGNABLE_ROLES, 'Role');
-    const role = roleValidator(body.role) || 'staff';
+    const role = roleValidator(body.role) || 'employee';
 
     if (!isSuperadmin(req) && role === 'superadmin') {
       throw new AppError(403, 'Admins cannot invite as superadmin');

@@ -8,12 +8,14 @@ import { hashSecret } from '../utils/security.js';
 export interface AuthRequest extends Request {
   userId?: string;
   userRole?: string;
+  companyId?: string | null;
   authType?: 'jwt' | 'api-key';
 }
 
 interface TokenPayload {
   userId: string;
   role: string;
+  companyId: string | null;
 }
 
 function getApiKey(req: AuthRequest) {
@@ -42,7 +44,7 @@ export async function authenticate(
           revokedAt: null,
         },
         include: {
-          createdBy: { select: { id: true, role: true } },
+          createdBy: { select: { id: true, role: true, companyId: true } },
         },
       });
 
@@ -57,6 +59,7 @@ export async function authenticate(
 
       req.userId = record.createdBy.id;
       req.userRole = record.createdBy.role;
+      req.companyId = record.createdBy.companyId;
       req.authType = 'api-key';
       next();
       return;
@@ -82,6 +85,7 @@ export async function authenticate(
     const decoded = jwt.verify(token, secret) as TokenPayload;
     req.userId = decoded.userId;
     req.userRole = decoded.role;
+    req.companyId = decoded.companyId;
     req.authType = 'jwt';
     next();
   } catch {
@@ -96,4 +100,23 @@ export function requireRole(...roles: string[]) {
     }
     next();
   };
+}
+
+export const requireSuperadmin = () => requireRole('superadmin');
+export const requireAdmin = () => requireRole('admin');
+export const requireManager = () => requireRole('manager');
+export const requireAdminOrManager = () => requireRole('admin', 'manager');
+
+export function requireCompanyMember(req: AuthRequest, _res: Response, next: NextFunction) {
+  if (!req.companyId) {
+    return next(new AppError(403, 'No company context'));
+  }
+  next();
+}
+
+export function companyDataScope(req: AuthRequest, _res: Response, next: NextFunction) {
+  if (req.userRole !== 'superadmin' && !req.companyId) {
+    return next(new AppError(403, 'No company context'));
+  }
+  next();
 }

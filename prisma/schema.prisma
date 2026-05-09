@@ -7,12 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Company {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  billing          BillingAccount?
+  users            User[]
+  leads            Lead[]
+  deals            Deal[]
+  campaigns        Campaign[]
+  activities       Activity[]
+  salesTeams       SalesTeam[]
+  salesTargets     SalesTarget[]
+  apiKeys          ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+}
+
 model User {
   id                       String    @id @default(cuid())
+  companyId                String?
   email                    String    @unique
   password                 String
   name                     String
-  role                     Role      @default(staff)
+  role                     Role      @default(employee)
   emailVerifiedAt          DateTime?
   emailVerificationToken   String?   @unique
   passwordResetToken       String?   @unique
@@ -33,16 +54,19 @@ model User {
   managedTeams             SalesTeam[]        @relation("TeamManager")
   teamMemberships          SalesTeamMember[]
   salesTargets             SalesTarget[]
+  company                  Company?          @relation(fields: [companyId], references: [id])
 }
 
 enum Role {
   superadmin
   admin
-  staff
+  manager
+  employee
 }
 
 model Lead {
   id           String      @id @default(cuid())
+  companyId    String
   fullName     String
   email        String
   phone        String?
@@ -58,10 +82,11 @@ model Lead {
 
   owner        User        @relation(fields: [ownerId], references: [id])
   campaign     Campaign?   @relation(fields: [campaignId], references: [id])
+  company      Company     @relation(fields: [companyId], references: [id])
   deals        Deal[]
   activities   Activity[]
 
-  @@unique([ownerId, email])
+  @@unique([companyId, email])
 }
 
 enum LeadStatus {
@@ -73,6 +98,7 @@ enum LeadStatus {
 
 model Deal {
   id                String      @id @default(cuid())
+  companyId         String
   leadId            String
   title             String
   value             Float
@@ -86,6 +112,7 @@ model Deal {
 
   lead              Lead        @relation(fields: [leadId], references: [id])
   owner             User        @relation(fields: [ownerId], references: [id])
+  company           Company     @relation(fields: [companyId], references: [id])
 
   @@unique([leadId, title, ownerId])
 }
@@ -106,6 +133,7 @@ enum DealStatus {
 
 model Campaign {
   id        String    @id @default(cuid())
+  companyId String
   name      String
   type      String?
   channel   String
@@ -118,13 +146,15 @@ model Campaign {
 
   owner     User?     @relation("CampaignOwner", fields: [ownerId], references: [id])
   salesOwner User?    @relation("CampaignSalesOwner", fields: [salesOwnerId], references: [id])
+  company   Company   @relation(fields: [companyId], references: [id])
   leads     Lead[]
 
-  @@unique([name, channel, startDate])
+  @@unique([companyId, name, channel, startDate])
 }
 
 model Activity {
   id        String        @id @default(cuid())
+  companyId String
   leadId    String
   type      ActivityType
   content   String
@@ -133,6 +163,7 @@ model Activity {
 
   lead      Lead          @relation(fields: [leadId], references: [id])
   creator   User          @relation(fields: [createdBy], references: [id])
+  company   Company       @relation(fields: [companyId], references: [id])
 
   @@unique([leadId, type, content, createdBy])
 }
@@ -145,6 +176,7 @@ enum ActivityType {
 
 model ApiKey {
   id          String    @id @default(cuid())
+  companyId   String
   name        String
   keyHash     String    @unique
   keyPrefix   String
@@ -154,10 +186,12 @@ model ApiKey {
   createdAt   DateTime  @default(now())
 
   createdBy   User      @relation(fields: [createdById], references: [id])
+  company     Company   @relation(fields: [companyId], references: [id])
 }
 
 model WebhookEndpoint {
   id              String            @id @default(cuid())
+  companyId       String
   name            String
   url             String
   event           WebhookEvent
@@ -169,6 +203,7 @@ model WebhookEndpoint {
   updatedAt       DateTime          @updatedAt
 
   createdBy       User              @relation(fields: [createdById], references: [id])
+  company         Company           @relation(fields: [companyId], references: [id])
   deliveries      WebhookDelivery[]
 }
 
@@ -202,6 +237,7 @@ enum WebhookStatus {
 
 model BillingAccount {
   id               String        @id @default(cuid())
+  companyId        String        @unique
   workspaceName    String        @default("FlowRaze Workspace")
   plan             PlanTier      @default(free)
   status           BillingStatus @default(trialing)
@@ -210,6 +246,8 @@ model BillingAccount {
   externalCustomer String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+
+  company          Company       @relation(fields: [companyId], references: [id])
 }
 
 enum PlanTier {
@@ -230,14 +268,18 @@ enum BillingStatus {
 
 model SalesTeam {
   id        String            @id @default(cuid())
+  companyId String
   name      String
   managerId String
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
   manager   User              @relation("TeamManager", fields: [managerId], references: [id])
+  company   Company           @relation(fields: [companyId], references: [id])
   members   SalesTeamMember[]
   targets   SalesTarget[]
+
+  @@unique([companyId, name])
 }
 
 model SalesTeamMember {
@@ -255,6 +297,7 @@ model SalesTeamMember {
 
 model SalesTarget {
   id            String       @id @default(cuid())
+  companyId     String
   name          String
   scope         TargetScope  @default(company)
   userId        String?      // set when scope = individual
@@ -273,6 +316,7 @@ model SalesTarget {
 
   user          User?        @relation(fields: [userId], references: [id])
   team          SalesTeam?   @relation(fields: [teamId], references: [id])
+  company       Company      @relation(fields: [companyId], references: [id])
 }
 
 enum TargetScope {

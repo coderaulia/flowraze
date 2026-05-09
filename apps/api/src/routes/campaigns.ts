@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import {
@@ -19,7 +19,7 @@ import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js'
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
@@ -31,7 +31,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
     const startFrom = getQueryDate(req.query.startFrom, 'startFrom');
     const startTo = getQueryDate(req.query.startTo, 'startTo');
-    const where: Prisma.CampaignWhereInput = {};
+    const where: Prisma.CampaignWhereInput = { companyId: req.companyId! };
 
     if (channel) {
       where.channel = { contains: channel, mode: 'insensitive' };
@@ -115,7 +115,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const startDate = requiredDate(body.startDate);
 
     const existingCampaign = await prisma.campaign.findFirst({
-      where: { name, channel, startDate },
+      where: { companyId: req.companyId!, name, channel, startDate },
       select: { id: true },
     });
 
@@ -125,6 +125,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const campaign = await prisma.campaign.create({
       data: {
+        companyId: req.companyId!,
         name,
         channel,
         type: optionalNonEmptyString(body.type),

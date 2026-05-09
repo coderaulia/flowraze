@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { BillingAccount } from '@prisma/client';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest, requireRole } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.js';
 import {
   optionalDate,
   optionalEnum,
@@ -17,39 +17,32 @@ const router = Router();
 const PLAN_TIERS = ['free', 'growth', 'pro', 'custom'] as const;
 const BILLING_STATUSES = ['trialing', 'active', 'past_due', 'canceled'] as const;
 
-router.use(authenticate);
+router.use(authenticate, requireAdmin());
 
-async function getOrCreateBillingAccount(): Promise<BillingAccount> {
-  const billingAccount = await prisma.billingAccount.findFirst({
-    orderBy: { createdAt: 'asc' },
+async function getBillingAccount(companyId: string): Promise<BillingAccount> {
+  const billingAccount = await prisma.billingAccount.findUnique({
+    where: { companyId },
   });
 
-  if (billingAccount) {
-    return billingAccount;
+  if (!billingAccount) {
+    throw new Error('Billing account not found for this company');
   }
 
-  return prisma.billingAccount.create({
-    data: {
-      workspaceName: 'FlowRaze Workspace',
-      plan: 'free',
-      status: 'trialing',
-      seats: 3,
-    },
-  });
+  return billingAccount;
 }
 
-router.get('/', async (_req: AuthRequest, res, next) => {
+router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const billingAccount = await getOrCreateBillingAccount();
+    const billingAccount = await getBillingAccount(req.companyId!);
     res.json({ success: true, data: billingAccount });
   } catch (error) {
     next(error);
   }
 });
 
-router.put('/', requireRole('superadmin'), async (req: AuthRequest, res, next) => {
+router.put('/', async (req: AuthRequest, res, next) => {
   try {
-    const billingAccount = await getOrCreateBillingAccount();
+    const billingAccount = await getBillingAccount(req.companyId!);
     const body = requireObjectBody(req.body);
     const data: Record<string, unknown> = {};
 

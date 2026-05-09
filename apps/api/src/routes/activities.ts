@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import { requireEnum, requireObjectBody, requireString } from '../utils/request.js';
@@ -10,7 +10,7 @@ import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
 const router = Router();
 const ACTIVITY_TYPES = ['note', 'call', 'follow_up'] as const;
 
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
@@ -20,7 +20,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const search = getQueryString(req.query.search);
     const createdFrom = getQueryDate(req.query.createdFrom, 'createdFrom');
     const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { companyId: req.companyId! };
 
     if (leadId) {
       where.leadId = leadId;
@@ -83,6 +83,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const activity = await prisma.activity.create({
       data: {
+        companyId: req.companyId!,
         leadId,
         type,
         content,

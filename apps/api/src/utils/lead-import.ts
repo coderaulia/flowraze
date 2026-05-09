@@ -77,7 +77,7 @@ function getRowNumber(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-export function buildLeadImportCandidates(value: unknown, ownerId: string) {
+export function buildLeadImportCandidates(value: unknown, ownerId: string, companyId: string) {
   if (!Array.isArray(value)) {
     throw new AppError(400, 'Import rows must be an array');
   }
@@ -123,6 +123,7 @@ export function buildLeadImportCandidates(value: unknown, ownerId: string) {
           status: normalizeStatus(row.status),
           notes: optionalText(row.notes, 'Notes'),
           ownerId,
+          companyId,
         },
       });
     } catch (error) {

@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import {
@@ -22,7 +22,7 @@ const router = Router();
 const DEAL_STAGES = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
 const DEAL_STATUSES = ['active', 'closed'] as const;
 
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
@@ -37,7 +37,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
     const expectedCloseFrom = getQueryDate(req.query.expectedCloseFrom, 'expectedCloseFrom');
     const expectedCloseTo = getQueryDate(req.query.expectedCloseTo, 'expectedCloseTo');
-    const where: Prisma.DealWhereInput = {};
+    const where: Prisma.DealWhereInput = { companyId: req.companyId! };
 
     if (stage) {
       where.stage = stage as Prisma.EnumDealStageFilter['equals'];
@@ -148,6 +148,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const deal = await prisma.deal.create({
       data: {
+        companyId: req.companyId!,
         leadId,
         title,
         value,
@@ -164,6 +165,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const campaign = await prisma.campaign.create({
       data: {
+        companyId: req.companyId!,
         name: `[Project] ${deal.title}`,
         type: deal.lead.serviceType || 'Project',
         channel: deal.lead.source || 'organic',

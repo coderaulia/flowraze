@@ -24,6 +24,7 @@ function buildAuthUser(user: {
   email: string;
   name: string;
   role: string;
+  companyId: string | null;
   emailVerifiedAt: Date | null;
 }) {
   return {
@@ -31,6 +32,7 @@ function buildAuthUser(user: {
     email: user.email,
     name: user.name,
     role: user.role,
+    companyId: user.companyId,
     emailVerifiedAt: user.emailVerifiedAt,
   };
 }
@@ -68,7 +70,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, role: user.role, companyId: user.companyId },
       getJwtSecret(),
       { expiresIn: '7d' }
     );
@@ -113,7 +115,7 @@ router.post('/register', async (req, res, next) => {
     });
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, role: user.role, companyId: user.companyId },
       getJwtSecret(),
       { expiresIn: '7d' }
     );
@@ -305,7 +307,7 @@ router.post('/accept-invite', async (req, res, next) => {
     });
 
     const jwtToken = jwt.sign(
-      { userId: updated.id, role: updated.role },
+      { userId: updated.id, role: updated.role, companyId: updated.companyId },
       getJwtSecret(),
       { expiresIn: '7d' }
     );
