@@ -335,6 +335,7 @@ export function LeadsPage() {
                 <TableHead>Company</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -349,6 +350,9 @@ export function LeadsPage() {
                     <Badge variant={STATUS_COLORS[lead.status]}>
                       {lead.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-on-surface-variant">
+                    {new Date(lead.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

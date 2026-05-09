@@ -39,6 +39,7 @@ interface DashboardStats {
   conversionRate: number;
   leadsBySource: Record<string, number>;
   revenueOverTime: { month: string; revenue: number }[];
+  leadsOverTime: { month: string; leads: number }[];
   dealsByStage: Record<string, number>;
 }
 
@@ -202,6 +203,7 @@ export function DashboardPage() {
   const hasRevenueData = Boolean(stats?.revenueOverTime.some((item) => item.revenue > 0));
   const hasSourceData = leadsBySourceData.some((item) => item.value > 0);
   const hasStageData = dealsByStageData.some((item) => item.value > 0);
+  const hasLeadsOverTime = Boolean(stats?.leadsOverTime.some((item) => item.leads > 0));
 
   if (isLoading) {
     return (
@@ -400,6 +402,32 @@ export function DashboardPage() {
           <ActivityFeed className="h-[360px] lg:h-full lg:min-h-[400px]" />
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-secondary" />
+            Leads Over Time
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64 sm:h-72">
+            {hasLeadsOverTime ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats?.leadsOverTime || []} margin={{ left: -18, right: 8, top: 12 }}>
+                  <CartesianGrid stroke="#dfe3ea" vertical={false} />
+                  <XAxis dataKey="month" stroke="#464555" fontSize={12} tickLine={false} />
+                  <YAxis allowDecimals={false} stroke="#464555" fontSize={12} tickLine={false} />
+                  <Tooltip content={<DashboardTooltip />} />
+                  <Bar dataKey="leads" name="Leads" radius={[6, 6, 0, 0]} fill="#bcc3ff" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <ChartEmptyState label="Leads created in the selected range will appear here month by month." />
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

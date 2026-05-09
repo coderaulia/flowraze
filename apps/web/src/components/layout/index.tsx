@@ -171,41 +171,7 @@ export function Layout() {
                 onChange={(event) => setGlobalSearch(event.target.value)}
               />
             </form>
-              <div className="hidden lg:flex items-center gap-6">
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  cn(
-                    'text-sm font-semibold pb-1 transition-colors',
-                    isActive ? 'text-primary border-b-2 border-primary' : 'text-slate-500 hover:text-slate-900'
-                  )
-                }
-              >
-                Dashboard
-              </NavLink>
-              <NavLink
-                to="/leads"
-                className={({ isActive }) =>
-                  cn(
-                    'text-sm font-semibold pb-1 transition-colors',
-                    isActive ? 'text-primary border-b-2 border-primary' : 'text-slate-500 hover:text-slate-900'
-                  )
-                }
-              >
-                Leads
-              </NavLink>
-              <NavLink
-                to="/deals"
-                className={({ isActive }) =>
-                  cn(
-                    'text-sm font-semibold pb-1 transition-colors',
-                    isActive ? 'text-primary border-b-2 border-primary' : 'text-slate-500 hover:text-slate-900'
-                  )
-                }
-              >
-                Deals
-              </NavLink>
-            </div>
+
             </div>
             <div className="flex items-center justify-between gap-4 sm:justify-end">
               <span className="text-sm font-medium text-slate-700">{user?.name}</span>

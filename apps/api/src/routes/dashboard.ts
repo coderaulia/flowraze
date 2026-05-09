@@ -48,26 +48,55 @@ function getMonthLabel(date: Date) {
   return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
+/** Build a map of month keys → { month label, value: 0 } covering the full window */
+function buildMonthMap(windowStart: Date, windowEnd: Date): Map<string, { month: string; value: number }> {
+  const map = new Map<string, { month: string; value: number }>();
+  const cursor = new Date(windowStart);
+  cursor.setDate(1);
+  cursor.setHours(0, 0, 0, 0);
+
+  const end = new Date(windowEnd);
+  end.setDate(1);
+  end.setHours(0, 0, 0, 0);
+
+  while (cursor <= end) {
+    map.set(getMonthKey(cursor), { month: getMonthLabel(cursor), value: 0 });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return map;
+}
+
 router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const range = getDashboardRange(req.query.range);
     const startDate = getStartDate(range);
-    const createdAtFilter = startDate ? { gte: startDate } : undefined;
-    const leadWhere: Prisma.LeadWhereInput = createdAtFilter
-      ? { createdAt: createdAtFilter }
-      : {};
-    const dealWhere: Prisma.DealWhereInput = createdAtFilter
-      ? { createdAt: createdAtFilter }
+
+    const leadWhere: Prisma.LeadWhereInput = startDate
+      ? { createdAt: { gte: startDate } }
       : {};
 
-    const [totalLeads, totalDeals, wonDeals] = await Promise.all([
+    // Deals are scoped by createdAt for counts; won revenue by closedAt
+    const dealWhere: Prisma.DealWhereInput = startDate
+      ? { createdAt: { gte: startDate } }
+      : {};
+
+    const wonWhere: Prisma.DealWhereInput = {
+      stage: 'won',
+      ...(startDate ? { closedAt: { gte: startDate } } : {}),
+    };
+
+    const [totalLeads, totalDeals, wonDeals, allLeads] = await Promise.all([
       prisma.lead.count({ where: leadWhere }),
       prisma.deal.count({ where: dealWhere }),
       prisma.deal.findMany({
-        where: { ...dealWhere, stage: 'won' },
-        select: { value: true, createdAt: true },
+        where: wonWhere,
+        select: { value: true, closedAt: true, createdAt: true },
+      }),
+      prisma.lead.findMany({
+        where: leadWhere,
+        select: { createdAt: true },
       }),
     ]);
 
@@ -96,44 +125,53 @@ router.get('/', async (req: AuthRequest, res, next) => {
       dealsByStageMap[item.stage] = item._count.id;
     }
 
-    const revenueWindowStart =
-      startDate ||
-      wonDeals.reduce<Date | undefined>((earliest, deal) => {
-        if (!earliest || deal.createdAt < earliest) {
-          return deal.createdAt;
-        }
+    // --- Revenue over time (grouped by closedAt month) ---
+    const windowStart = startDate ?? wonDeals.reduce<Date | undefined>((earliest, deal) => {
+      const date = deal.closedAt ?? deal.createdAt;
+      if (!earliest || date < earliest) return date;
+      return earliest;
+    }, undefined);
 
-        return earliest;
-      }, undefined);
-    const revenueMap = new Map<string, { month: string; revenue: number }>();
-
-    if (revenueWindowStart) {
-      const cursor = new Date(revenueWindowStart);
-      cursor.setDate(1);
-      cursor.setHours(0, 0, 0, 0);
-
-      const end = new Date();
-      end.setDate(1);
-      end.setHours(0, 0, 0, 0);
-
-      while (cursor <= end) {
-        revenueMap.set(getMonthKey(cursor), {
-          month: getMonthLabel(cursor),
-          revenue: 0,
-        });
-        cursor.setMonth(cursor.getMonth() + 1);
-      }
-    }
+    const revenueMap = windowStart
+      ? buildMonthMap(windowStart, new Date())
+      : new Map<string, { month: string; value: number }>();
 
     for (const deal of wonDeals) {
-      const monthKey = getMonthKey(deal.createdAt);
-      const current = revenueMap.get(monthKey);
+      const dateToUse = deal.closedAt ?? deal.createdAt;
+      const key = getMonthKey(dateToUse);
+      const current = revenueMap.get(key);
       if (current) {
-        current.revenue += deal.value;
+        current.value += deal.value;
       }
     }
 
-    const revenueOverTime = Array.from(revenueMap.values());
+    const revenueOverTime = Array.from(revenueMap.values()).map(({ month, value }) => ({
+      month,
+      revenue: value,
+    }));
+
+    // --- Leads over time (grouped by createdAt month) ---
+    const leadsWindowStart = startDate ?? allLeads.reduce<Date | undefined>((earliest, lead) => {
+      if (!earliest || lead.createdAt < earliest) return lead.createdAt;
+      return earliest;
+    }, undefined);
+
+    const leadsMap = leadsWindowStart
+      ? buildMonthMap(leadsWindowStart, new Date())
+      : new Map<string, { month: string; value: number }>();
+
+    for (const lead of allLeads) {
+      const key = getMonthKey(lead.createdAt);
+      const current = leadsMap.get(key);
+      if (current) {
+        current.value += 1;
+      }
+    }
+
+    const leadsOverTime = Array.from(leadsMap.values()).map(({ month, value }) => ({
+      month,
+      leads: value,
+    }));
 
     res.json({
       success: true,
@@ -146,6 +184,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         leadsBySource: leadsBySourceMap,
         dealsByStage: dealsByStageMap,
         revenueOverTime,
+        leadsOverTime,
       },
     });
   } catch (error) {

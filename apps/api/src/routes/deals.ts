@@ -129,14 +129,16 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const leadId = requireString(body, 'leadId', 'Lead');
     const title = requireString(body, 'title', 'Title');
     const value = requireNumber(body, 'value', 'Value');
+    const stage = optionalEnum(DEAL_STAGES, 'Stage')(body.stage) || 'new';
 
     const deal = await prisma.deal.create({
       data: {
         leadId,
         title,
         value,
-        stage: optionalEnum(DEAL_STAGES, 'Stage')(body.stage) || 'new',
+        stage,
         expectedCloseDate: optionalDate(body.expectedCloseDate) ?? undefined,
+        closedAt: stage === 'won' ? new Date() : undefined,
         ownerId: req.userId!,
       },
       include: {
@@ -179,6 +181,16 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
     if (!existingDeal) {
       throw new AppError(404, 'Deal not found');
+    }
+
+    // Auto-manage closedAt: set when transitioning to won, clear when leaving won
+    const newStage = data.stage as string | undefined;
+    if (newStage !== undefined) {
+      if (newStage === 'won' && existingDeal.stage !== 'won') {
+        data.closedAt = new Date();
+      } else if (newStage !== 'won' && existingDeal.stage === 'won') {
+        data.closedAt = null;
+      }
     }
 
     const deal = await prisma.deal.update({

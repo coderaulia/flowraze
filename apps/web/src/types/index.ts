@@ -37,6 +37,7 @@ export interface Deal {
   stage: DealStage;
   ownerId: string;
   expectedCloseDate?: Date;
+  closedAt?: Date | null;
   status: DealStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -129,6 +130,7 @@ export interface DashboardStats {
   conversionRate: number;
   leadsBySource: Record<string, number>;
   revenueOverTime: { month: string; revenue: number }[];
+  leadsOverTime: { month: string; leads: number }[];
   dealsByStage: Record<DealStage, number>;
 }
 
