@@ -57,23 +57,16 @@ Frontend runs at `http://localhost:5173`, backend at `http://localhost:3000`.
 
 ### Default Logins (Development Seed)
 
-**Superadmin (Platform)**
-```
-Email:    superadmin@flowraze.com
-Password: admin123
-```
+All seeded demo users use `admin123`.
 
-**Admin (Company)**
-```
-Email:    admin@flowraze.com
-Password: admin123
-```
-
-**Employee (Staff)**
-```
-Email:    staff@flowraze.com
-Password: admin123
-```
+| Scope | Email | Company |
+|-------|-------|---------|
+| Superadmin | `superadmin@flowraze.com` | Platform |
+| Admin | `admin@flowraze.com` | FlowRaze Demo Agency |
+| Manager | `sarah@flowraze.com` | FlowRaze Demo Agency |
+| Employee | `michael@flowraze.com` | FlowRaze Demo Agency |
+| Admin | `admin@nusantara-retail.demo` | Nusantara Retail Group |
+| Admin | `admin@byteworks-cloud.demo` | ByteWorks Cloud |
 
 ## Scripts
 
