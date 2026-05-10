@@ -3,6 +3,7 @@ import type { Prisma, SalesTarget, SalesTeamMember } from '@prisma/client';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { campaignScope, dealScope, getVisibleOwnerIds, leadScope } from '../utils/data-scope.js';
 
 const router = Router();
 import { parseDateRange, getStartDate } from '../utils/date.js';
@@ -52,37 +53,36 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const range = parseDateRange(req.query.range);
     const startDate = getStartDate(range);
 
-    const companyId = req.companyId!;
-
-    const leadWhere: Prisma.LeadWhereInput = startDate
-      ? { companyId, createdAt: { gte: startDate } }
-      : { companyId };
+    const leadWhere = await leadScope(
+      req,
+      startDate ? { createdAt: { gte: startDate } } : {}
+    );
 
     // Deals are scoped by createdAt for counts; won revenue by closedAt
-    const dealWhere: Prisma.DealWhereInput = startDate
-      ? { companyId, createdAt: { gte: startDate } }
-      : { companyId };
+    const dealWhere = await dealScope(
+      req,
+      startDate ? { createdAt: { gte: startDate } } : {}
+    );
 
-    const wonWhere: Prisma.DealWhereInput = {
-      companyId,
+    const wonWhere = await dealScope(req, {
       stage: 'won',
       ...(startDate ? { closedAt: { gte: startDate } } : {}),
-    };
+    });
 
-    const campaignWhere: Prisma.CampaignWhereInput = startDate
-      ? { companyId, startDate: { gte: startDate } }
-      : { companyId };
+    const campaignWhere = await campaignScope(
+      req,
+      startDate ? { startDate: { gte: startDate } } : {}
+    );
 
-    const activeCampaignWhere: Prisma.CampaignWhereInput = {
-      companyId,
+    const activeCampaignWhere = await campaignScope(req, {
       startDate: { lte: new Date() },
       OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
-    };
+    });
 
-    const campaignLeadWhere: Prisma.LeadWhereInput = {
+    const campaignLeadWhere = await leadScope(req, {
       ...leadWhere,
       campaignId: { not: null },
-    };
+    });
 
     const [
       totalLeads,
@@ -238,17 +238,51 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
     const year = parseInt(yearStr || String(new Date().getFullYear()), 10);
     const quarter = quarterStr ? parseInt(quarterStr, 10) : undefined;
     const month = monthStr ? parseInt(monthStr, 10) : undefined;
-    const effectiveScope = scope || 'company';
+    const visibleOwnerIds = await getVisibleOwnerIds(req);
+    const effectiveScope = scope || (req.userRole === 'manager'
+      ? 'team'
+      : req.userRole === 'employee'
+        ? 'individual'
+        : 'company');
     const effectivePeriod = period || 'yearly';
 
-    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
+    const isPrivileged = visibleOwnerIds === undefined;
+    let resolvedUserId = userId;
+    let scopedTeamIds: string[] | undefined;
+    let scopedTeamMemberIds: string[] | undefined;
+
+    if (effectiveScope === 'company' && !isPrivileged) {
+      throw new AppError(403, 'Insufficient permissions');
+    }
+
     if (effectiveScope === 'individual') {
-      const resolvedUserId = userId ?? req.userId!;
-      if (resolvedUserId !== req.userId! && !isPrivileged) {
+      resolvedUserId = userId ?? req.userId!;
+      if (!isPrivileged && !visibleOwnerIds.includes(resolvedUserId)) {
         throw new AppError(403, 'Insufficient permissions');
       }
     } else if (effectiveScope === 'team' && !isPrivileged) {
-      throw new AppError(403, 'Insufficient permissions');
+      if (req.userRole !== 'manager') {
+        throw new AppError(403, 'Insufficient permissions');
+      }
+
+      const managedTeams = await prisma.salesTeam.findMany({
+        where: {
+          companyId: req.companyId!,
+          managerId: req.userId!,
+          ...(teamId ? { id: teamId } : {}),
+        },
+        include: { members: { select: { userId: true } } },
+      });
+
+      if (managedTeams.length === 0) {
+        throw new AppError(403, 'Insufficient permissions');
+      }
+
+      scopedTeamIds = managedTeams.map((team) => team.id);
+      scopedTeamMemberIds = Array.from(new Set([
+        req.userId!,
+        ...managedTeams.flatMap((team) => team.members.map((member) => member.userId)),
+      ]));
     }
 
     // -- Build date range for actuals --
@@ -269,15 +303,16 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
     }
 
     // -- Fetch all relevant targets for the year and scope --
-    const allTargets = await prisma.salesTarget.findMany({
-      where: {
-        companyId: req.companyId!,
-        year,
-        scope: effectiveScope as 'company' | 'team' | 'individual',
-        ...(effectiveScope === 'team' && teamId ? { teamId } : {}),
-        ...(effectiveScope === 'individual' && userId ? { userId } : {}),
-      },
-    });
+    const targetWhere: Prisma.SalesTargetWhereInput = {
+      companyId: req.companyId!,
+      year,
+      scope: effectiveScope as 'company' | 'team' | 'individual',
+      ...(effectiveScope === 'team' && scopedTeamIds ? { teamId: { in: scopedTeamIds } } : {}),
+      ...(effectiveScope === 'team' && !scopedTeamIds && teamId ? { teamId } : {}),
+      ...(effectiveScope === 'individual' && resolvedUserId ? { userId: resolvedUserId } : {}),
+    };
+
+    const allTargets = await prisma.salesTarget.findMany({ where: targetWhere });
 
     // Main target for the current period
     const currentPeriodTargets = allTargets.filter((t: SalesTarget) => {
@@ -293,12 +328,16 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
 
     // -- Fetch won deals in range --
     let dealOwnerFilter: Prisma.DealWhereInput = {};
-    if (effectiveScope === 'individual' && userId) {
-      dealOwnerFilter = { ownerId: userId };
-    } else if (effectiveScope === 'team' && teamId) {
-      const members = await prisma.salesTeamMember.findMany({ where: { teamId } });
-      const memberIds = members.map((m: SalesTeamMember) => m.userId);
-      dealOwnerFilter = { ownerId: { in: memberIds } };
+    if (effectiveScope === 'individual' && resolvedUserId) {
+      dealOwnerFilter = { ownerId: resolvedUserId };
+    } else if (effectiveScope === 'team') {
+      if (scopedTeamMemberIds) {
+        dealOwnerFilter = { ownerId: { in: scopedTeamMemberIds } };
+      } else if (teamId) {
+        const members = await prisma.salesTeamMember.findMany({ where: { teamId, team: { companyId: req.companyId! } } });
+        const memberIds = members.map((m: SalesTeamMember) => m.userId);
+        dealOwnerFilter = { ownerId: { in: memberIds } };
+      }
     }
 
     const wonDeals = await prisma.deal.findMany({
@@ -326,11 +365,15 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
     const dealsTarget = currentPeriodTargets.find((t: SalesTarget) => !t.category)?.targetDeals ?? null;
 
     let leadOwnerFilter: Prisma.LeadWhereInput = {};
-    if (effectiveScope === 'individual' && userId) {
-      leadOwnerFilter = { ownerId: userId };
-    } else if (effectiveScope === 'team' && teamId) {
-      const members = await prisma.salesTeamMember.findMany({ where: { teamId } });
-      leadOwnerFilter = { ownerId: { in: members.map((m: SalesTeamMember) => m.userId) } };
+    if (effectiveScope === 'individual' && resolvedUserId) {
+      leadOwnerFilter = { ownerId: resolvedUserId };
+    } else if (effectiveScope === 'team') {
+      if (scopedTeamMemberIds) {
+        leadOwnerFilter = { ownerId: { in: scopedTeamMemberIds } };
+      } else if (teamId) {
+        const members = await prisma.salesTeamMember.findMany({ where: { teamId, team: { companyId: req.companyId! } } });
+        leadOwnerFilter = { ownerId: { in: members.map((m: SalesTeamMember) => m.userId) } };
+      }
     }
 
     const [leadsActual, dealsActual, activeCampaigns] = await Promise.all([

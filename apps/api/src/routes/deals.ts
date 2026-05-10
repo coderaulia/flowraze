@@ -17,6 +17,7 @@ import {
 } from '../utils/request.js';
 import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
 import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
+import { assertLeadVisible, dealScope } from '../utils/data-scope.js';
 
 const router = Router();
 const DEAL_STAGES = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
@@ -37,7 +38,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
     const expectedCloseFrom = getQueryDate(req.query.expectedCloseFrom, 'expectedCloseFrom');
     const expectedCloseTo = getQueryDate(req.query.expectedCloseTo, 'expectedCloseTo');
-    const where: Prisma.DealWhereInput = { companyId: req.companyId! };
+    const where: Prisma.DealWhereInput = {};
 
     if (stage) {
       where.stage = stage as Prisma.EnumDealStageFilter['equals'];
@@ -85,9 +86,10 @@ router.get('/', async (req: AuthRequest, res, next) => {
     }
 
     const pagination = getPagination(req.query);
+    const scopedWhere = await dealScope(req, where);
     const [deals, total] = await prisma.$transaction([
       prisma.deal.findMany({
-        where,
+        where: scopedWhere,
         include: {
           lead: { select: { id: true, fullName: true, companyName: true } },
           owner: { select: { id: true, name: true } },
@@ -95,7 +97,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         orderBy: { createdAt: 'desc' },
         ...getPaginationArgs(pagination),
       }),
-      prisma.deal.count({ where }),
+      prisma.deal.count({ where: scopedWhere }),
     ]);
 
     res.json(paginatedResponse(deals, pagination, total));
@@ -106,8 +108,8 @@ router.get('/', async (req: AuthRequest, res, next) => {
 
 router.get('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const deal = await prisma.deal.findUnique({
-      where: { id: req.params.id },
+    const deal = await prisma.deal.findFirst({
+      where: await dealScope(req, { id: req.params.id }),
       include: {
         lead: true,
         owner: { select: { id: true, name: true } },
@@ -132,9 +134,11 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const value = requireNumber(body, 'value', 'Value');
     const stage = optionalEnum(DEAL_STAGES, 'Stage')(body.stage) || 'new';
     const expectedCloseDate = optionalDate(body.expectedCloseDate) ?? undefined;
+    await assertLeadVisible(req, leadId);
 
     const existingDeal = await prisma.deal.findFirst({
       where: {
+        companyId: req.companyId!,
         leadId,
         ownerId: req.userId!,
         title: { equals: title, mode: 'insensitive' },
@@ -207,18 +211,13 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'status', optionalEnum(DEAL_STATUSES, 'Status'));
     requireAtLeastOneField(data);
 
-    const existingDeal = await prisma.deal.findUnique({
-      where: { id: req.params.id },
+    const existingDeal = await prisma.deal.findFirst({
+      where: await dealScope(req, { id: req.params.id }),
       select: { stage: true, ownerId: true },
     });
 
     if (!existingDeal) {
       throw new AppError(404, 'Deal not found');
-    }
-
-    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
-    if (!isPrivileged && existingDeal.ownerId !== req.userId!) {
-      throw new AppError(403, 'Access denied');
     }
 
     // Auto-manage closedAt: set when transitioning to won, clear when leaving won
@@ -254,9 +253,16 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
-    const ownerWhere = isPrivileged ? {} : { ownerId: req.userId! };
-    await prisma.deal.delete({ where: { id: req.params.id, ...ownerWhere } });
+    const existingDeal = await prisma.deal.findFirst({
+      where: await dealScope(req, { id: req.params.id }),
+      select: { id: true },
+    });
+
+    if (!existingDeal) {
+      throw new AppError(404, 'Deal not found');
+    }
+
+    await prisma.deal.delete({ where: { id: existingDeal.id } });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

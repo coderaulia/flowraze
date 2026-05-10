@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope, requireAdminOrManager } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import {
@@ -16,6 +16,7 @@ import {
   setIfPresent,
 } from '../utils/request.js';
 import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
+import { assertUserInCompany, campaignScope } from '../utils/data-scope.js';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
     const startFrom = getQueryDate(req.query.startFrom, 'startFrom');
     const startTo = getQueryDate(req.query.startTo, 'startTo');
-    const where: Prisma.CampaignWhereInput = { companyId: req.companyId! };
+    const where: Prisma.CampaignWhereInput = {};
 
     if (channel) {
       where.channel = { contains: channel, mode: 'insensitive' };
@@ -67,9 +68,10 @@ router.get('/', async (req: AuthRequest, res, next) => {
     }
 
     const pagination = getPagination(req.query);
+    const scopedWhere = await campaignScope(req, where);
     const [campaigns, total] = await prisma.$transaction([
       prisma.campaign.findMany({
-        where,
+        where: scopedWhere,
         orderBy: { createdAt: 'desc' },
         include: {
           owner: { select: { id: true, name: true, email: true } },
@@ -77,7 +79,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         },
         ...getPaginationArgs(pagination),
       }),
-      prisma.campaign.count({ where }),
+      prisma.campaign.count({ where: scopedWhere }),
     ]);
 
     res.json(paginatedResponse(campaigns, pagination, total));
@@ -88,8 +90,8 @@ router.get('/', async (req: AuthRequest, res, next) => {
 
 router.get('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: req.params.id },
+    const campaign = await prisma.campaign.findFirst({
+      where: await campaignScope(req, { id: req.params.id }),
       include: {
         leads: { include: { deals: true } },
         owner: { select: { id: true, name: true, email: true } },
@@ -107,12 +109,22 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.post('/', async (req: AuthRequest, res, next) => {
+router.post('/', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const name = requireString(body, 'name', 'Name');
     const channel = requireString(body, 'channel', 'Channel');
     const startDate = requiredDate(body.startDate);
+    const ownerId = optionalNonEmptyString(body.ownerId);
+    const salesOwnerId = optionalNonEmptyString(body.salesOwnerId);
+
+    if (ownerId) {
+      await assertUserInCompany(req, ownerId);
+    }
+
+    if (salesOwnerId) {
+      await assertUserInCompany(req, salesOwnerId);
+    }
 
     const existingCampaign = await prisma.campaign.findFirst({
       where: { companyId: req.companyId!, name, channel, startDate },
@@ -129,8 +141,8 @@ router.post('/', async (req: AuthRequest, res, next) => {
         name,
         channel,
         type: optionalNonEmptyString(body.type),
-        ownerId: optionalNonEmptyString(body.ownerId),
-        salesOwnerId: optionalNonEmptyString(body.salesOwnerId),
+        ownerId,
+        salesOwnerId,
         cost: optionalNumber(body.cost),
         startDate,
         endDate: optionalDate(body.endDate),
@@ -143,7 +155,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.put('/:id', async (req: AuthRequest, res, next) => {
+router.put('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const data: Record<string, unknown> = {};
@@ -158,20 +170,25 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'endDate', optionalDate);
     requireAtLeastOneField(data);
 
-    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
-    if (!isPrivileged) {
-      const existingCampaign = await prisma.campaign.findUnique({
-        where: { id: req.params.id },
-        select: { ownerId: true, salesOwnerId: true },
-      });
-      if (!existingCampaign) throw new AppError(404, 'Campaign not found');
-      if (existingCampaign.ownerId !== req.userId! && existingCampaign.salesOwnerId !== req.userId!) {
-        throw new AppError(403, 'Access denied');
-      }
+    if (typeof data.ownerId === 'string') {
+      await assertUserInCompany(req, data.ownerId);
+    }
+
+    if (typeof data.salesOwnerId === 'string') {
+      await assertUserInCompany(req, data.salesOwnerId);
+    }
+
+    const existingCampaign = await prisma.campaign.findFirst({
+      where: await campaignScope(req, { id: req.params.id }),
+      select: { id: true },
+    });
+
+    if (!existingCampaign) {
+      throw new AppError(404, 'Campaign not found');
     }
 
     const campaign = await prisma.campaign.update({
-      where: { id: req.params.id },
+      where: { id: existingCampaign.id },
       data: data as Prisma.CampaignUpdateInput,
     });
 
@@ -181,20 +198,18 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.delete('/:id', async (req: AuthRequest, res, next) => {
+router.delete('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
-    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
-    if (!isPrivileged) {
-      const existingCampaign = await prisma.campaign.findUnique({
-        where: { id: req.params.id },
-        select: { ownerId: true, salesOwnerId: true },
-      });
-      if (!existingCampaign) throw new AppError(404, 'Campaign not found');
-      if (existingCampaign.ownerId !== req.userId! && existingCampaign.salesOwnerId !== req.userId!) {
-        throw new AppError(403, 'Access denied');
-      }
+    const existingCampaign = await prisma.campaign.findFirst({
+      where: await campaignScope(req, { id: req.params.id }),
+      select: { id: true },
+    });
+
+    if (!existingCampaign) {
+      throw new AppError(404, 'Campaign not found');
     }
-    await prisma.campaign.delete({ where: { id: req.params.id } });
+
+    await prisma.campaign.delete({ where: { id: existingCampaign.id } });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

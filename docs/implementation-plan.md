@@ -1,533 +1,219 @@
-# Implementation Plan: Multi-Tenant SaaS Role Rework
+# Implementation Plan Status: Multi-Tenant SaaS Role Rework
 
-**Date:** 2026-05-09  
-**Scope:** Role system, multi-tenancy (Company isolation), white-label prep  
-**Status:** In Progress (Phase 3)
+**Last updated:** 2026-05-10
 
----
+**Scope:** Role system, company tenancy, pricing/package promises, platform admin, billing foundation, white-label prep
 
-## 1. Goals
+**Current status:** Mostly implemented, hardening needed before production multi-tenant use
 
-| Goal | Description |
-|------|-------------|
-| Multi-tenant isolation | Each Company owns its data (leads, deals, campaigns, targets, teams) |
-| Role clarity | 4 clear roles with distinct permission scopes |
-| Superadmin platform control | Manages companies, admins, and platform billing |
-| Admin company control | Manages own company users, data, billing subscription |
-| Manager team control | Manages team members, team targets, views team leads/deals |
-| Employee self-service | Own leads, own deals, own targets, own achievements |
-| White-label ready | Schema and routing ready for per-tenant branding/domain |
+This document is now the source-of-truth status check for the multi-tenant rework. It compares the original plan with the current codebase and separates shipped work from remaining gaps.
 
 ---
 
-## 2. New Role System
+## 1. Target Outcomes
 
-### Role Enum Change
+| Outcome | Current status | Notes |
+| --- | --- | --- |
+| Company-owned data isolation | Mostly done | Shared backend scope helpers now cover CRM reads, detail/update/delete paths, search, dashboard metrics, team performance, and exports. Route tests still need to lock this down. |
+| Four-role model | Done | `superadmin`, `admin`, `manager`, and `employee` are in Prisma, API validation, frontend types, and seeded users. |
+| Superadmin platform control | Mostly done | `/api/admin/*` and `/admin/*` pages cover companies, users, billing, payments, and superadmin invites. |
+| Admin company control | Mostly done | Company users, settings, billing, API keys, webhooks, CRM data, teams, and targets are exposed. |
+| Manager team control | Mostly done | Managers can manage assigned teams and see team-scoped operational data. Route tests remain the next hardening step. |
+| Employee self-service | Mostly done | Employees can use company app routes and operational reads are owner-scoped. Route tests remain the next hardening step. |
+| White-label readiness | Planned | `Company.slug` exists; `Tenant`, custom domains, and tenant branding APIs are not implemented. |
 
-```
-Current:  superadmin | admin | staff
-Target:   superadmin | admin | manager | employee
-```
+---
 
-`staff` → renamed `employee`. `manager` added as new distinct role.
-
-### Permission Matrix
+## 2. Original Role Contract
 
 | Action | Superadmin | Admin | Manager | Employee |
-|--------|:---:|:---:|:---:|:---:|
-| **Platform** | | | | |
-| Manage Companies (CRUD) | ✅ | ❌ | ❌ | ❌ |
-| Manage platform Admins | ✅ | ❌ | ❌ | ❌ |
-| View all Companies | ✅ | ❌ | ❌ | ❌ |
-| Platform billing (Stripe plans/subs) | ✅ | ❌ | ❌ | ❌ |
-| **Company** | | | | |
-| Company billing (own subscription) | ✅ | ✅ | ❌ | ❌ |
-| Invite/manage company users | ❌ | ✅ | ❌ | ❌ |
-| Invite/manage company admins | ❌ | ✅ | ❌ | ❌ |
-| Manage API keys & webhooks | ❌ | ✅ | ❌ | ❌ |
-| Company-level targets (set/edit) | ❌ | ✅ | ❌ | ❌ |
-| View all company leads/deals | ❌ | ✅ | ❌ | ❌ |
-| **Team** | | | | |
-| Create/manage teams | ❌ | ✅ | ✅ (own team) | ❌ |
-| Set team targets | ❌ | ✅ | ✅ (own team) | ❌ |
-| View team leads/deals | ❌ | ✅ | ✅ (own team) | ❌ |
-| Add team members | ❌ | ✅ | ✅ (own team) | ❌ |
-| Create campaigns/projects | ❌ | ✅ | ✅ | ❌ |
-| **Individual** | | | | |
-| Create leads | ❌ | ✅ | ✅ | ✅ |
-| View/edit own leads | ❌ | ✅ | ✅ | ✅ |
-| Create deals (own leads) | ❌ | ✅ | ✅ | ✅ |
-| View own targets/achievements | ❌ | ✅ | ✅ | ✅ |
-| View own dashboard | ❌ | ✅ | ✅ | ✅ |
+| --- | :---: | :---: | :---: | :---: |
+| Manage companies | Yes | No | No | No |
+| Manage platform users/admins | Yes | No | No | No |
+| Platform billing overview | Yes | No | No | No |
+| Company billing | Platform override | Yes | No | No |
+| Manage company users | No | Yes | No | No |
+| Manage API keys and webhooks | No | Yes | No | No |
+| Company targets | No | Yes | No | No |
+| Team targets and members | No | Yes | Own team | No |
+| Create campaigns | No | Yes | Yes | No |
+| Create leads/deals | No | Yes | Yes | Yes |
+| View operational data | Platform metadata only | Company | Team | Own |
+
+The code already supports much of the role surface, but the final row is the key remaining hardening item: operational reads and exports must consistently enforce company, team, and owner scope.
 
 ---
 
-## 3. Schema Rework
+## 3. Done
 
-### 3.1 New `Company` Model
+### Database And Seed Data
 
-```prisma
-model Company {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique   // used for subdomain in white-label
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+- `Company` model exists with `slug`, `isActive`, billing, users, CRM records, teams, targets, API keys, and webhooks.
+- `Role` enum is now `superadmin | admin | manager | employee`.
+- `companyId` exists on tenant-scoped models: users, leads, deals, campaigns, activities, teams, targets, billing, API keys, and webhooks.
+- Unique constraints were moved to company scope for leads, campaigns, teams, and billing accounts.
+- Migrations backfill a default company, make tenant records non-null where required, and replace the legacy `staff` enum.
+- Seed data creates multiple demo companies with admin, manager, employee, billing, API key, webhook, campaign, lead, deal, activity, team, and target data.
 
-  billing          BillingAccount?
-  users            User[]
-  leads            Lead[]
-  deals            Deal[]
-  campaigns        Campaign[]
-  salesTeams       SalesTeam[]
-  salesTargets     SalesTarget[]
-  apiKeys          ApiKey[]
-  webhookEndpoints WebhookEndpoint[]
-}
-```
+### Auth And Middleware
 
-### 3.2 Updated `User` Model
+- JWT login, registration, and invite acceptance include `companyId`.
+- `authenticate()` validates JWT/API key users against the database and attaches `userId`, `userRole`, and `companyId`.
+- Role helpers exist for `requireSuperadmin`, `requireAdmin`, `requireManager`, `requireAdminOrManager`, `requireCompanyMember`, and `companyDataScope`.
+- Public registration sends users to company onboarding; onboarding creates a company, billing account, and first admin.
 
-Add `companyId` (nullable — superadmin has no company):
+### Superadmin Platform Routes
 
-```prisma
-model User {
-  // existing fields...
-  companyId  String?   // null for superadmin
-  role       Role      @default(employee)
+Implemented under `/api/admin`:
 
-  company    Company?  @relation(fields: [companyId], references: [id])
-  // ...existing relations
-}
-```
+- `GET /overview`
+- `GET /companies`
+- `GET /companies/:id`
+- `GET /companies/:id/users`
+- `POST /companies`
+- `PUT /companies/:id`
+- `DELETE /companies/:id`
+- `GET /users`
+- `POST /users`
+- `PUT /users/:id`
+- `POST /users/:id/resend-invite`
+- `POST /users/:id/reset-password-token`
+- `DELETE /users/:id`
+- `GET /billing`
+- `GET /billing/:companyId`
+- `PUT /billing/:companyId`
+- `POST /billing/:companyId/check-payment`
+- `POST /billing/:companyId/mark-paid`
+- `POST /users/invite-superadmin`
 
-### 3.3 Updated `Role` Enum
+### Company App Routes
 
-```prisma
-enum Role {
-  superadmin
-  admin
-  manager
-  employee
-}
-```
+- `/api/users` supports self profile, company-scoped admin user management, invites, and resend invite.
+- `/api/leads`, `/api/deals`, `/api/campaigns`, `/api/activities`, `/api/dashboard`, `/api/search`, `/api/billing`, `/api/api-keys`, `/api/webhooks`, and `/api/targets` use company-aware data on many primary paths.
+- `/api/targets` includes sales team CRUD, team membership CRUD, target CRUD, and dashboard achievement reporting.
+- Shared data-scope helpers enforce company, manager team, and employee owner visibility for core CRM reads, detail/update/delete paths, search, exports, team performance, and dashboard metrics.
+- Campaign write routes are restricted to admins and managers, and campaign owner/sales-owner assignments must stay inside the authenticated company.
+- Webhook deliveries persist, sign payloads, retry with backoff, and support manual replay.
+- SMTP-backed verification, invite, and password reset email delivery exists with a development logging fallback.
 
-### 3.4 Add `companyId` to All Tenant-Scoped Models
+### Frontend
 
-| Model | Add Field | Unique Constraint Change |
-|-------|-----------|--------------------------|
-| `Lead` | `companyId String` | `[ownerId, email]` → `[companyId, email]` |
-| `Deal` | `companyId String` | no change |
-| `Campaign` | `companyId String` | `[name, channel, startDate]` → `[companyId, name, channel, startDate]` |
-| `Activity` | `companyId String` | no change (leadId scopes it) |
-| `SalesTeam` | `companyId String` | add `@@unique([companyId, name])` |
-| `SalesTarget` | `companyId String` | no change |
-| `ApiKey` | `companyId String` | no change |
-| `WebhookEndpoint` | `companyId String` | no change |
-
-### 3.5 Updated `BillingAccount` Model
-
-Link to Company (1-to-1):
-
-```prisma
-model BillingAccount {
-  // existing fields...
-  companyId String  @unique
-
-  company   Company @relation(fields: [companyId], references: [id])
-}
-```
-
-### 3.6 White-Label Prep: `Tenant` Model (Phase 7, do not implement yet)
-
-```prisma
-// Future — white-label only
-model Tenant {
-  id           String   @id @default(cuid())
-  domain       String?  @unique  // custom domain: crm.clientbrand.com
-  subdomain    String   @unique  // clientbrand.flowraze.com
-  logoUrl      String?
-  primaryColor String?
-  companyId    String   @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  company      Company  @relation(fields: [companyId], references: [id])
-}
-```
+- `UserRole`, `Company`, billing, team, and target types are updated.
+- Auth state stores `companyId` and has role helpers.
+- Route guards exist for superadmin, admin, admin-or-manager, and company members.
+- Public marketing routes, login, register, onboarding, and invite acceptance are wired.
+- Superadmin pages exist for dashboard, companies, company detail, platform billing, and users.
+- Company app routes live under `/company/*`, with legacy redirects from `/dashboard`, `/leads`, `/deals`, and related paths.
+- Admin-only company routes protect `/company/users` and `/company/settings`.
+- Targets page includes create/edit/delete target flows plus sales team create/edit/delete and membership management.
 
 ---
 
-## 4. JWT Token Changes
+## 4. Missing Or Incomplete
 
-Current payload: `{ userId, role }`  
-New payload: `{ userId, role, companyId }` (companyId = null for superadmin)
-
-All API routes extract `companyId` from token for automatic data scoping. No route should accept a `companyId` from the request body/query for security — it always comes from the verified JWT.
-
----
-
-## 5. API Authorization Rework
-
-### 5.1 New Middleware Helpers
-
-```typescript
-// New helpers needed in apps/api/src/middleware/auth.ts
-
-requireSuperadmin()          // role === 'superadmin'
-requireAdmin()               // role === 'admin'
-requireManager()             // role === 'manager'
-requireAdminOrManager()      // role in ['admin', 'manager']
-requireCompanyMember()       // any authenticated user with companyId (admin|manager|employee)
-requireSameCompany()         // entity.companyId === req.companyId
-
-// Scope injector — applied globally to all company routes
-injectCompanyScope()         // adds WHERE companyId = req.companyId to all queries
-```
-
-### 5.2 Route Scoping Rules
-
-**Superadmin routes** (`/api/admin/*`):
-- `GET /admin/companies` — list all companies
-- `POST /admin/companies` — create company (onboard new customer)
-- `PUT /admin/companies/:id` — update company
-- `DELETE /admin/companies/:id` — deactivate company
-- `GET /admin/users` — all users across companies
-- `GET /admin/billing` — platform billing overview
-- `PUT /admin/billing/:companyId` — override company plan
-
-**Admin routes** (scoped to own company via JWT):
-- `GET /users` — company users only
-- `POST /users` / `POST /users/invite` — invite to own company only
-- `PUT /users/:id` — manage own company users (not superadmin)
-- `DELETE /users/:id` — own company only
-- `GET /leads` — all company leads
-- `POST /targets` — set company/team/individual targets
-- `GET /settings` — company settings (API keys, webhooks, billing)
-
-**Manager routes** (scoped to own company + own team):
-- `GET /leads` — own team members' leads
-- `POST /leads` — create lead
-- `GET /deals` — own team members' deals
-- `GET /targets` — own team targets + member individual targets
-- `POST /targets` — set team/individual targets (team scope only)
-- `GET /teams` — own managed teams
-- `PUT /teams/:id` — manage own team (members only)
-
-**Employee routes** (scoped to own records):
-- `GET /leads` — own leads only
-- `POST /leads` — create lead
-- `GET /deals` — own deals only
-- `GET /targets` — own targets only
-- `GET /dashboard` — own achievements only
-
-### 5.3 Data Filter Middleware
-
-Apply at router level so no route forgets scoping:
-
-```typescript
-// Applied to all non-superadmin routes
-function companyDataScope(req, res, next) {
-  if (!req.companyId) return res.status(403).json({ error: 'No company context' });
-  req.dataScope = { companyId: req.companyId };
-  next();
-}
-
-// For employee/manager — further restrict to own data or team data
-function ownerDataScope(req, res, next) {
-  if (req.userRole === 'employee') {
-    req.dataScope.ownerId = req.userId;
-  } else if (req.userRole === 'manager') {
-    // resolve team member IDs from DB, add to scope
-    req.dataScope.teamMemberIds = [...]; // resolved async
-  }
-  next();
-}
-```
+| Priority | Gap | Evidence | Needed work |
+| --- | --- | --- | --- |
+| High | Route-level regression tests for tenancy | Current tests are utility-focused. | Add backend route tests for superadmin/admin/manager/employee isolation across users, leads, deals, campaigns, exports, dashboard, targets, billing, API keys, and webhooks. |
+| Medium | Invite seat limit enforcement | Plan called for BillingAccount seat validation on invite/create; `users.ts` does not enforce seats before adding company users. | Count active company users before create/invite and block writes above billing seats unless plan rules allow it. |
+| Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
+| Medium | Payment provider integration | Billing supports local account state, invoices, and manual payment checks; no checkout/customer portal/provider webhook sync exists. | Choose a provider, map provider IDs to `BillingAccount`, and sync subscription/invoice status. |
+| Low | Rich PDF reporting | Export PDF is dependency-free and intentionally basic. | Adopt a richer PDF renderer only when branded, charted, or multi-page reports are required. |
+| Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
+| Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
 
 ---
 
-## 6. Implementation Phases
+## 5. Pricing Page Feature Audit
 
-### Phase 1: Database Schema Migration [COMPLETED]
-**Files:** `prisma/schema.prisma`, new migration
+The public pricing page is the current packaging promise. This table maps `apps/web/src/pages/marketing/pricing.tsx` against the implemented product surface.
 
-Steps:
-1. Add `Company` model
-2. Add `companyId` to `User`, `Lead`, `Deal`, `Campaign`, `Activity`, `SalesTeam`, `SalesTarget`, `ApiKey`, `WebhookEndpoint`
-3. Link `BillingAccount` to `Company` (1-to-1)
-4. Change `Role` enum: rename `staff` → `employee`, add `manager`
-5. Update unique constraints (Lead: `[companyId, email]`, Campaign: `[companyId, name, channel, startDate]`)
-6. Write migration: create default Company, assign existing users/data, migrate `staff` → `employee`
+| Pricing promise | Plans shown | Implementation status | Evidence / gap | Priority |
+| --- | --- | --- | --- | --- |
+| Up to 3 users on Starter | Starter | Partial | `BillingAccount.seats` defaults to 3, but user create/invite flows do not enforce seat limits. | P0 |
+| Unlimited users on paid plans | Growth+ | Partial | Plans store seats, but there is no entitlement engine that maps plan to allowed seats/features. | P0 |
+| Lead and contact management | All | Mostly done | Leads include contact fields and CRUD/import; there is no separate contact entity. | P2 |
+| Basic deal pipeline / full sales pipeline | All/Growth | Done for fixed stages | Deal CRUD, Kanban, stage movement, and won revenue exist. | Done |
+| One board / custom stages / multi-pipeline | Starter/Growth/Performance+ | Missing | `DealStage` is a fixed enum and there is no pipeline/stage model. | P2 |
+| Mobile apps | All | Missing | No iOS, Android, React Native, PWA install flow, or mobile app project exists. | P4 |
+| Revenue dashboard | Starter+ | Done, with caveat | Dashboard supports revenue, conversion, leads, campaign overview, and range filters. Forecasting is not implemented. | P2 |
+| Forecasting: linear / predictive ML / custom models | Growth+ | Missing | No forecast model, endpoint, or UI exists beyond historical charts. | P3 |
+| Team performance tracking | Growth+ | Partial | Team performance page/API exists, but tenant/role scoping still needs hardening. | P0 |
+| Campaign attribution: single-touch / multi-touch / custom | Growth+ | Partial to missing | Campaign-to-lead/deal linkage and campaign overview exist; no attribution model, touch table, ROAS, CAC, or multi-touch logic. | P2 |
+| Conversion funnel tracking | Growth+ | Partial | Deal stage counts exist; no dedicated funnel analytics, conversion steps, or cohort breakdown. | P2 |
+| Advanced analytics and cohorts | Performance+ | Missing | No cohort model, endpoint, or UI exists. | P3 |
+| WhatsApp + email integrations | Growth+ | Missing for CRM | SMTP is used for auth/invite/reset only; no Gmail/WhatsApp inbox, sync, messaging, or provider integration exists. | P3 |
+| Workflow automation / manual triggers / workflow engine | Growth+ | Missing | Webhooks exist, but no automation rule model, trigger/action builder, or job engine exists. | P2 |
+| API access | Performance+ | Mostly done | API key CRUD and `X-API-Key` auth exist. Plan-based API access is not enforced. | P1 |
+| Webhooks limited/unlimited | Growth+ | Mostly done | Webhook CRUD, delivery signing, retry, and replay exist. Plan-based limits are not enforced. | P1 |
+| Custom roles and permissions | Performance+ | Missing | Roles are fixed enum values: `superadmin`, `admin`, `manager`, `employee`. | P3 |
+| SSO and SAML | Performance+ | Missing | Auth is email/password JWT with invite/reset/verification flows only. | P3 |
+| Billing plan changes from dashboard | FAQ | Partial | Admin/superadmin can edit billing state manually; no checkout/customer portal/provider lifecycle exists. | P1 |
+| Payment methods: cards, virtual accounts, wallets, bank transfer | FAQ | Missing except manual records | Billing stores invoices/payments and manual checks; no provider integration exists. | P1 |
+| 14-day Performance trial | Trial/FAQ | Partial | `BillingStatus.trialing` exists; no trial start/end, expiry enforcement, or automatic paid-plan entitlement exists. | P1 |
+| SOC 2, UU PDP, data residency, SLA/security audit | FAQ/Enterprise | Missing as product controls | No compliance evidence, audit workflow, residency configuration, or SLA enforcement exists in code. | P4 |
+| Dedicated onboarding/success/support tiers | Performance/Enterprise | Operational only | No in-app support/chat, onboarding workflow, SLA tracking, or success-manager assignment exists. | P4 |
+| Custom integrations and white-label/client portal | Enterprise and landing pages | Missing | `Company.slug` exists only as prep; no `Tenant`, custom domain, branding API, or client portal exists. | P4 |
 
-**Migration script logic:**
-```sql
--- 1. Create default company for existing data
-INSERT INTO "Company" (id, name, slug, "createdAt", "updatedAt")
-VALUES ('default-company-id', 'Default Company', 'default', NOW(), NOW());
+Priority legend:
 
--- 2. Assign all existing non-superadmin users to default company
-UPDATE "User" SET "companyId" = 'default-company-id' WHERE role != 'superadmin';
-
--- 3. Assign all data to default company
-UPDATE "Lead" SET "companyId" = 'default-company-id';
--- (repeat for Deal, Campaign, etc.)
-
--- 4. Rename staff → employee in Role enum (Postgres: alter type)
-ALTER TYPE "Role" ADD VALUE 'employee';
-UPDATE "User" SET role = 'employee' WHERE role = 'staff';
-ALTER TYPE "Role" ADD VALUE 'manager';
--- Note: Postgres can't drop enum values; handle via new enum + column migration
-```
-
-### Phase 2: JWT & Auth Middleware Update [COMPLETED]
-**Files:** `apps/api/src/routes/auth.ts`, `apps/api/src/middleware/auth.ts`
-
-Steps:
-1. Add `companyId` to JWT payload (login + accept-invite)
-2. Update `authenticate()` to extract and attach `req.companyId`
-3. Add new middleware helpers (`requireAdmin`, `requireManager`, `requireCompanyMember`, etc.)
-4. Add `companyDataScope` middleware function
-5. Update `buildAuthUser()` to return companyId
-
-### Phase 3: User Routes Rework
-**Files:** `apps/api/src/routes/users.ts`
-
-Steps:
-1. Scope all queries to `req.companyId`
-2. Admin can only manage users within own company
-3. Admin can invite as `admin`, `manager`, or `employee` (not `superadmin`)
-4. Remove superadmin guard logic from admin routes (superadmin uses separate `/admin/*` routes)
-5. Manager/employee can only `GET /me` and `PUT /me`
-6. Validate `companyId` seat limits on invite (from BillingAccount)
-
-### Phase 4: Superadmin Admin Routes (new)
-**Files:** `apps/api/src/routes/admin.ts` (new file)
-
-Steps:
-1. `GET /admin/companies` — list + search companies
-2. `POST /admin/companies` — onboard new company (create Company + BillingAccount + first admin user)
-3. `PUT /admin/companies/:id` — update company name/slug/status
-4. `DELETE /admin/companies/:id` — soft-delete (set `isActive = false`)
-5. `GET /admin/users` — cross-company user list
-6. `GET /admin/billing` — platform billing summary
-7. `PUT /admin/billing/:companyId` — override plan tier
-
-### Phase 5: Company Data Routes Rework
-**Files:** `apps/api/src/routes/leads.ts`, `deals.ts`, `campaigns.ts`, `targets.ts`, `teams.ts`
-
-For each route file:
-1. Apply `companyDataScope` middleware at router level
-2. Apply `ownerDataScope` for employee-restricted endpoints
-3. Manager gets team-scoped access (resolve team member IDs)
-4. Admin gets full company-scoped access
-
-**Lead-specific:**
-- Remove `@@unique([ownerId, email])` — same lead email can be owned by different employees
-- Add `@@unique([companyId, email])` — no duplicate leads per company
-
-**Campaign-specific:**
-- Admin and manager can create campaigns
-- Employee has read-only access to campaigns (to assign leads)
-
-**Target-specific:**
-- Admin sets `scope: company` targets
-- Admin or manager sets `scope: team` targets (manager: own team only)
-- Admin or manager sets `scope: individual` targets (manager: own team members only)
-- Employee sees own individual targets only
-
-### Phase 6: Frontend Rework
-**Files:** `apps/web/src/App.tsx`, `apps/web/src/types/index.ts`, all pages
-
-#### 6.1 Type Updates
-```typescript
-// types/index.ts
-type UserRole = 'superadmin' | 'admin' | 'manager' | 'employee';
-
-interface User {
-  // existing fields
-  companyId: string | null;  // null for superadmin
-  role: UserRole;
-}
-
-interface Company {
-  id: string;
-  name: string;
-  slug: string;
-  isActive: boolean;
-  billing?: BillingAccount;
-  createdAt: string;
-  updatedAt: string;
-}
-```
-
-#### 6.2 Auth Context
-Add `companyId` and expanded role to auth context. Gate UI elements by role.
-
-#### 6.3 Route Guards
-```typescript
-// New route guard components
-<SuperadminRoute />    // superadmin only
-<AdminRoute />         // admin only  
-<ManagerRoute />       // manager only
-<ManagerOrAdminRoute /> // manager | admin
-<CompanyMemberRoute /> // any company member
-```
-
-#### 6.4 New Pages
-
-| Page | Path | Role Access |
-|------|------|-------------|
-| Superadmin Dashboard | `/admin` | superadmin |
-| Company Management | `/admin/companies` | superadmin |
-| Company Detail | `/admin/companies/:id` | superadmin |
-| Platform Billing | `/admin/billing` | superadmin |
-| All Users (cross-company) | `/admin/users` | superadmin |
-| Company Dashboard | `/company/dashboard` | admin, manager, employee |
-| Company Settings | `/company/settings` | admin |
-| Company Users | `/company/users` | admin |
-| Team Management | `/company/team` | admin, manager |
-
-#### 6.5 Existing Page Visibility Changes
-
-| Page | Was visible to | Now visible to |
-|------|----------------|----------------|
-| `/company/users` | superadmin, admin | admin only (own company) |
-| `/company/leads` | all | admin (all company), manager (team), employee (own) |
-| `/company/deals` | all | admin (all company), manager (team), employee (own) |
-| `/company/campaigns` | all | admin, manager (read/write), employee (read-only) |
-| `/company/targets` | all | all (scoped by role) |
-| `/company/settings` | all | admin only |
-| `/company/dashboard` | all | all (scoped by role) |
-
-#### 6.6 Superadmin-Specific UI
-- `/admin` — platform dashboard (total companies, MRR, active seats, plan distribution)
-- `/admin/companies` — company list with plan/status badges, seat usage
-- `/admin/companies/:id` — company detail: users, billing, activity summary
-- No access to individual company's leads/deals/campaigns (operational data)
+- **P0:** Must fix before charging for company/role-based SaaS because it affects data isolation or plan-limit correctness.
+- **P1:** Billing and entitlement truth; needed before paid self-service checkout.
+- **P2:** Core Growth/Performance product depth; strong near-term roadmap after P0/P1.
+- **P3:** Advanced Performance/Enterprise differentiation.
+- **P4:** Marketing/compliance/enterprise operations; keep out of near-term build unless sales requires it.
 
 ---
 
-## 7. White-Label Preparation (Phase 7 — Post-MVP)
+## 6. Phase Status
 
-Do **not** implement now. Schema placeholder documented in section 3.6.
-
-### What to prepare now (Phase 1-6):
-- `Company.slug` field already supports subdomain routing (`slug.flowraze.com`)
-- All data isolation is company-scoped (foundation is set)
-- No hardcoded `flowraze` branding in API responses
-
-### What Phase 7 adds:
-1. `Tenant` model (see section 3.6)
-2. Subdomain-based tenant resolution middleware
-3. Custom domain SSL (via Caddy/nginx wildcard + Let's Encrypt)
-4. Per-tenant branding tokens (logo, colors, fonts) surfaced via `/api/tenant/brand`
-5. White-label admin portal (separate login flow at custom domain)
-6. Tenant onboarding wizard (superadmin maps Company → Tenant)
+| Phase | Original scope | Status | Notes |
+| --- | --- | --- | --- |
+| 1 | Database schema migration | Done | Completed by multi-tenant and not-null migrations. |
+| 2 | JWT and auth middleware update | Done | JWT/API key auth now attaches role and company context. |
+| 3 | User routes rework | Mostly done | Company admin scoping exists; seat limits remain. Superadmin support remains in `/api/users` plus richer `/api/admin/users`. |
+| 4 | Superadmin admin routes | Done | More complete than the original plan, including payment and superadmin invite helpers. |
+| 5 | Company data routes rework | Mostly done | Shared data-scope helpers now harden company, manager team, and employee owner visibility. Route-level regression tests remain. |
+| 6 | Frontend rework | Mostly done | Admin and company route families exist; target/team management UI is implemented. Remaining work is mostly permission polish and tests. |
+| 7 | White-label preparation | Planned | Do not implement until tenancy hardening is complete. |
+| 8 | Pricing entitlement alignment | Planned | Map public pricing features to plan gates, limits, and honest in-app behavior. |
+| 9 | Advanced paid-plan features | Planned | Automation, attribution, cohorts, integrations, SSO, and white-label should follow entitlement foundations. |
 
 ---
 
-## 8. Migration Strategy for Existing Data
+## 7. Recommended Next Work Order
 
-**Risk:** Low — currently pre-production / single-tenant
-
-### Step-by-step migration:
-
-1. **Create schema migration** (`prisma/migrations/20260509_multi_tenant/`)
-   - Add Company table
-   - Add companyId columns (nullable first)
-   - Add manager to Role enum
-
-2. **Data migration script** (`prisma/seed-migration.ts`)
-   - Create "Default Company" with slug `default`
-   - Assign all existing users (non-superadmin) to Default Company
-   - Assign all leads/deals/campaigns/etc to Default Company
-   - Rename `staff` → `employee` (requires new enum column approach in Postgres)
-   - Create BillingAccount for Default Company (copy existing BillingAccount data)
-
-3. **Make companyId NOT NULL** (second migration after data fill)
-   - Add `@default` constraint or remove nullable
-   - Superadmin stays null (handled by schema optional relation)
-
-4. **Deploy API with backward compat flag**
-   - JWT without companyId still valid for 1 deploy cycle
-   - Force re-login after deploy to get new JWT with companyId
-
-### Rollback plan:
-- Keep migration numbered (can revert with `prisma migrate reset` in dev)
-- Tag git commit before migration for production rollback point
+1. **P0: Regression tests for isolation.** Add route tests for superadmin/admin/manager/employee access across users, leads, deals, campaigns, exports, dashboard, targets, billing, API keys, and webhooks.
+2. **P0: Seat enforcement.** Enforce company active-seat counts against billing seats in user create/invite flows. Keep Starter at 3 seats until a paid entitlement engine says otherwise.
+3. **P1: Plan entitlement model.** Centralize plan capabilities and limits (`free`, `growth`, `pro`, `custom`) for seats, API keys, webhook endpoints, exports, targets, teams, campaigns, and future automation.
+4. **P1: Billing lifecycle.** Add trial start/end fields, trial expiry behavior, plan upgrade/downgrade rules, invoice sync boundaries, and payment-provider integration when checkout/customer portal is required.
+5. **P1: Gate existing paid features.** Apply entitlement checks to API access, webhooks, team performance, targets, exports, billing settings, and admin UI visibility.
+6. **P2: Pricing truth cleanup.** Either implement or soften public claims for custom stages, multi-pipeline, forecasting, attribution, conversion funnel, and unlimited plan wording.
+7. **P2: Growth analytics depth.** Add funnel analytics, single-touch campaign attribution, forecast basics, and stronger revenue/campaign reporting.
+8. **P2: Workflow foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
+9. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
+10. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
+11. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
 
 ---
 
-## 9. File Change Summary
+## 8. Production Readiness Checklist
 
-### New files
-- `apps/api/src/routes/admin.ts` — superadmin platform routes
-- `apps/api/src/routes/companies.ts` — if needed separate from admin
-- `apps/web/src/pages/admin/index.tsx` — superadmin dashboard
-- `apps/web/src/pages/admin/companies.tsx` — company list
-- `apps/web/src/pages/admin/companies/[id].tsx` — company detail
-- `apps/web/src/pages/admin/billing.tsx` — platform billing
-- `apps/web/src/components/guards/` — role-based route guard components
-- `prisma/migrations/20260509_multi_tenant/migration.sql`
-- `prisma/seed-migration.ts`
-
-### Modified files
-- `prisma/schema.prisma` — Company model, Role enum, all companyId FKs
-- `apps/api/src/routes/auth.ts` — JWT companyId, register → assign company
-- `apps/api/src/middleware/auth.ts` — companyId extraction, new role helpers
-- `apps/api/src/routes/users.ts` — company-scoped, role hierarchy rework
-- `apps/api/src/routes/leads.ts` — companyId scope, role-based filters
-- `apps/api/src/routes/deals.ts` — companyId scope, role-based filters
-- `apps/api/src/routes/campaigns.ts` — companyId scope, role access
-- `apps/api/src/routes/targets.ts` — companyId scope, manager/admin split
-- `apps/api/src/routes/teams.ts` — companyId scope, manager own-team guard
-- `apps/web/src/types/index.ts` — UserRole, Company, updated User
-- `apps/web/src/App.tsx` — route guards, superadmin routes
-- `apps/web/src/pages/users.tsx` — admin-only, company-scoped
-- `apps/web/src/pages/leads.tsx` — role-filtered view
-- `apps/web/src/pages/targets.tsx` — role-filtered view
-- `apps/web/src/pages/settings.tsx` — admin-only sections
-
----
-
-## 10. Build Order (Recommended)
-
-Build in this order to avoid merge conflicts and have testable checkpoints:
-
-```
-1. prisma/schema.prisma         (schema + enum changes)
-2. prisma/migrations/...        (migration SQL)
-3. prisma/seed-migration.ts     (data backfill)
-4. middleware/auth.ts           (JWT + new helpers)
-5. routes/auth.ts               (login/register companyId)
-6. routes/admin.ts              (superadmin CRUD — new file)
-7. routes/users.ts              (company-scoped rework)
-8. routes/leads.ts              (role-scoped)
-9. routes/deals.ts              (role-scoped)
-10. routes/campaigns.ts         (role-scoped)
-11. routes/targets.ts           (role-scoped)
-12. routes/teams.ts             (role-scoped)
-13. types/index.ts              (frontend types)
-14. App.tsx                     (route guards)
-15. pages/admin/*               (superadmin UI — new pages)
-16. pages/users.tsx             (admin-only rework)
-17. pages/leads.tsx             (role-filtered)
-18. pages/targets.tsx           (role-filtered)
-19. pages/settings.tsx          (admin-only sections)
-```
-
----
-
-## 11. Open Questions / Decisions Needed
-
-| # | Question | Options | Recommendation |
-|---|----------|---------|----------------|
-| 1 | Rename `staff` → `employee` or keep `staff` and add `manager`? | A) rename all, B) keep staff, add manager | **A** — clean cut, no legacy confusion |
-| 2 | Self-service company registration (signup flow)? | A) superadmin-only onboarding, B) public signup creates company | **B for SaaS** — public signup page creates Company + first admin |
-| 3 | Can admin create other admins (same company)? | A) yes, B) only superadmin can promote to admin | **A** — admin manages own company fully |
-| 4 | Manager: can they see all company leads or only team leads? | A) team-only, B) all company | **A** — team-scoped, admin sees all |
-| 5 | Employee: can they see other employees' leads? | A) no (own only), B) read-only company leads | **A** — own only, manager is bridge |
-| 6 | BillingAccount per Company or global singleton? | A) per Company (current singleton repurposed), B) global admin-managed | **A** — per Company for SaaS |
-| 7 | Public company signup endpoint? | A) `POST /auth/register` creates Company+User, B) separate `POST /companies/register` | **B** — cleaner separation |
+- [x] Company schema foundation
+- [x] Role enum migration
+- [x] JWT/API key company context
+- [x] Superadmin platform API
+- [x] Superadmin platform UI
+- [x] Company onboarding
+- [x] Company targets and sales team management UI
+- [x] Every tenant query includes company scope
+- [x] Manager reads are team-scoped
+- [x] Employee reads are owner-scoped
+- [x] Exports are tenant/role-scoped
+- [ ] Seat limits are enforced
+- [ ] Route-level tenancy regression tests exist
+- [ ] Plan entitlements are centralized and enforced
+- [ ] Existing paid-feature gates match pricing claims
+- [ ] Trial start/end and expiry behavior exists
+- [ ] Provider billing is integrated
+- [ ] Pricing copy matches implemented product capabilities
+- [ ] White-label tenant routing is designed and implemented

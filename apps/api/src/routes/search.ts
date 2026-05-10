@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { getQueryString } from '../utils/query.js';
+import { activityScope, campaignScope, dealScope, leadScope } from '../utils/data-scope.js';
 
 const router = Router();
 router.use(authenticate, companyDataScope);
@@ -21,16 +22,36 @@ router.get('/', async (req: AuthRequest, res, next) => {
       });
     }
 
+    const [leadWhere, dealWhere, campaignWhere, activityWhere] = await Promise.all([
+      leadScope(req, {
+        OR: [
+          { fullName: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          { companyName: { contains: q, mode: 'insensitive' } },
+        ],
+      }),
+      dealScope(req, {
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { lead: { fullName: { contains: q, mode: 'insensitive' } } },
+          { lead: { companyName: { contains: q, mode: 'insensitive' } } },
+        ],
+      }),
+      campaignScope(req, {
+        name: { contains: q, mode: 'insensitive' },
+      }),
+      activityScope(req, {
+        OR: [
+          { content: { contains: q, mode: 'insensitive' } },
+          { lead: { fullName: { contains: q, mode: 'insensitive' } } },
+          { creator: { name: { contains: q, mode: 'insensitive' } } },
+        ],
+      }),
+    ]);
+
     const [leads, deals, campaigns, activities] = await prisma.$transaction([
       prisma.lead.findMany({
-        where: {
-          companyId: req.companyId!,
-          OR: [
-            { fullName: { contains: q, mode: 'insensitive' } },
-            { email: { contains: q, mode: 'insensitive' } },
-            { companyName: { contains: q, mode: 'insensitive' } },
-          ],
-        },
+        where: leadWhere,
         include: {
           owner: { select: { id: true, name: true } },
           campaign: { select: { id: true, name: true } },
@@ -38,14 +59,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         take: 10,
       }),
       prisma.deal.findMany({
-        where: {
-          companyId: req.companyId!,
-          OR: [
-            { title: { contains: q, mode: 'insensitive' } },
-            { lead: { fullName: { contains: q, mode: 'insensitive' } } },
-            { lead: { companyName: { contains: q, mode: 'insensitive' } } },
-          ],
-        },
+        where: dealWhere,
         include: {
           lead: { select: { id: true, fullName: true, companyName: true } },
           owner: { select: { id: true, name: true } },
@@ -53,21 +67,11 @@ router.get('/', async (req: AuthRequest, res, next) => {
         take: 10,
       }),
       prisma.campaign.findMany({
-        where: {
-          companyId: req.companyId!,
-          name: { contains: q, mode: 'insensitive' },
-        },
+        where: campaignWhere,
         take: 10,
       }),
       prisma.activity.findMany({
-        where: {
-          companyId: req.companyId!,
-          OR: [
-            { content: { contains: q, mode: 'insensitive' } },
-            { lead: { fullName: { contains: q, mode: 'insensitive' } } },
-            { creator: { name: { contains: q, mode: 'insensitive' } } },
-          ],
-        },
+        where: activityWhere,
         include: {
           lead: { select: { id: true, fullName: true } },
           creator: { select: { id: true, name: true } },

@@ -16,6 +16,7 @@ import {
 import { getQueryDate, getQueryString } from '../utils/query.js';
 import { buildLeadImportCandidates } from '../utils/lead-import.js';
 import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
+import { assertCampaignInCompany, leadScope } from '../utils/data-scope.js';
 
 const router = Router();
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified'] as const;
@@ -34,7 +35,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const campaignId = getQueryString(req.query.campaignId);
     const createdFrom = getQueryDate(req.query.createdFrom, 'createdFrom');
     const createdTo = getQueryDate(req.query.createdTo, 'createdTo');
-    const where: Prisma.LeadWhereInput = { companyId: req.companyId! };
+    const where: Prisma.LeadWhereInput = {};
 
     if (status) {
       where.status = status as Prisma.EnumLeadStatusFilter['equals'];
@@ -69,9 +70,10 @@ router.get('/', async (req: AuthRequest, res, next) => {
     }
 
     const pagination = getPagination(req.query);
+    const scopedWhere = await leadScope(req, where);
     const [leads, total] = await prisma.$transaction([
       prisma.lead.findMany({
-        where,
+        where: scopedWhere,
         include: {
           owner: { select: { id: true, name: true } },
           campaign: { select: { id: true, name: true } },
@@ -79,7 +81,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         orderBy: { createdAt: 'desc' },
         ...getPaginationArgs(pagination),
       }),
-      prisma.lead.count({ where }),
+      prisma.lead.count({ where: scopedWhere }),
     ]);
 
     res.json(paginatedResponse(leads, pagination, total));
@@ -91,9 +93,21 @@ router.get('/', async (req: AuthRequest, res, next) => {
 router.get('/lookups', async (req: AuthRequest, res, next) => {
   try {
     const [sources, companies, serviceTypes] = await Promise.all([
-      prisma.lead.findMany({ select: { source: true }, distinct: ['source'], where: { source: { not: '' } } }),
-      prisma.lead.findMany({ select: { companyName: true }, distinct: ['companyName'], where: { companyName: { not: null } } }),
-      prisma.lead.findMany({ select: { serviceType: true }, distinct: ['serviceType'], where: { serviceType: { not: null } } }),
+      prisma.lead.findMany({
+        select: { source: true },
+        distinct: ['source'],
+        where: await leadScope(req, { source: { not: '' } }),
+      }),
+      prisma.lead.findMany({
+        select: { companyName: true },
+        distinct: ['companyName'],
+        where: await leadScope(req, { companyName: { not: null } }),
+      }),
+      prisma.lead.findMany({
+        select: { serviceType: true },
+        distinct: ['serviceType'],
+        where: await leadScope(req, { serviceType: { not: null } }),
+      }),
     ]);
 
     res.json({
@@ -190,8 +204,8 @@ router.post('/import', async (req: AuthRequest, res, next) => {
 
 router.get('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const lead = await prisma.lead.findUnique({
-      where: { id: req.params.id },
+    const lead = await prisma.lead.findFirst({
+      where: await leadScope(req, { id: req.params.id }),
       include: {
         owner: { select: { id: true, name: true } },
         campaign: true,
@@ -216,6 +230,11 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const fullName = requireString(body, 'fullName', 'Full name');
     const email = requireString(body, 'email', 'Email').toLowerCase();
     const source = requireString(body, 'source', 'Source');
+    const campaignId = optionalString(body.campaignId);
+
+    if (campaignId) {
+      await assertCampaignInCompany(req, campaignId);
+    }
 
     const existingLead = await prisma.lead.findFirst({
       where: {
@@ -238,7 +257,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
         companyName: optionalString(body.companyName),
         source,
         serviceType: optionalString(body.serviceType),
-        campaignId: optionalString(body.campaignId),
+        campaignId,
         status: optionalEnum(LEAD_STATUSES, 'Status')(body.status) || 'new',
         notes: optionalString(body.notes),
         ownerId: req.userId!,
@@ -274,11 +293,21 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'notes', optionalString);
     requireAtLeastOneField(data);
 
-    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
-    const ownerWhere = isPrivileged ? {} : { ownerId: req.userId! };
+    if (typeof data.campaignId === 'string' && data.campaignId) {
+      await assertCampaignInCompany(req, data.campaignId);
+    }
+
+    const existingLead = await prisma.lead.findFirst({
+      where: await leadScope(req, { id: req.params.id }),
+      select: { id: true },
+    });
+
+    if (!existingLead) {
+      throw new AppError(404, 'Lead not found');
+    }
 
     const lead = await prisma.lead.update({
-      where: { id: req.params.id, ...ownerWhere },
+      where: { id: existingLead.id },
       data: data as Prisma.LeadUncheckedUpdateInput,
       include: {
         owner: { select: { id: true, name: true } },
@@ -293,9 +322,16 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const isPrivileged = req.userRole === 'admin' || req.userRole === 'superadmin';
-    const ownerWhere = isPrivileged ? {} : { ownerId: req.userId! };
-    await prisma.lead.delete({ where: { id: req.params.id, ...ownerWhere } });
+    const existingLead = await prisma.lead.findFirst({
+      where: await leadScope(req, { id: req.params.id }),
+      select: { id: true },
+    });
+
+    if (!existingLead) {
+      throw new AppError(404, 'Lead not found');
+    }
+
+    await prisma.lead.delete({ where: { id: existingLead.id } });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

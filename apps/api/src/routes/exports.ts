@@ -2,11 +2,12 @@ import { Router } from 'express';
 import type { NextFunction, Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { exportFilename, toCsv, toPdf } from '../utils/export.js';
 import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
 import { parseDateRange, getStartDate } from '../utils/date.js';
+import { activityScope, campaignScope, dealScope, leadScope, requireCompanyId, userScope } from '../utils/data-scope.js';
 
 const router = Router();
 const EXPORT_ENTITIES = ['leads', 'deals', 'campaigns', 'activities', 'team-performance'] as const;
@@ -14,7 +15,7 @@ type ExportEntity = (typeof EXPORT_ENTITIES)[number];
 type ExportFormat = 'csv' | 'pdf';
 type ExportRow = Record<string, string | number | boolean | null | undefined>;
 
-router.use(authenticate);
+router.use(authenticate, companyDataScope);
 
 function requireExportEntity(value: string): ExportEntity {
   if (!EXPORT_ENTITIES.includes(value as ExportEntity)) {
@@ -71,7 +72,7 @@ async function getLeadRows(req: AuthRequest) {
   applyDateRange(where, getQueryDate(req.query.createdFrom, 'createdFrom'), getQueryDate(req.query.createdTo, 'createdTo'));
 
   const leads = await prisma.lead.findMany({
-    where,
+    where: await leadScope(req, where),
     include: {
       owner: { select: { name: true, email: true } },
       campaign: { select: { name: true } },
@@ -127,7 +128,7 @@ async function getDealRows(req: AuthRequest) {
   applyDateRange(where, getQueryDate(req.query.createdFrom, 'createdFrom'), getQueryDate(req.query.createdTo, 'createdTo'));
 
   const deals = await prisma.deal.findMany({
-    where,
+    where: await dealScope(req, where),
     include: {
       owner: { select: { name: true, email: true } },
       lead: { select: { fullName: true, companyName: true } },
@@ -176,7 +177,7 @@ async function getCampaignRows(req: AuthRequest) {
   applyDateRange(where, getQueryDate(req.query.createdFrom, 'createdFrom'), getQueryDate(req.query.createdTo, 'createdTo'));
 
   const campaigns = await prisma.campaign.findMany({
-    where,
+    where: await campaignScope(req, where),
     orderBy: { createdAt: 'desc' },
     take: 1000,
   });
@@ -209,7 +210,7 @@ async function getActivityRows(req: AuthRequest) {
   applyDateRange(where, getQueryDate(req.query.createdFrom, 'createdFrom'), getQueryDate(req.query.createdTo, 'createdTo'));
 
   const activities = await prisma.activity.findMany({
-    where,
+    where: await activityScope(req, where),
     include: {
       lead: { select: { fullName: true } },
       creator: { select: { name: true, email: true } },
@@ -233,7 +234,8 @@ async function getActivityRows(req: AuthRequest) {
 
 async function getTeamRows(req: AuthRequest) {
   const role = getQueryString(req.query.role);
-  const where: Prisma.UserWhereInput = role ? { role: role as Prisma.EnumRoleFilter['equals'] } : {};
+  const companyId = requireCompanyId(req);
+  const where = await userScope(req, role ? { role: role as Prisma.EnumRoleFilter['equals'] } : {});
   const range = parseDateRange(req.query.range);
   const startDate = getStartDate(range);
 
@@ -245,18 +247,19 @@ async function getTeamRows(req: AuthRequest) {
     where,
     include: {
       leads: {
-        where: dateFilter ? { createdAt: dateFilter } : undefined,
+        where: { companyId, ...(dateFilter ? { createdAt: dateFilter } : {}) },
         select: { id: true }
       },
       deals: {
         where: {
+          companyId,
           stage: 'won',
           ...(dateFilter ? { closedAt: dateFilter } : {}),
         },
         select: { id: true, value: true },
       },
       activities: {
-        where: dateFilter ? { createdAt: dateFilter } : undefined,
+        where: { companyId, ...(dateFilter ? { createdAt: dateFilter } : {}) },
         select: { id: true }
       },
     },

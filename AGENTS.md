@@ -252,14 +252,22 @@ NODE_ENV=development
 - [x] Leads, deals, campaigns, activities, and team performance support CSV/PDF export
 - [x] List/export endpoints support combined filters for core CRM views
 - [x] Sales Targets Tracking (company, team, and individual achievement)
+- [x] Multi-company schema foundation with `Company`, `companyId`, and role enum migration
+- [x] Company onboarding creates workspace billing and first admin
+- [x] Superadmin platform pages and `/api/admin/*` company/user/billing controls
+- [x] Targets page supports target CRUD, sales team CRUD, and team membership management
+- [x] SMTP-backed verification, invite, and password-reset email delivery with development fallback
+- [x] Webhook retry and manual replay policy
+- [x] Tenant and role isolation hardening for CRM reads, details, exports, search, dashboards, and team performance
+- [x] Campaign writes are limited to admin/manager roles with tenant-aware target user checks
 
 ### In Progress
-- None
+- Route-level regression tests for tenant and role isolation
 
 ### Placeholder/Todo
-- [ ] Email delivery provider for verification and password reset tokens
-- [ ] Webhook retry/replay policy
+- [ ] Billing seat-limit enforcement on company user create/invite flows
 - [ ] Payment provider integration for checkout/invoices/customer portal
+- [ ] White-label tenant/domain/branding layer
 - [ ] Future betterauth migration decision
 
 ---
@@ -268,9 +276,9 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| LOW | Auth tokens are surfaced for manual QA until email delivery is configured | `apps/api/src/routes/auth.ts` |
+| HIGH | Route-level tests do not yet cover tenant/role isolation | `apps/api/src/**/*.test.ts` |
+| MEDIUM | Company user create/invite flows do not enforce billing seat limits yet | `apps/api/src/routes/users.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
-| LOW | Webhook dispatch records deliveries but does not retry failed calls yet | `apps/api/src/utils/webhooks.ts` |
 
 ---
 
