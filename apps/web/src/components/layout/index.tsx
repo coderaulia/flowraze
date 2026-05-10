@@ -17,6 +17,7 @@ import {
   Target,
   Activity,
   Shield,
+  TrendingUp,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -73,6 +74,7 @@ export function Layout() {
 
   const companyNavItems = [
     { to: COMPANY_ROUTES.dashboard, icon: LayoutDashboard, label: 'Dashboard' },
+    ...(hasFeature('analytics') ? [{ to: COMPANY_ROUTES.analytics, icon: TrendingUp, label: 'Analytics' }] : []),
     ...(hasFeature('targets') ? [{ to: COMPANY_ROUTES.targets, icon: Target, label: 'Targets' }] : []),
     { to: COMPANY_ROUTES.leads, icon: Users, label: 'Leads' },
     { to: COMPANY_ROUTES.deals, icon: Briefcase, label: 'Deals' },

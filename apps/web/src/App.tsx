@@ -35,6 +35,7 @@ import { UsersPage } from './pages/company/users';
 import { SearchPage } from './pages/company/search';
 import { TargetsPage } from './pages/company/targets';
 import { ActivitiesPage } from './pages/company/activities';
+import { AnalyticsPage } from './pages/company/analytics';
 import { AdminDashboardPage } from './pages/admin';
 import { AdminCompaniesPage } from './pages/admin/companies';
 import { AdminCompanyDetailPage } from './pages/admin/company-detail';
@@ -117,6 +118,14 @@ function App() {
         >
           <Route index element={<Navigate to={COMPANY_ROUTES.dashboard} replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route
+            path="analytics"
+            element={
+              <FeatureRoute feature="analytics">
+                <AnalyticsPage />
+              </FeatureRoute>
+            }
+          />
           <Route
             path="targets"
             element={

@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '@/hooks/useAuthStore';
+import { useAuthStore, type Entitlements } from '@/hooks/useAuthStore';
 import { ADMIN_HOME_ROUTE, COMPANY_ROUTES } from '@/lib/routes';
 
 export function SuperadminRoute({ children }: { children: React.ReactNode }) {
@@ -41,7 +41,7 @@ export function FeatureRoute({
   feature,
 }: {
   children: React.ReactNode;
-  feature: Parameters<ReturnType<typeof useAuthStore>['hasFeature']>[0];
+  feature: keyof Entitlements['features'];
 }) {
   const { isAuthenticated, hasFeature } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;

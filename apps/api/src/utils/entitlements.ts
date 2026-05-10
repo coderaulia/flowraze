@@ -5,6 +5,7 @@ import prisma from '../prisma/index.js';
 import { requireCompanyId } from './data-scope.js';
 
 export type EntitlementFeature =
+  | 'analytics'
   | 'apiKeys'
   | 'campaigns'
   | 'exports'
@@ -14,6 +15,7 @@ export type EntitlementFeature =
 
 type EntitlementConfig = {
   seats: number | null;
+  analytics: boolean;
   apiKeys: number;
   campaigns: boolean;
   exports: boolean;
@@ -27,6 +29,7 @@ const ACTIVE_STATUSES: BillingStatus[] = ['active', 'trialing'];
 export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
   free: {
     seats: 3,
+    analytics: false,
     apiKeys: 0,
     campaigns: false,
     exports: false,
@@ -36,6 +39,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
   },
   growth: {
     seats: null,
+    analytics: true,
     apiKeys: 0,
     campaigns: true,
     exports: false,
@@ -45,6 +49,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
   },
   pro: {
     seats: null,
+    analytics: true,
     apiKeys: 5,
     campaigns: true,
     exports: true,
@@ -54,6 +59,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
   },
   custom: {
     seats: null,
+    analytics: true,
     apiKeys: Number.POSITIVE_INFINITY,
     campaigns: true,
     exports: true,
@@ -87,6 +93,7 @@ export async function getCompanyEntitlements(companyId: string) {
     isActive,
     seats: config.seats ?? billingAccount?.seats ?? Number.POSITIVE_INFINITY,
     features: {
+      analytics: isActive && config.analytics,
       apiKeys: isActive && config.apiKeys > 0,
       campaigns: isActive && config.campaigns,
       exports: isActive && config.exports,
@@ -109,6 +116,7 @@ export async function assertFeature(req: AuthRequest, feature: EntitlementFeatur
       isActive: true,
       seats: Number.POSITIVE_INFINITY,
       features: {
+        analytics: true,
         apiKeys: true,
         campaigns: true,
         exports: true,

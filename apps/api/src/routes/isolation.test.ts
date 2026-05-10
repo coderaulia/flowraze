@@ -190,7 +190,7 @@ async function verifyEmployeeLeadDetailScope() {
 
 async function verifyEmployeeLeadExportScope() {
   mockAuthUsers();
-  mockPlan('growth');
+  mockPlan('pro'); // exports require pro+
   mockPrisma('lead', 'findMany', (args) => {
     const where = (args as { where?: { companyId?: string; ownerId?: string } }).where;
     assert.equal(where?.companyId, companyId);
@@ -401,3 +401,153 @@ test('production readiness route regressions', async () => {
     console.error = originalConsoleError;
   }
 });
+
+// ─── Broadened isolation matrix ───────────────────────────────────────────────
+
+async function verifyManagerDeniedUserCreate() {
+  mockAuthUsers();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, manager, '/api/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: 'new@example.com',
+        password: 'password123',
+        name: 'New User',
+        role: 'employee',
+      }),
+    });
+
+    assert.equal(response.status, 403);
+  });
+}
+
+async function verifyEmployeeDeniedUserList() {
+  mockAuthUsers();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, employee, '/api/users');
+    assert.equal(response.status, 403);
+  });
+}
+
+async function verifyManagerDeniedBillingRead() {
+  mockAuthUsers();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, manager, '/api/billing');
+    assert.equal(response.status, 403);
+  });
+}
+
+async function verifyEmployeeDeniedBillingRead() {
+  mockAuthUsers();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, employee, '/api/billing');
+    assert.equal(response.status, 403);
+  });
+}
+
+async function verifyFreePlanBlocksTargets() {
+  mockAuthUsers();
+  mockPlan('free');
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(
+      baseUrl,
+      admin,
+      `/api/dashboard/targets?year=${new Date().getFullYear()}&scope=company&period=yearly`
+    );
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'FEATURE_NOT_AVAILABLE');
+  });
+}
+
+async function verifyFreePlanBlocksAnalytics() {
+  mockAuthUsers();
+  mockPlan('free');
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, admin, '/api/analytics/funnel?range=30d');
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'FEATURE_NOT_AVAILABLE');
+  });
+}
+
+async function verifyGrowthPlanBlocksExports() {
+  mockAuthUsers();
+  mockPlan('growth');
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, admin, '/api/exports/leads.csv');
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'FEATURE_NOT_AVAILABLE');
+  });
+}
+
+async function verifyOutsiderDeniedLeadList() {
+  // outsider belongs to otherCompanyId — queries must be scoped to otherCompanyId only
+  mockPrisma('user', 'findUnique', (args) => {
+    const id = (args as { where?: { id?: string } }).where?.id;
+    return [admin, manager, employee, outsider].find((user) => user.id === id) ?? null;
+  });
+  mockPrisma('billingAccount', 'findUnique', (args) => {
+    const where = (args as { where?: { companyId?: string } }).where;
+    if (where?.companyId === otherCompanyId) {
+      return { plan: 'growth', status: 'active', seats: 10 };
+    }
+    return null;
+  });
+  mockPrisma('lead', 'findMany', (args) => {
+    const where = (args as { where?: { companyId?: string } }).where;
+    assert.equal(where?.companyId, otherCompanyId);
+    return [];
+  });
+  mockPrisma('lead', 'count', (args) => {
+    const where = (args as { where?: { companyId?: string } }).where;
+    assert.equal(where?.companyId, otherCompanyId);
+    return 0;
+  });
+  mockTransaction();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, outsider, '/api/leads?page=1');
+    assert.equal(response.status, 200);
+    const body = await response.json() as { data: unknown[] };
+    assert.equal(body.data.length, 0);
+  });
+}
+
+test('broadened route isolation matrix', async () => {
+  const originalConsoleError = console.error;
+  console.error = () => undefined;
+
+  try {
+    await verifyManagerDeniedUserCreate();
+    resetMocks();
+    await verifyEmployeeDeniedUserList();
+    resetMocks();
+    await verifyManagerDeniedBillingRead();
+    resetMocks();
+    await verifyEmployeeDeniedBillingRead();
+    resetMocks();
+    await verifyFreePlanBlocksTargets();
+    resetMocks();
+    await verifyFreePlanBlocksAnalytics();
+    resetMocks();
+    await verifyGrowthPlanBlocksExports();
+    resetMocks();
+    await verifyOutsiderDeniedLeadList();
+  } finally {
+    resetMocks();
+    console.error = originalConsoleError;
+  }
+});
+

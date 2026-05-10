@@ -9,6 +9,7 @@ export interface Entitlements {
   isActive: boolean;
   seats: number;
   features: {
+    analytics: boolean;
     apiKeys: boolean;
     campaigns: boolean;
     exports: boolean;

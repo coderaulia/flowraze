@@ -5,6 +5,7 @@ export const ADMIN_HOME_ROUTE = '/admin';
 export const COMPANY_ROUTES = {
   root: '/company',
   dashboard: '/company/dashboard',
+  analytics: '/company/analytics',
   targets: '/company/targets',
   leads: '/company/leads',
   deals: '/company/deals',
