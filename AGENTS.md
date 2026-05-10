@@ -265,9 +265,11 @@ NODE_ENV=development
 - [x] Centralized plan entitlements gate API access, webhooks, exports, campaigns, targets, and team performance
 - [x] Billing lifecycle fields and expired-trial enforcement are implemented
 - [x] Pricing page copy no longer advertises unsupported native apps, provider payments, forecasting, SSO, SOC2, or custom pipeline features as shipped
+- [x] Growth analytics depth: funnel analytics, single-touch attribution, linear forecast, and lead velocity
+- [x] Midtrans payment provider integration with Snap checkout, webhook verification, and payment processing
 
 ### In Progress
-- Growth analytics depth: funnel analytics, attribution basics, and forecast basics
+- Subscription renewal automation and customer self-service portal
 
 ### Placeholder/Todo
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
@@ -281,7 +283,7 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| MEDIUM | Growth analytics still needs funnel, attribution, and forecast depth | `apps/api/src/routes/dashboard.ts`, `apps/web/src/pages/dashboard.tsx` |
+| HIGH | Provider billing integration needed for paid self-service | `apps/api/src/routes/billing.ts`, `apps/web/src/pages/company/settings.tsx` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 

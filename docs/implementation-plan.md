@@ -119,7 +119,7 @@ Implemented under `/api/admin`:
 | Priority | Gap | Evidence | Needed work |
 | --- | --- | --- | --- |
 | Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
-| Medium | Payment provider integration | Billing supports local account state, invoices, and manual payment checks; no checkout/customer portal/provider webhook sync exists. | Choose a provider, map provider IDs to `BillingAccount`, and sync subscription/invoice status. |
+| Medium | Payment provider integration | Billing supports local account state, invoices, manual payment checks, and Midtrans Snap checkout integration (session creation, webhook verification, payment processing). Customer portal and subscription renewal automation are not yet implemented. | Add subscription renewal cron, cancellation flow, and customer self-service portal. |
 | Low | Rich PDF reporting | Export PDF is dependency-free and intentionally basic. | Adopt a richer PDF renderer only when branded, charted, or multi-page reports are required. |
 | Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
 | Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
@@ -132,27 +132,27 @@ The public pricing page is the current packaging promise. This table maps `apps/
 
 | Pricing promise | Plans shown | Implementation status | Evidence / gap | Priority |
 | --- | --- | --- | --- | --- |
-| Up to 3 users on Starter | Starter | Partial | `BillingAccount.seats` defaults to 3, but user create/invite flows do not enforce seat limits. | P0 |
-| Unlimited users on paid plans | Growth+ | Partial | Plans store seats, but there is no entitlement engine that maps plan to allowed seats/features. | P0 |
+| Up to 3 users on Starter | Starter | Done | `BillingAccount.seats` defaults to 3; `ensureSeatAvailable()` in user create and invite flows enforces the limit against `getCompanyEntitlements()`. | Done |
+| Unlimited users on paid plans | Growth+ | Done | `PLAN_ENTITLEMENTS` maps growth/pro/custom to `seats: null` (unlimited); entitlement engine resolves and enforces per-plan seat allowances. | Done |
 | Lead and contact management | All | Mostly done | Leads include contact fields and CRUD/import; there is no separate contact entity. | P2 |
 | Basic deal pipeline / full sales pipeline | All/Growth | Done for fixed stages | Deal CRUD, Kanban, stage movement, and won revenue exist. | Done |
 | One board / custom stages / multi-pipeline | Starter/Growth/Performance+ | Missing | `DealStage` is a fixed enum and there is no pipeline/stage model. | P2 |
 | Mobile apps | All | Missing | No iOS, Android, React Native, PWA install flow, or mobile app project exists. | P4 |
-| Revenue dashboard | Starter+ | Done, with caveat | Dashboard supports revenue, conversion, leads, campaign overview, and range filters. Forecasting is not implemented. | P2 |
-| Forecasting: linear / predictive ML / custom models | Growth+ | Missing | No forecast model, endpoint, or UI exists beyond historical charts. | P3 |
-| Team performance tracking | Growth+ | Partial | Team performance page/API exists, but tenant/role scoping still needs hardening. | P0 |
-| Campaign attribution: single-touch / multi-touch / custom | Growth+ | Partial to missing | Campaign-to-lead/deal linkage and campaign overview exist; no attribution model, touch table, ROAS, CAC, or multi-touch logic. | P2 |
-| Conversion funnel tracking | Growth+ | Partial | Deal stage counts exist; no dedicated funnel analytics, conversion steps, or cohort breakdown. | P2 |
+| Revenue dashboard | Starter+ | Done | Dashboard supports revenue, conversion, leads, campaign overview, range filters, and linear forecast. | Done |
+| Forecasting: linear / predictive ML / custom models | Growth+ | Partial | Linear regression forecast exists (`/analytics/forecast` + UI panel); predictive ML and custom models are not implemented. | P3 |
+| Team performance tracking | Growth+ | Done | Team performance page/API exists with tenant/role scoping enforced via data-scope helpers and plan entitlements. | Done |
+| Campaign attribution: single-touch / multi-touch / custom | Growth+ | Partial | Single-touch attribution exists (`/analytics/attribution`) with ROAS, cost-per-lead, and conversion rate; multi-touch and custom models are not implemented. | P3 |
+| Conversion funnel tracking | Growth+ | Done | Dedicated funnel analytics endpoint (`/analytics/funnel`) and UI panel with stage-to-stage conversion rates and drop-off. | Done |
 | Advanced analytics and cohorts | Performance+ | Missing | No cohort model, endpoint, or UI exists. | P3 |
 | WhatsApp + email integrations | Growth+ | Missing for CRM | SMTP is used for auth/invite/reset only; no Gmail/WhatsApp inbox, sync, messaging, or provider integration exists. | P3 |
 | Workflow automation / manual triggers / workflow engine | Growth+ | Missing | Webhooks exist, but no automation rule model, trigger/action builder, or job engine exists. | P2 |
-| API access | Performance+ | Mostly done | API key CRUD and `X-API-Key` auth exist. Plan-based API access is not enforced. | P1 |
-| Webhooks limited/unlimited | Growth+ | Mostly done | Webhook CRUD, delivery signing, retry, and replay exist. Plan-based limits are not enforced. | P1 |
+| API access | Performance+ | Done | API key CRUD, `X-API-Key` auth, and plan-based gating exist. `authenticate()` checks `entitlements.features.apiKeys`; `assertApiKeyLimit()` enforces per-plan key count. | Done |
+| Webhooks limited/unlimited | Growth+ | Done | Webhook CRUD, delivery signing, retry, replay, and plan-based limits exist. `assertWebhookLimit()` enforces per-plan webhook count (growth=3, pro=unlimited). | Done |
 | Custom roles and permissions | Performance+ | Missing | Roles are fixed enum values: `superadmin`, `admin`, `manager`, `employee`. | P3 |
 | SSO and SAML | Performance+ | Missing | Auth is email/password JWT with invite/reset/verification flows only. | P3 |
-| Billing plan changes from dashboard | FAQ | Partial | Admin/superadmin can edit billing state manually; no checkout/customer portal/provider lifecycle exists. | P1 |
-| Payment methods: cards, virtual accounts, wallets, bank transfer | FAQ | Missing except manual records | Billing stores invoices/payments and manual checks; no provider integration exists. | P1 |
-| 14-day Performance trial | Trial/FAQ | Partial | `BillingStatus.trialing` exists; no trial start/end, expiry enforcement, or automatic paid-plan entitlement exists. | P1 |
+| Billing plan changes from dashboard | FAQ | Mostly done | Admin can initiate Midtrans Snap checkout from settings; plan/status updates on payment success. Customer portal for managing existing subscriptions is not yet built. | P2 |
+| Payment methods: cards, virtual accounts, wallets, bank transfer | FAQ | Done via Midtrans | Midtrans Snap supports credit cards, bank transfers, e-wallets, and virtual accounts. All methods available through the checkout dialog. | Done |
+| 14-day Performance trial | Trial/FAQ | Done | Onboarding creates `trialStartedAt` + `trialEndsAt` (14 days); `getCompanyEntitlements()` auto-expires trials and cancels billing status. | Done |
 | SOC 2, UU PDP, data residency, SLA/security audit | FAQ/Enterprise | Missing as product controls | No compliance evidence, audit workflow, residency configuration, or SLA enforcement exists in code. | P4 |
 | Dedicated onboarding/success/support tiers | Performance/Enterprise | Operational only | No in-app support/chat, onboarding workflow, SLA tracking, or success-manager assignment exists. | P4 |
 | Custom integrations and white-label/client portal | Enterprise and landing pages | Missing | `Company.slug` exists only as prep; no `Tenant`, custom domain, branding API, or client portal exists. | P4 |
@@ -179,17 +179,18 @@ Priority legend:
 | 6 | Frontend rework | Mostly done | Admin and company route families exist; target/team management UI is implemented. Remaining work is mostly permission polish and tests. |
 | 7 | White-label preparation | Planned | Do not implement until tenancy hardening is complete. |
 | 8 | Pricing entitlement alignment | Done | Map public pricing features to plan gates, limits, and honest in-app behavior. |
-| 9 | Advanced paid-plan features | Planned | Automation, attribution, cohorts, integrations, SSO, and white-label should follow entitlement foundations. |
+| 9 | Advanced paid-plan features | In progress | Funnel analytics, single-touch attribution, linear forecast, and lead velocity are shipped. Remaining: automation engine, multi-touch attribution, cohorts, custom roles, SSO, integrations. |
 
 ---
 
 ## 7. Recommended Next Work Order
 
-1. **P1: Provider billing.** Integrate a payment provider (checkout, invoices, customer portal) to enable paid self-service.
-2. **P2: Workflow/automation foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
-3. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC improvements, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
-4. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
-5. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
+1. **P2: Subscription lifecycle.** Add renewal cron job, cancellation/downgrade flow, and customer self-service portal for managing active subscriptions.
+2. **P2: Workflow/automation foundations.** Build an automation rule model with trigger/action definitions, a job runner, manual trigger UI, and retry history — extending the existing webhook infrastructure.
+3. **P2: Multi-pipeline / custom stages.** Add a `Pipeline` + `PipelineStage` model so companies can define custom deal stages beyond the fixed enum.
+4. **P3: Performance differentiators.** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
+5. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
+6. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
 
 ---
 
@@ -211,6 +212,6 @@ Priority legend:
 - [x] Plan entitlements are centralized and enforced
 - [x] Existing paid-feature gates match pricing claims
 - [x] Trial start/end and expiry behavior exists
-- [ ] Provider billing is integrated
+- [x] Provider billing is integrated
 - [x] Pricing copy matches implemented product capabilities
 - [ ] White-label tenant routing is designed and implemented

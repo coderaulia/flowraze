@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckoutDialog } from '@/components/checkout-dialog';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { del, get, post, put } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -96,6 +97,7 @@ export function SettingsPage() {
     renewalDate: '',
     externalCustomer: '',
   });
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const fetchAdminTools = useCallback(async () => {
     const billingResponse = await get<BillingAccount>('/billing');
@@ -456,6 +458,11 @@ export function SettingsPage() {
               </div>
             </div>
           )}
+          {billing && !canManageAdminTools && billing.plan !== 'custom' && (
+            <Button type="button" variant="secondary" onClick={() => setCheckoutOpen(true)}>
+              {billing.plan === 'free' || billing.status === 'canceled' ? 'Upgrade Plan' : 'Change Plan'}
+            </Button>
+          )}
           {canManageAdminTools && (
             <form onSubmit={handleSaveBilling} className="space-y-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -675,6 +682,13 @@ export function SettingsPage() {
           </Card>
         </>
       )}
+
+      <CheckoutDialog
+        billing={billing}
+        open={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        onSuccess={() => fetchAdminTools()}
+      />
     </div>
   );
 }
