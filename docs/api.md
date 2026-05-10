@@ -1,133 +1,211 @@
 # FlowRaze API Reference
 
-Base URL: `http://localhost:3000` (development) or your configured API domain in production.
+Base URL: `http://localhost:3000` in development, or your configured API domain in production.
 
-All authenticated endpoints require a `Authorization: Bearer <token>` header. Superadmin-only endpoints additionally enforce the `superadmin` role. API keys may authenticate requests using the `X-API-Key` header instead.
+Authenticated endpoints require `Authorization: Bearer <token>`. API-key authentication is also supported with `X-API-Key` for company integration routes. Responses follow:
+
+```json
+{ "success": true, "data": {} }
+```
+
+Errors follow:
+
+```json
+{ "success": false, "error": "Message", "code": "OPTIONAL_CODE" }
+```
+
+## Tenancy And Roles
+
+- Roles: `superadmin`, `admin`, `manager`, `employee`.
+- Superadmin routes live under `/api/admin/*` and manage platform/company metadata.
+- Company routes use the authenticated user's `companyId`; clients must not send `companyId` to choose another tenant.
+- Known hardening gap: some operational detail/export/reporting queries still need stricter company/team/owner scoping. See [missing-features.md](missing-features.md).
 
 ## Authentication
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | /api/auth/login | — | Login, returns JWT |
-| POST | /api/auth/register | — | Register new account |
-| POST | /api/auth/email-verification/request | User | Request email verification token |
-| POST | /api/auth/verify-email | — | Confirm email verification |
-| POST | /api/auth/password-reset/request | — | Request password reset token |
-| POST | /api/auth/password-reset/confirm | — | Confirm password reset |
+| --- | --- | --- | --- |
+| POST | `/api/auth/login` | Public | Login and return JWT + user |
+| POST | `/api/auth/register` | Public | Register a user; self-serve users continue to onboarding |
+| POST | `/api/auth/email-verification/request` | User | Send verification email/token |
+| POST | `/api/auth/verify-email` | Public | Confirm email verification token |
+| POST | `/api/auth/password-reset/request` | Public | Send password reset email/token |
+| POST | `/api/auth/password-reset/confirm` | Public | Reset password with token |
+| POST | `/api/auth/accept-invite` | Public | Accept company/platform invite and set password |
+
+## Onboarding
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| POST | `/api/onboarding/setup-company` | User without company | Create company, billing account, and promote the registering user to admin |
+
+## Superadmin Platform
+
+All routes below require `superadmin`.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/admin/overview` | Platform metrics |
+| GET | `/api/admin/companies` | List/search companies |
+| GET | `/api/admin/companies/:id` | Company detail |
+| GET | `/api/admin/companies/:id/users` | Users for one company |
+| POST | `/api/admin/companies` | Create company, billing account, and first admin |
+| PUT | `/api/admin/companies/:id` | Update company name, slug, or active state |
+| DELETE | `/api/admin/companies/:id` | Deactivate company |
+| GET | `/api/admin/users` | Cross-company users |
+| POST | `/api/admin/users` | Create platform/company user |
+| PUT | `/api/admin/users/:id` | Update user |
+| POST | `/api/admin/users/:id/resend-invite` | Resend invite |
+| POST | `/api/admin/users/:id/reset-password-token` | Issue reset token/email |
+| DELETE | `/api/admin/users/:id` | Deactivate/delete user according to route rules |
+| POST | `/api/admin/users/invite-superadmin` | Invite a platform superadmin |
+| GET | `/api/admin/billing` | Platform billing overview |
+| GET | `/api/admin/billing/:companyId` | Company billing detail |
+| PUT | `/api/admin/billing/:companyId` | Override company billing plan/status/seats |
+| POST | `/api/admin/billing/:companyId/check-payment` | Record or update a pending manual payment check |
+| POST | `/api/admin/billing/:companyId/mark-paid` | Mark manual payment/invoice paid and activate renewal |
 
 ## Users
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/users/me | User | Get own profile |
-| PUT | /api/users/me | User | Update own profile |
-| GET | /api/users | Superadmin | List all users |
-| GET | /api/users/:id | Superadmin | Get user by ID |
-| POST | /api/users | Superadmin | Create user |
-| PUT | /api/users/:id | Superadmin | Update user |
-| DELETE | /api/users/:id | Superadmin | Delete user (preserves last superadmin) |
+| --- | --- | --- | --- |
+| GET | `/api/users/me` | User | Own profile |
+| PUT | `/api/users/me` | User | Update own profile/password |
+| GET | `/api/users/lookup` | User | User lookup; company-scoped for non-superadmins |
+| GET | `/api/users` | Superadmin/Admin | List users; company-scoped for admins |
+| GET | `/api/users/:id` | Superadmin/Admin | Get user |
+| POST | `/api/users` | Superadmin/Admin | Create user |
+| PUT | `/api/users/:id` | Superadmin/Admin | Update user |
+| DELETE | `/api/users/:id` | Superadmin/Admin | Delete user, preserving last superadmin |
+| POST | `/api/users/invite` | Superadmin/Admin | Invite user |
+| POST | `/api/users/:id/resend-invite` | Superadmin/Admin | Resend invite |
 
 ## Leads
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/leads | User | List leads |
-| GET | /api/leads/:id | User | Get lead by ID |
-| POST | /api/leads | User | Create lead |
-| PUT | /api/leads/:id | User | Update lead |
-| DELETE | /api/leads/:id | User | Delete lead |
+| --- | --- | --- | --- |
+| GET | `/api/leads` | Company member | List leads |
+| GET | `/api/leads/lookups` | Company member | Distinct lead source/company/service-type lookups |
+| POST | `/api/leads/import` | Company member | Bulk import validated lead rows |
+| GET | `/api/leads/:id` | Company member | Get lead detail |
+| POST | `/api/leads` | Company member | Create lead |
+| PUT | `/api/leads/:id` | Company member | Update lead |
+| DELETE | `/api/leads/:id` | Company member | Delete lead |
 
-**Filter params:** `search`, `status`, `source`, `assignedTo`, `createdFrom`, `createdTo`
+Filter params: `search`, `status`, `source`, `ownerId`, `campaignId`, `createdFrom`, `createdTo`, `page`, `limit`.
 
 ## Deals
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/deals | User | List deals |
-| GET | /api/deals/:id | User | Get deal by ID |
-| POST | /api/deals | User | Create deal |
-| PUT | /api/deals/:id | User | Update deal / move stage |
-| DELETE | /api/deals/:id | User | Delete deal |
+| --- | --- | --- | --- |
+| GET | `/api/deals` | Company member | List deals |
+| GET | `/api/deals/:id` | Company member | Get deal detail |
+| POST | `/api/deals` | Company member | Create deal and project campaign |
+| PUT | `/api/deals/:id` | Company member | Update deal or move stage |
+| DELETE | `/api/deals/:id` | Company member | Delete deal |
 
-**Filter params:** `search`, `stage`, `status`, `assignedTo`, `valueMin`, `valueMax`, `createdFrom`, `createdTo`
+Filter params: `search`, `stage`, `status`, `ownerId`, `leadId`, `minValue`, `maxValue`, `createdFrom`, `createdTo`, `expectedCloseFrom`, `expectedCloseTo`, `page`, `limit`.
 
 ## Campaigns
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/campaigns | User | List campaigns |
-| GET | /api/campaigns/:id | User | Get campaign by ID |
-| POST | /api/campaigns | User | Create campaign |
-| PUT | /api/campaigns/:id | User | Update campaign |
-| DELETE | /api/campaigns/:id | User | Delete campaign |
+| --- | --- | --- | --- |
+| GET | `/api/campaigns` | Company member | List campaigns |
+| GET | `/api/campaigns/:id` | Company member | Get campaign detail |
+| POST | `/api/campaigns` | Company member | Create campaign |
+| PUT | `/api/campaigns/:id` | Company member | Update campaign |
+| DELETE | `/api/campaigns/:id` | Company member | Delete campaign |
 
-**Filter params:** `search`, `status`, `channel`, `createdFrom`, `createdTo`
+Filter params: `search`, `channel`, `minCost`, `maxCost`, `createdFrom`, `createdTo`, `startFrom`, `startTo`, `page`, `limit`.
 
 ## Activities
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/activities | User | List activities |
-| POST | /api/activities | User | Create activity (type: `note`, `call`, `follow_up`) |
+| --- | --- | --- | --- |
+| GET | `/api/activities` | Company member | List activities |
+| POST | `/api/activities` | Company member | Create activity (`note`, `call`, `follow_up`) |
 
-**Filter params:** `leadId`, `type`, `createdBy`, `search`, `createdFrom`, `createdTo`
+Filter params: `leadId`, `type`, `createdBy`, `search`, `createdFrom`, `createdTo`, `page`, `limit`.
 
-## Dashboard & Team
+## Dashboard And Team Performance
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/dashboard | User | Aggregated sales metrics |
-| GET | /api/team/performance | User | Per-member performance stats |
+| --- | --- | --- | --- |
+| GET | `/api/dashboard` | Company member | Aggregated sales metrics |
+| GET | `/api/dashboard/targets` | Company member | Target achievement and breakdowns |
+| GET | `/api/team/performance` | User | Per-member performance stats |
+
+Range params: `range=7d|30d|90d|12m|all`. Paginated team performance accepts `page` and `limit`.
+
+## Sales Targets And Teams
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/targets` | Company member | List targets |
+| POST | `/api/targets` | Admin/Manager | Create target |
+| PUT | `/api/targets/:id` | Admin/Manager | Update target |
+| DELETE | `/api/targets/:id` | Admin/Manager | Delete target |
+| GET | `/api/targets/teams` | Company member | List sales teams |
+| POST | `/api/targets/teams` | Admin/Manager | Create sales team |
+| PUT | `/api/targets/teams/:id` | Admin/Manager | Update sales team |
+| DELETE | `/api/targets/teams/:id` | Admin/Manager | Delete sales team |
+| POST | `/api/targets/teams/:id/members` | Admin/Manager | Add team member |
+| DELETE | `/api/targets/teams/:id/members/:userId` | Admin/Manager | Remove team member |
+
+Target filters: `scope`, `period`, `year`, `quarter`, `month`, `teamId`, `userId`.
 
 ## Search
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/search?q= | User | Cross-entity search across leads, deals, campaigns, and activities |
+| --- | --- | --- | --- |
+| GET | `/api/search?q=` | Company member | Search leads, deals, campaigns, and activities |
 
 ## Exports
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/exports/:entity.csv | User | CSV export |
-| GET | /api/exports/:entity.pdf | User | PDF export |
+| --- | --- | --- | --- |
+| GET | `/api/exports/:entity.csv` | User | CSV export |
+| GET | `/api/exports/:entity.pdf` | User | Lightweight PDF export |
+| GET | `/api/exports/:entity?format=csv|pdf` | User | Alternate export format selector |
 
-Supported entities: `leads`, `deals`, `campaigns`, `activities`, `team`. Accepts the same filter params as the corresponding list endpoint. Omit `page`/`limit` to export the full filtered dataset.
-
-## API Keys
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/api-keys | Superadmin | List API keys |
-| POST | /api/api-keys | Superadmin | Create API key |
-| DELETE | /api/api-keys/:id | Superadmin | Revoke API key |
+Supported entities: `leads`, `deals`, `campaigns`, `activities`, `team-performance`.
 
 ## Billing
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/billing | User | Get workspace billing state |
-| PUT | /api/billing | Superadmin | Update billing state |
+| --- | --- | --- | --- |
+| GET | `/api/billing` | Admin | Own company billing account |
+| PUT | `/api/billing` | Admin | Update own company workspace/billing fields |
+
+## API Keys
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/api-keys` | Admin | List company API keys |
+| POST | `/api/api-keys` | Admin | Create API key |
+| DELETE | `/api/api-keys/:id` | Admin | Revoke API key |
 
 ## Webhooks
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/webhooks | Superadmin | List webhooks |
-| POST | /api/webhooks | Superadmin | Create webhook |
-| PUT | /api/webhooks/:id | Superadmin | Update / pause webhook |
-| DELETE | /api/webhooks/:id | Superadmin | Delete webhook |
-| POST | /api/webhooks/:id/test | Superadmin | Send test payload to webhook URL |
+| --- | --- | --- | --- |
+| GET | `/api/webhooks` | Admin | List company webhooks and recent deliveries |
+| POST | `/api/webhooks` | Admin | Create webhook |
+| PUT | `/api/webhooks/:id` | Admin | Update/pause webhook |
+| POST | `/api/webhooks/:id/test` | Admin | Send test payload |
+| POST | `/api/webhooks/:id/deliveries/:deliveryId/replay` | Admin | Replay a delivery |
+| DELETE | `/api/webhooks/:id` | Admin | Delete webhook |
 
-Webhook events dispatched: `lead_created`, `lead_updated`, `deal_created`, `deal_updated`, `deal_won`, `activity_created`.
+Webhook events currently dispatched: `lead_created`, `deal_created`, `deal_won`, `activity_created`.
 
 ## Pagination
 
-List endpoints accept `page` (default 1) and `limit` (default 20) query params. When present, responses include pagination metadata:
+Paginated list endpoints accept `page` and `limit`. Responses include:
 
 ```json
 {
-  "data": [...],
+  "success": true,
+  "data": [],
   "pagination": {
     "page": 1,
     "limit": 20,

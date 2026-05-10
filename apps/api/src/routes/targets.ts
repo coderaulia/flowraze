@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
 import { authenticate, requireAdminOrManager, AuthRequest, companyDataScope } from '../middleware/auth.js';
+import { requireCompanyId } from '../utils/data-scope.js';
 import {
   requireString,
   requireNumber,
@@ -146,13 +147,24 @@ router.delete('/teams/:id/members/:userId', requireAdminOrManager(), async (req:
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
     await assertFeature(req, 'targets');
+    const companyId = requireCompanyId(req);
     const q = req.query as Record<string, string>;
-    const where: Prisma.SalesTargetWhereInput = { companyId: req.companyId! };
-    if (q.scope) where.scope = q.scope as typeof VALID_SCOPES[number];
-    if (q.period) where.period = q.period as typeof VALID_PERIODS[number];
-    if (q.year) where.year = parseInt(q.year, 10);
-    if (q.quarter) where.quarter = parseInt(q.quarter, 10);
-    if (q.month) where.month = parseInt(q.month, 10);
+    const where: Prisma.SalesTargetWhereInput = { companyId };
+    
+    if (q.scope) where.scope = q.scope as any;
+    if (q.period) where.period = q.period as any;
+    if (q.year) {
+      const y = parseInt(q.year, 10);
+      if (!isNaN(y)) where.year = y;
+    }
+    if (q.quarter) {
+      const qtr = parseInt(q.quarter, 10);
+      if (!isNaN(qtr)) where.quarter = qtr;
+    }
+    if (q.month) {
+      const m = parseInt(q.month, 10);
+      if (!isNaN(m)) where.month = m;
+    }
     if (q.teamId) where.teamId = q.teamId;
     if (q.userId) where.userId = q.userId;
 

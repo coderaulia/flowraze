@@ -35,3 +35,16 @@ export function CompanyMemberRoute({ children }: { children: React.ReactNode }) 
 
   return <>{children}</>;
 }
+
+export function FeatureRoute({
+  children,
+  feature,
+}: {
+  children: React.ReactNode;
+  feature: Parameters<ReturnType<typeof useAuthStore>['hasFeature']>[0];
+}) {
+  const { isAuthenticated, hasFeature } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!hasFeature(feature)) return <Navigate to={COMPANY_ROUTES.dashboard} replace />;
+  return <>{children}</>;
+}

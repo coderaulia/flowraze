@@ -122,11 +122,13 @@ router.get('/overview', async (_req: AuthRequest, res, next) => {
       ]);
 
     const planDistribution = accounts.reduce<Record<string, number>>((acc, account) => {
-      acc[account.plan] = (acc[account.plan] ?? 0) + 1;
+      const plan = account.plan as string;
+      acc[plan] = (acc[plan] ?? 0) + 1;
       return acc;
     }, {});
     const billingStatusDistribution = accounts.reduce<Record<string, number>>((acc, account) => {
-      acc[account.status] = (acc[account.status] ?? 0) + 1;
+      const status = account.status as string;
+      acc[status] = (acc[status] ?? 0) + 1;
       return acc;
     }, {});
     const activeSeats = accounts.reduce((total, account) => total + account.seats, 0);

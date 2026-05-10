@@ -1,11 +1,16 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout';
 import {
   SuperadminRoute,
   AdminRoute,
   CompanyMemberRoute,
+  FeatureRoute,
 } from './components/guards';
 import { COMPANY_ROUTES } from './lib/routes';
+import { useAuthStore } from './hooks/useAuthStore';
+import { get } from './lib/api';
+import type { User } from './types';
 import { LoginPage } from './pages/auth/login';
 import { RegisterPage } from './pages/auth/register';
 import { OnboardingPage } from './pages/company/onboarding';
@@ -42,6 +47,18 @@ function RedirectWithSearch({ to }: { to: string }) {
 }
 
 function App() {
+  const { isAuthenticated, updateUser } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      get<{ user: User }>('/auth/me').then((response) => {
+        if (response.success && response.data) {
+          updateUser(response.data.user);
+        }
+      });
+    }
+  }, [isAuthenticated, updateUser]);
+
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
@@ -100,12 +117,33 @@ function App() {
         >
           <Route index element={<Navigate to={COMPANY_ROUTES.dashboard} replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="targets" element={<TargetsPage />} />
+          <Route
+            path="targets"
+            element={
+              <FeatureRoute feature="targets">
+                <TargetsPage />
+              </FeatureRoute>
+            }
+          />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="deals" element={<DealsPage />} />
-          <Route path="campaigns" element={<CampaignsPage />} />
+          <Route
+            path="campaigns"
+            element={
+              <FeatureRoute feature="campaigns">
+                <CampaignsPage />
+              </FeatureRoute>
+            }
+          />
           <Route path="activities" element={<ActivitiesPage />} />
-          <Route path="team" element={<TeamPage />} />
+          <Route
+            path="team"
+            element={
+              <FeatureRoute feature="teamPerformance">
+                <TeamPage />
+              </FeatureRoute>
+            }
+          />
           <Route
             path="users"
             element={

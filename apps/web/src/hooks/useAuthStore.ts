@@ -3,6 +3,25 @@ import { persist } from 'zustand/middleware';
 
 export type UserRole = 'superadmin' | 'admin' | 'manager' | 'employee';
 
+export interface Entitlements {
+  plan: string;
+  status: string;
+  isActive: boolean;
+  seats: number;
+  features: {
+    apiKeys: boolean;
+    campaigns: boolean;
+    exports: boolean;
+    targets: boolean;
+    teamPerformance: boolean;
+    webhooks: boolean;
+  };
+  limits: {
+    apiKeys: number;
+    webhooks: number;
+  };
+}
+
 interface User {
   id: string;
   email: string;
@@ -10,6 +29,7 @@ interface User {
   role: UserRole;
   companyId: string | null;
   emailVerifiedAt?: Date | string | null;
+  entitlements?: Entitlements | null;
 }
 
 interface AuthState {
@@ -24,6 +44,7 @@ interface AuthState {
   isManager: () => boolean;
   isAdminOrManager: () => boolean;
   isCompanyMember: () => boolean;
+  hasFeature: (feature: keyof Entitlements['features']) => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -57,6 +78,11 @@ export const useAuthStore = create<AuthState>()(
       isCompanyMember: () => {
         const role = get().user?.role;
         return role === 'admin' || role === 'manager' || role === 'employee';
+      },
+      hasFeature: (feature) => {
+        const user = get().user;
+        if (user?.role === 'superadmin') return true;
+        return Boolean(user?.entitlements?.features[feature]);
       },
     }),
     {

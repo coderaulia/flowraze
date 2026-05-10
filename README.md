@@ -1,6 +1,6 @@
 # FlowRaze
 
-FlowRaze is a Multi-Tenant CRM and operations analytics platform for growing sales teams. It provides data-isolated workspaces for companies to manage leads, deals, campaigns, and team performance.
+FlowRaze is a multi-tenant CRM and operations analytics platform for growing sales teams. It provides company workspaces for managing leads, deals, campaigns, targets, billing, and team performance.
 
 ## Features
 
@@ -10,10 +10,12 @@ FlowRaze is a Multi-Tenant CRM and operations analytics platform for growing sal
 - **Activity Logging** — Log calls, notes, and follow-ups against leads with a full audit trail.
 - **Dashboard & Analytics** — Real-time metrics for revenue, conversion rates, and pipeline health.
 - **Team Performance** — Per-member reporting on leads assigned, deals won, and revenue closed.
+- **Sales Targets** — Company, team, and individual target tracking with achievement dashboards.
+- **Platform Admin** — Superadmin tools for companies, users, billing, invoices, and manual payment checks.
 - **Global Search** — Search across leads, deals, campaigns, and activities from anywhere.
 - **Data Export** — Download filtered datasets as CSV or PDF reports.
 - **API & Webhooks** — API key authentication and outbound webhook delivery for external integrations.
-- **Settings & Security** — Email verification, password reset, billing management, and role-based access control.
+- **Settings & Security** — Email verification, password reset, invites, billing management, and role-based access control.
 
 ## Tech Stack
 
@@ -43,11 +45,7 @@ cp apps/api/.env.example apps/api/.env
 # Edit apps/api/.env with your DATABASE_URL and JWT_SECRET
 
 # Run database migrations and seed
-cd apps/api
-npm run prisma:generate
-npm run prisma:deploy
-npm run prisma:seed
-cd ../..
+npm run db:setup
 
 # Start development servers
 npm run dev
@@ -84,7 +82,13 @@ All seeded demo users use `admin123`.
 |----------|-------------|
 | [docs/api.md](docs/api.md) | Full API endpoint reference |
 | [docs/deployment.md](docs/deployment.md) | VPS deployment guide |
+| [docs/implementation-plan.md](docs/implementation-plan.md) | Multi-tenant implementation status and remaining hardening checklist |
 | [docs/manual.md](docs/manual.md) | User manual (Employee, Manager, Admin, Superadmin) |
+| [docs/missing-features.md](docs/missing-features.md) | Current missing features and roadmap gaps |
+
+## Current Caveats
+
+The multi-company foundation is implemented, but production multi-tenant rollout still needs route-level hardening for several detail/export/reporting paths and manager/employee read scopes. Track that work in [docs/missing-features.md](docs/missing-features.md).
 
 ## License
 

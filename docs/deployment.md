@@ -39,6 +39,15 @@ DATABASE_URL="postgresql://flowraze_user:your_secure_password@localhost:5432/flo
 JWT_SECRET="generate_a_secure_random_string"
 PORT=3000
 NODE_ENV=production
+ALLOWED_ORIGINS="https://yourdomain.com,https://www.yourdomain.com"
+APP_URL="https://yourdomain.com"
+
+# Optional SMTP. Without these, verification/reset/invite email bodies are logged.
+SMTP_HOST="smtp.example.com"
+SMTP_PORT=587
+SMTP_USER="smtp_user"
+SMTP_PASS="smtp_password"
+SMTP_FROM="noreply@yourdomain.com"
 ```
 
 **Frontend — `apps/web/.env`:**
@@ -63,6 +72,8 @@ npm run prisma:generate
 npm run prisma:deploy
 npm run prisma:seed   # optional, fresh installs only
 ```
+
+For a fresh production install, seed data creates demo users and sample companies. Skip `npm run prisma:seed` when deploying to a real customer database unless you intentionally want the demo records.
 
 ## 6. Start the Backend
 
@@ -121,3 +132,13 @@ Use Certbot to issue Let's Encrypt certificates for both domains:
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com -d api.yourdomain.com
 ```
+
+## 9. Post-Deploy Checks
+
+```bash
+curl https://api.yourdomain.com/api/health
+pm2 status flowraze-api
+pm2 logs flowraze-api --lines 100
+```
+
+Then verify login, company onboarding, admin billing, invite email delivery, and a CSV export from the browser.

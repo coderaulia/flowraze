@@ -111,10 +111,15 @@ export async function authenticate(
 
 export function requireRole(...roles: string[]) {
   return (req: AuthRequest, _res: Response, next: NextFunction) => {
-    if (!req.userRole || !roles.includes(req.userRole)) {
-      return next(new AppError(403, 'Insufficient permissions'));
+    if (!req.userRole) {
+      return next(new AppError(401, 'No authenticated user'));
     }
-    next();
+
+    if (req.userRole === 'superadmin' || roles.includes(req.userRole)) {
+      return next();
+    }
+
+    return next(new AppError(403, 'Insufficient permissions'));
   };
 }
 

@@ -7,6 +7,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { requireObjectBody, requireString } from '../utils/request.js';
 import { createOpaqueToken, hashSecret } from '../utils/security.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email.js';
+import { getCompanyEntitlements } from '../utils/entitlements.js';
 
 const router = Router();
 const PASSWORD_RESET_TTL_MINUTES = 30;
@@ -75,12 +76,15 @@ router.post('/login', async (req, res, next) => {
       { expiresIn: '7d' }
     );
 
+    const entitlements = user.companyId ? await getCompanyEntitlements(user.companyId) : null;
+
     res.json({
       success: true,
       data: {
         token,
         user: {
           ...buildAuthUser(user),
+          entitlements,
         },
       },
     });
@@ -123,12 +127,15 @@ router.post('/register', async (req, res, next) => {
     const verificationUrl = buildDevelopmentUrl('/login', verificationToken);
     await sendVerificationEmail(email, name, verificationToken, verificationUrl);
 
+    const entitlements = user.companyId ? await getCompanyEntitlements(user.companyId) : null;
+
     res.status(201).json({
       success: true,
       data: {
         token,
         user: {
           ...buildAuthUser(user),
+          entitlements,
         },
       },
     });
@@ -312,9 +319,35 @@ router.post('/accept-invite', async (req, res, next) => {
       { expiresIn: '7d' }
     );
 
+    const entitlements = updated.companyId ? await getCompanyEntitlements(updated.companyId) : null;
+
     res.json({
       success: true,
-      data: { token: jwtToken, user: buildAuthUser(updated) },
+      data: { token: jwtToken, user: { ...buildAuthUser(updated), entitlements } },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/me', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+
+    if (!user) {
+      throw new AppError(404, 'User not found');
+    }
+
+    const entitlements = user.companyId ? await getCompanyEntitlements(user.companyId) : null;
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          ...buildAuthUser(user),
+          entitlements,
+        },
+      },
     });
   } catch (error) {
     next(error);

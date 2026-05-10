@@ -26,7 +26,7 @@ import { COMPANY_ROUTES } from '@/lib/routes';
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSuperadmin, isAdmin, clearAuth, user } = useAuthStore();
+  const { isSuperadmin, isAdmin, clearAuth, user, hasFeature } = useAuthStore();
   const [globalSearch, setGlobalSearch] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -73,10 +73,10 @@ export function Layout() {
 
   const companyNavItems = [
     { to: COMPANY_ROUTES.dashboard, icon: LayoutDashboard, label: 'Dashboard' },
-    { to: COMPANY_ROUTES.targets, icon: Target, label: 'Targets' },
+    ...(hasFeature('targets') ? [{ to: COMPANY_ROUTES.targets, icon: Target, label: 'Targets' }] : []),
     { to: COMPANY_ROUTES.leads, icon: Users, label: 'Leads' },
     { to: COMPANY_ROUTES.deals, icon: Briefcase, label: 'Deals' },
-    { to: COMPANY_ROUTES.campaigns, icon: Megaphone, label: 'Campaigns' },
+    ...(hasFeature('campaigns') ? [{ to: COMPANY_ROUTES.campaigns, icon: Megaphone, label: 'Campaigns' }] : []),
     { to: COMPANY_ROUTES.activities, icon: Activity, label: 'Activities' },
     { to: COMPANY_ROUTES.team, icon: UserCircle, label: 'Team' },
     ...(admin ? [{ to: COMPANY_ROUTES.users, icon: Shield, label: 'Users' }] : []),

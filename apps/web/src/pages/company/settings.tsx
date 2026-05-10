@@ -31,7 +31,7 @@ const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
 const PLAN_OPTIONS: { value: PlanTier; label: string }[] = [
   { value: 'free', label: 'Free' },
   { value: 'growth', label: 'Growth' },
-  { value: 'pro', label: 'Pro' },
+  { value: 'pro', label: 'Performance' },
   { value: 'custom', label: 'Custom' },
 ];
 
@@ -62,8 +62,9 @@ function toDateInputValue(value: Date | string | null | undefined) {
 }
 
 export function SettingsPage() {
-  const { user, updateUser, isSuperadmin } = useAuthStore();
+  const { user, updateUser, isSuperadmin, isAdmin, hasFeature } = useAuthStore();
   const canManageAdminTools = isSuperadmin();
+  const canManageIntegrations = isSuperadmin() || (isAdmin() && (hasFeature('apiKeys') || hasFeature('webhooks')));
   const [name, setName] = useState(user?.name || '');
   const [password, setPassword] = useState('');
   const [profileMessage, setProfileMessage] = useState<Message | null>(null);
@@ -111,7 +112,7 @@ export function SettingsPage() {
       });
     }
 
-    if (!canManageAdminTools) {
+    if (!canManageIntegrations) {
       return;
     }
 
@@ -127,7 +128,7 @@ export function SettingsPage() {
     if (webhooksResponse.success && webhooksResponse.data) {
       setWebhooks(webhooksResponse.data);
     }
-  }, [canManageAdminTools]);
+  }, [canManageIntegrations]);
 
   useEffect(() => {
     fetchAdminTools();
@@ -517,7 +518,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {canManageAdminTools && (
+      {canManageIntegrations && (
         <>
           <Card>
             <CardHeader>

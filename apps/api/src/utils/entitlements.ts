@@ -38,8 +38,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     seats: null,
     apiKeys: 0,
     campaigns: true,
-    exports: true,
-    targets: true,
+    exports: false,
+    targets: false,
     teamPerformance: true,
     webhooks: 3,
   },
@@ -102,6 +102,27 @@ export async function getCompanyEntitlements(companyId: string) {
 }
 
 export async function assertFeature(req: AuthRequest, feature: EntitlementFeature) {
+  if (req.userRole === 'superadmin') {
+    return {
+      plan: 'custom',
+      status: 'active',
+      isActive: true,
+      seats: Number.POSITIVE_INFINITY,
+      features: {
+        apiKeys: true,
+        campaigns: true,
+        exports: true,
+        targets: true,
+        teamPerformance: true,
+        webhooks: true,
+      },
+      limits: {
+        apiKeys: Number.POSITIVE_INFINITY,
+        webhooks: Number.POSITIVE_INFINITY,
+      },
+    };
+  }
+
   const entitlements = await getCompanyEntitlements(requireCompanyId(req));
 
   if (!entitlements.features[feature]) {

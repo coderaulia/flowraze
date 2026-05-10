@@ -1,70 +1,104 @@
 # FlowRaze User Manual
 
-Welcome to the FlowRaze user guide! FlowRaze is a modern CRM and Operations Analytics application designed to help teams track leads, manage deal pipelines, and monitor overall sales performance.
+FlowRaze is a multi-company CRM and operations analytics app for tracking leads, deals, campaigns, activity, targets, billing, and team performance.
 
-This manual is divided into sections based on your account role: **Employee**, **Manager**, **Admin**, and **Superadmin**. 
-
----
-
-## 1. Employee Guide
-
-As an employee (e.g., Sales Representative), your primary focus is managing your pipeline, communicating with leads, and closing deals. In the multi-tenant system, you only see your own assigned data.
-
-### Navigating the Interface
-- **Dashboard**: Gives you a high-level overview of your sales metrics, including total revenue, conversion rates, and your active pipeline.
-- **Leads**: The starting point for all potential clients.
-- **Deals**: Your Kanban board where you track the progress of ongoing sales.
-- **Campaigns**: View the marketing campaigns generating your leads.
-
-### Managing Leads
-1. **Adding a Lead**: Go to the **Leads** page and click **Add Lead**. Fill in the contact details, source, and initial status (e.g., `New`, `Contacted`).
-2. **Logging Activity**: When you call, email, or follow up with a lead, log an activity to keep a historical record. This populates the Activity Feed on the dashboard and helps you pick up where you left off.
-3. **Updating Status**: As you engage with the lead, update their status to `Qualified` or `Unqualified`.
-
-### Managing Deals
-1. **The Kanban Board**: Deals are visualized on a board by their stage (`New`, `Qualified`, `Proposal`, `Negotiation`, `Won`, `Lost`).
-2. **Moving Deals**: Drag and drop a deal from one column to the next as the negotiation progresses.
-3. **Winning a Deal**: Dragging a deal to the `Won` column immediately updates your Dashboard's Revenue metrics.
+The app has four roles: **Employee**, **Manager**, **Admin**, and **Superadmin**.
 
 ---
 
-## 2. Manager Guide
+## Employee Guide
 
-Managers act as team leads. They have all the capabilities of an Employee, plus oversight of their specific sales team.
+Employees focus on their own sales work.
 
-### Team Management
-- **My Team**: Managers can view the leads and deals for all members of their assigned team.
-- **Team Targets**: Managers can set and monitor individual targets for their team members.
-- **Reporting**: Access to team-specific performance dashboards and activity feeds.
+### Main Areas
+
+- **Dashboard:** Revenue, leads, conversion, campaign, and target performance.
+- **Leads:** Create leads, import lead files, update status, and add notes.
+- **Deals:** Move deals through the Kanban pipeline from new to won/lost.
+- **Campaigns:** Review campaigns and the leads/deals connected to them.
+- **Activities:** Log calls, notes, and follow-ups.
+- **Targets:** Review assigned targets and achievement.
+
+### Common Flow
+
+1. Add or import leads from the Leads page.
+2. Create deals from qualified leads.
+3. Move deals through the pipeline as work progresses.
+4. Log activities so follow-up history stays visible.
+5. Check Targets and Dashboard for progress against revenue, lead, and deal goals.
 
 ---
 
-## 3. Admin Guide
+## Manager Guide
 
-Admins manage their specific **Company**. They have full visibility into all company data (leads, deals, campaigns, targets) but cannot access other companies on the platform.
+Managers have employee capabilities plus team responsibilities.
+
+### Team And Targets
+
+- View team performance and revenue contribution.
+- Create and maintain sales teams where permitted.
+- Assign or adjust team and individual targets for their own team.
+- Add or remove team members from managed teams.
+
+### CRM Work
+
+Managers can create leads, deals, and campaigns. Some backend read paths still need final team-only hardening, so production rollout should wait until the tenancy hardening items in [missing-features.md](missing-features.md) are resolved.
+
+---
+
+## Admin Guide
+
+Admins manage one company workspace.
 
 ### Company Management
-- **User Management**: Admins invite and manage Employees, Managers, and other Admins within their own company.
-- **Company Settings**: Manage API keys, webhooks, and branding for the company.
-- **Billing**: Manage the company's subscription plan and seat limits.
-- **Company Targets**: Set company-wide revenue and lead targets.
+
+- **Users:** Create, invite, edit, delete, and resend invitations for company users.
+- **Settings:** Manage profile/security settings, company billing state, API keys, and webhooks.
+- **Billing:** Review and update workspace billing details.
+- **Targets:** Create company, team, and individual targets; manage sales teams and members.
+- **CRM:** Manage company leads, deals, campaigns, activities, exports, and dashboard reporting.
+
+Admins cannot access other company workspaces through company routes.
 
 ---
 
-## 4. Superadmin (Platform) Guide
+## Superadmin Guide
 
-Superadmins manage the entire FlowRaze **Platform**. They oversee all companies, global billing, and platform-wide configurations.
+Superadmins manage the FlowRaze platform, not day-to-day company CRM operations.
 
 ### Platform Administration
-- **Company Onboarding**: Superadmins create and manage company tenants.
-- **Platform Billing**: Oversight of all subscriptions and MRR across the platform.
-- **Cross-Company Monitoring**: Superadmins can view user lists across all companies for support and auditing.
-- **System Security**: Manage global security policies and platform-wide webhooks.
+
+- View platform overview metrics.
+- Create, update, deactivate, and inspect companies.
+- Create and manage cross-company users.
+- Invite other superadmins.
+- Inspect and override company billing state.
+- Record manual payment checks and mark invoices paid.
+
+Superadmin pages are available under `/admin/*`.
 
 ---
 
-## Troubleshooting & Support
+## Account And Access
 
-- **Forgot Password**: Use the password reset controls on the login screen. In the MVP, reset tokens are surfaced directly for manual QA until email delivery is connected.
-- **Data Not Loading**: Try refreshing the page. If the issue persists, ensure you are connected to the internet. If you see a "Network Error", contact your Superadmin to ensure the backend API is running.
-- **Missing Features**: If you cannot see certain pages (like "Users" or "Campaigns"), it is likely because your account is set to the **Staff** role. Contact your Admin to request a role change if necessary.
+- **Registration:** Public registration creates a user account, then sends the user to onboarding to create a company workspace.
+- **Onboarding:** The first user who creates a company becomes that company's admin.
+- **Invites:** Admins and superadmins can invite users. Invite links are emailed when SMTP is configured; in development the email body is logged to the API console.
+- **Email verification:** Verification emails are sent through SMTP or logged in development.
+- **Forgot password:** Password reset links are sent through SMTP or logged in development.
+
+---
+
+## Exports
+
+The app can export leads, deals, campaigns, activities, and team performance as CSV or lightweight PDF. Exports accept the same filters as the corresponding list views where supported.
+
+---
+
+## Troubleshooting
+
+- **Cannot log in:** Confirm the API is running and the account is active.
+- **Invite or reset email missing:** Check SMTP configuration. In development, inspect the API console for the logged fallback email.
+- **Missing Users or Settings page:** Those pages require the Admin role.
+- **Redirected to onboarding:** Your user has no company yet; finish workspace setup.
+- **Data visibility looks too broad for manager/employee roles:** This is a known hardening item tracked in [missing-features.md](missing-features.md).

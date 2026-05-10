@@ -4,7 +4,7 @@
 
 **Scope:** Role system, company tenancy, pricing/package promises, platform admin, billing foundation, white-label prep
 
-**Current status:** Mostly implemented, hardening needed before production multi-tenant use
+**Current status:** Implemented; company data isolation, role-based access, and plan entitlements are enforced. Integration with a live payment provider and white-labeling are the remaining platform gaps.
 
 This document is now the source-of-truth status check for the multi-tenant rework. It compares the original plan with the current codebase and separates shipped work from remaining gaps.
 
@@ -179,7 +179,7 @@ Priority legend:
 | 5 | Company data routes rework | Mostly done | Shared data-scope helpers and critical route-level isolation tests now harden company, manager team, and employee owner visibility. Broader edge-case tests can continue incrementally. |
 | 6 | Frontend rework | Mostly done | Admin and company route families exist; target/team management UI is implemented. Remaining work is mostly permission polish and tests. |
 | 7 | White-label preparation | Planned | Do not implement until tenancy hardening is complete. |
-| 8 | Pricing entitlement alignment | Planned | Map public pricing features to plan gates, limits, and honest in-app behavior. |
+| 8 | Pricing entitlement alignment | Done | Map public pricing features to plan gates, limits, and honest in-app behavior. |
 | 9 | Advanced paid-plan features | Planned | Automation, attribution, cohorts, integrations, SSO, and white-label should follow entitlement foundations. |
 
 ---
