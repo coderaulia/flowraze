@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { FieldError } from '@/components/ui/field-error';
 import { post } from '@/lib/api';
 import { hasFormErrors, isValidEmail, type FormErrors } from '@/lib/form-validation';
+import { getAuthenticatedHomePath } from '@/lib/routes';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type { User } from '@/types';
 
@@ -56,7 +57,7 @@ export function LoginPage() {
 
     if (response.success && response.data) {
       setAuth(response.data.user, response.data.token);
-      navigate('/dashboard');
+      navigate(getAuthenticatedHomePath(response.data.user.role));
     } else {
       setError(response.error || 'Login failed');
     }

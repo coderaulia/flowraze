@@ -27,6 +27,7 @@ const userSelect = {
   email: true,
   name: true,
   role: true,
+  companyId: true,
   emailVerifiedAt: true,
   inviteToken: true,
   inviteExpiresAt: true,
@@ -44,6 +45,13 @@ function toUserDto(user: { inviteToken: string | null; inviteExpiresAt: Date | n
 
 function isSuperadmin(req: AuthRequest) {
   return req.userRole === 'superadmin';
+}
+
+function requireAdminCompanyId(req: AuthRequest) {
+  if (!req.companyId) {
+    throw new AppError(403, 'No company context');
+  }
+  return req.companyId;
 }
 
 async function ensureNotRemovingLastSuperadmin(userId: string, nextRole?: string) {
@@ -64,9 +72,16 @@ async function ensureNotRemovingLastSuperadmin(userId: string, nextRole?: string
 
 async function guardAdminTarget(req: AuthRequest, targetId: string) {
   if (isSuperadmin(req)) return;
-  const target = await prisma.user.findUnique({ where: { id: targetId }, select: { role: true } });
-  if (target?.role === 'superadmin') {
-    throw new AppError(403, 'Admins cannot manage superadmin accounts');
+  const companyId = requireAdminCompanyId(req);
+  const target = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: { role: true, companyId: true },
+  });
+  if (!target) {
+    throw new AppError(404, 'User not found');
+  }
+  if (target?.role === 'superadmin' || target?.companyId !== companyId) {
+    throw new AppError(403, 'Admins can only manage users in their own company');
   }
 }
 
@@ -121,7 +136,9 @@ router.put('/me', async (req: AuthRequest, res, next) => {
 
 router.get('/lookup', async (req: AuthRequest, res, next) => {
   try {
+    const where = isSuperadmin(req) ? {} : { companyId: requireAdminCompanyId(req) };
     const users = await prisma.user.findMany({
+      where,
       select: { id: true, name: true, email: true },
       orderBy: { name: 'asc' },
     });
@@ -134,7 +151,9 @@ router.get('/lookup', async (req: AuthRequest, res, next) => {
 router.get('/', requireRole('superadmin', 'admin'), async (req: AuthRequest, res, next) => {
   try {
     const pagination = getPagination(req.query);
-    const where = isSuperadmin(req) ? {} : { role: { not: 'superadmin' as const } };
+    const where: Prisma.UserWhereInput = isSuperadmin(req)
+      ? {}
+      : { companyId: requireAdminCompanyId(req), role: { not: 'superadmin' } };
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         select: userSelect,
@@ -162,8 +181,8 @@ router.get('/:id', requireRole('superadmin', 'admin'), async (req: AuthRequest, 
       throw new AppError(404, 'User not found');
     }
 
-    if (!isSuperadmin(req) && user.role === 'superadmin') {
-      throw new AppError(403, 'Admins cannot view superadmin accounts');
+    if (!isSuperadmin(req) && (user.role === 'superadmin' || user.companyId !== requireAdminCompanyId(req))) {
+      throw new AppError(403, 'Admins can only view users in their own company');
     }
 
     res.json({ success: true, data: toUserDto(user) });
@@ -196,7 +215,13 @@ router.post('/', requireRole('superadmin', 'admin'), async (req: AuthRequest, re
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
-      data: { email, password: hashedPassword, name, role },
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        role,
+        companyId: isSuperadmin(req) ? null : requireAdminCompanyId(req),
+      },
       select: userSelect,
     });
 
@@ -312,6 +337,7 @@ router.post('/invite', requireRole('superadmin', 'admin'), async (req: AuthReque
         name,
         role,
         password: tempPassword,
+        companyId: isSuperadmin(req) ? null : requireAdminCompanyId(req),
         inviteToken: hashSecret(inviteToken),
         inviteExpiresAt,
       },
@@ -333,14 +359,14 @@ router.post('/:id/resend-invite', requireRole('superadmin', 'admin'), async (req
     const userId = req.params.id;
     const target = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, role: true, inviteToken: true, inviteExpiresAt: true },
+      select: { id: true, email: true, name: true, role: true, companyId: true, inviteToken: true, inviteExpiresAt: true },
     });
 
     if (!target) {
       throw new AppError(404, 'User not found');
     }
-    if (!isSuperadmin(req) && target.role === 'superadmin') {
-      throw new AppError(403, 'Admins cannot manage superadmin accounts');
+    if (!isSuperadmin(req) && (target.role === 'superadmin' || target.companyId !== requireAdminCompanyId(req))) {
+      throw new AppError(403, 'Admins can only manage users in their own company');
     }
     if (!target.inviteToken) {
       throw new AppError(400, 'User has already accepted their invitation');

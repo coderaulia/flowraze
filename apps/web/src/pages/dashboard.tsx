@@ -19,6 +19,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { get } from '@/lib/api';
+import { COMPANY_ROUTES } from '@/lib/routes';
 import { cn, formatCurrency } from '@/lib/utils';
 import {
   BarChart,
@@ -314,7 +315,7 @@ export function DashboardPage() {
           value={formatCurrency(stats?.wonRevenue ?? 0)}
         />
         <StatCard
-          actionHref="/leads"
+          actionHref={COMPANY_ROUTES.leads}
           actionLabel="Open Leads"
           detail="Leads created in range"
           icon={UserPlus}
@@ -323,7 +324,7 @@ export function DashboardPage() {
           value={(stats?.totalLeads ?? 0).toLocaleString('id-ID')}
         />
         <StatCard
-          actionHref="/deals"
+          actionHref={COMPANY_ROUTES.deals}
           actionLabel="Open Deals"
           detail="Deals created in range"
           icon={FolderOpen}
@@ -351,7 +352,7 @@ export function DashboardPage() {
               <p className="mt-1 text-sm text-on-surface-variant">Company revenue target for {targetYear}.</p>
             </div>
             <Button asChild size="sm" variant="secondary">
-              <Link to="/targets">
+              <Link to={COMPANY_ROUTES.targets}>
                 Manage
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -398,7 +399,7 @@ export function DashboardPage() {
               <p className="mt-1 text-sm text-on-surface-variant">Campaign activity for the selected range.</p>
             </div>
             <Button asChild size="sm" variant="secondary">
-              <Link to="/campaigns">
+              <Link to={COMPANY_ROUTES.campaigns}>
                 View
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

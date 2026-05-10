@@ -21,6 +21,7 @@ import {
 
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/hooks/useAuthStore';
+import { COMPANY_ROUTES } from '@/lib/routes';
 
 export function Layout() {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export function Layout() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    setGlobalSearch(location.pathname === '/search' ? params.get('q') ?? '' : '');
+    setGlobalSearch(location.pathname === COMPANY_ROUTES.search ? params.get('q') ?? '' : '');
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export function Layout() {
   const handleGlobalSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = globalSearch.trim();
-    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+    navigate(query ? `${COMPANY_ROUTES.search}?q=${encodeURIComponent(query)}` : COMPANY_ROUTES.search);
   };
 
   const superadminNavItems = [
@@ -60,14 +61,14 @@ export function Layout() {
   ];
 
   const companyNavItems = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/targets', icon: Target, label: 'Targets' },
-    { to: '/leads', icon: Users, label: 'Leads' },
-    { to: '/deals', icon: Briefcase, label: 'Deals' },
-    { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
-    { to: '/activities', icon: Activity, label: 'Activities' },
-    { to: '/team', icon: UserCircle, label: 'Team' },
-    ...(admin ? [{ to: '/users', icon: Shield, label: 'Users' }] : []),
+    { to: COMPANY_ROUTES.dashboard, icon: LayoutDashboard, label: 'Dashboard' },
+    { to: COMPANY_ROUTES.targets, icon: Target, label: 'Targets' },
+    { to: COMPANY_ROUTES.leads, icon: Users, label: 'Leads' },
+    { to: COMPANY_ROUTES.deals, icon: Briefcase, label: 'Deals' },
+    { to: COMPANY_ROUTES.campaigns, icon: Megaphone, label: 'Campaigns' },
+    { to: COMPANY_ROUTES.activities, icon: Activity, label: 'Activities' },
+    { to: COMPANY_ROUTES.team, icon: UserCircle, label: 'Team' },
+    ...(admin ? [{ to: COMPANY_ROUTES.users, icon: Shield, label: 'Users' }] : []),
   ];
 
   const navItems = superadmin ? superadminNavItems : companyNavItems;
@@ -116,7 +117,7 @@ export function Layout() {
             <NavLink
               key={to}
               to={to}
-              end={to === '/admin'}
+              end={to === '/admin' || to === COMPANY_ROUTES.dashboard}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
@@ -136,7 +137,7 @@ export function Layout() {
           <div className="px-3 py-4 space-y-1 border-t border-slate-200/50">
             {admin && (
               <NavLink
-                to="/settings"
+                to={COMPANY_ROUTES.settings}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
@@ -202,7 +203,7 @@ export function Layout() {
         <div className="fixed bottom-6 right-6 z-40 sm:bottom-8 sm:right-8">
           <button
             className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#2A3BB0] text-white shadow-2xl shadow-primary/40 transition-all duration-300 hover:scale-110 hover:rotate-90 active:scale-95 group"
-            onClick={() => navigate('/leads?new=true')}
+            onClick={() => navigate(`${COMPANY_ROUTES.leads}?new=true`)}
             title="Add Lead"
           >
             <Plus className="h-7 w-7 transition-transform group-hover:scale-110" />

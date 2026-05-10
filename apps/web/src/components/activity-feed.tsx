@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ExportControls } from '@/components/export-controls';
+import { COMPANY_ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 interface ActivityFeedProps {
@@ -174,7 +175,7 @@ export function ActivityFeed({
               className="w-full text-primary hover:bg-primary/5 font-semibold"
               asChild
             >
-              <Link to="/activities">View All Activities</Link>
+              <Link to={COMPANY_ROUTES.activities}>View All Activities</Link>
             </Button>
           </div>
         )}

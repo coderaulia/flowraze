@@ -384,21 +384,22 @@ Add `companyId` and expanded role to auth context. Gate UI elements by role.
 | Company Detail | `/admin/companies/:id` | superadmin |
 | Platform Billing | `/admin/billing` | superadmin |
 | All Users (cross-company) | `/admin/users` | superadmin |
-| Company Settings | `/settings` | admin |
-| Team Management | `/teams` | admin, manager |
-| My Team | `/my-team` | manager |
+| Company Dashboard | `/company/dashboard` | admin, manager, employee |
+| Company Settings | `/company/settings` | admin |
+| Company Users | `/company/users` | admin |
+| Team Management | `/company/team` | admin, manager |
 
 #### 6.5 Existing Page Visibility Changes
 
 | Page | Was visible to | Now visible to |
 |------|----------------|----------------|
-| `/users` | superadmin, admin | admin only (own company) |
-| `/leads` | all | admin (all company), manager (team), employee (own) |
-| `/deals` | all | admin (all company), manager (team), employee (own) |
-| `/campaigns` | all | admin, manager (read/write), employee (read-only) |
-| `/targets` | all | all (scoped by role) |
-| `/settings` | all | admin only |
-| `/dashboard` | all | all (scoped by role) |
+| `/company/users` | superadmin, admin | admin only (own company) |
+| `/company/leads` | all | admin (all company), manager (team), employee (own) |
+| `/company/deals` | all | admin (all company), manager (team), employee (own) |
+| `/company/campaigns` | all | admin, manager (read/write), employee (read-only) |
+| `/company/targets` | all | all (scoped by role) |
+| `/company/settings` | all | admin only |
+| `/company/dashboard` | all | all (scoped by role) |
 
 #### 6.6 Superadmin-Specific UI
 - `/admin` — platform dashboard (total companies, MRR, active seats, plan distribution)

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FieldError } from '@/components/ui/field-error';
 import { post } from '@/lib/api';
+import { getAuthenticatedHomePath } from '@/lib/routes';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type { User } from '@/types';
 
@@ -59,7 +60,7 @@ export function AcceptInvitePage() {
 
     if (response.success && response.data) {
       setAuth(response.data.user, response.data.token);
-      navigate('/dashboard', { replace: true });
+      navigate(getAuthenticatedHomePath(response.data.user.role), { replace: true });
     } else {
       setSubmitError(response.error || 'Invalid or expired invitation link');
     }
