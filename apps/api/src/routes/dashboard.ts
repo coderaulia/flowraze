@@ -4,6 +4,7 @@ import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { campaignScope, dealScope, getVisibleOwnerIds, leadScope } from '../utils/data-scope.js';
+import { assertFeature } from '../utils/entitlements.js';
 
 const router = Router();
 import { parseDateRange, getStartDate } from '../utils/date.js';
@@ -225,6 +226,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
 // Returns achievement vs target for a given period / scope / year.
 router.get('/targets', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const {
       year: yearStr,
       quarter: quarterStr,

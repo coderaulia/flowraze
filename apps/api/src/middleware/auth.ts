@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../prisma/index.js';
 import { AppError } from './errorHandler.js';
 import { hashSecret } from '../utils/security.js';
+import { getCompanyEntitlements } from '../utils/entitlements.js';
 
 
 export interface AuthRequest extends Request {
@@ -50,6 +51,11 @@ export async function authenticate(
 
       if (!record || !record.createdBy.isActive) {
         return next(new AppError(401, 'Invalid API key'));
+      }
+
+      const entitlements = await getCompanyEntitlements(record.companyId);
+      if (!entitlements.features.apiKeys) {
+        return next(new AppError(403, 'API access is not available on this plan', 'FEATURE_NOT_AVAILABLE'));
       }
 
       await prisma.apiKey.update({

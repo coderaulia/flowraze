@@ -95,6 +95,7 @@ Implemented under `/api/admin`:
 - Campaign write routes are restricted to admins and managers, and campaign owner/sales-owner assignments must stay inside the authenticated company.
 - Route-level isolation regression tests cover critical manager team visibility, employee owner visibility, exports, lead detail denial, team performance, and campaign write permissions.
 - Company user create and invite flows enforce active user counts against the workspace billing seat allowance.
+- A centralized plan entitlement module gates API keys, API-key authentication, webhooks, exports, campaigns, targets, and team performance according to the current pricing tiers.
 - Webhook deliveries persist, sign payloads, retry with backoff, and support manual replay.
 - SMTP-backed verification, invite, and password reset email delivery exists with a development logging fallback.
 
@@ -117,6 +118,7 @@ Implemented under `/api/admin`:
 | --- | --- | --- | --- |
 | Medium | Expanded route isolation test matrix | Critical route-level isolation tests now exist for manager, employee, export, team-performance, and campaign permission paths. | Broaden the route matrix across admin, billing, API keys, webhooks, targets, and additional dashboard edge cases. |
 | Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
+| Medium | Billing lifecycle fields | Billing has plan/status/seats and invoice/payment records, but no trial start/end fields or automatic trial expiry behavior. | Add lifecycle dates and expiry handling before payment-provider checkout. |
 | Medium | Payment provider integration | Billing supports local account state, invoices, and manual payment checks; no checkout/customer portal/provider webhook sync exists. | Choose a provider, map provider IDs to `BillingAccount`, and sync subscription/invoice status. |
 | Low | Rich PDF reporting | Export PDF is dependency-free and intentionally basic. | Adopt a richer PDF renderer only when branded, charted, or multi-page reports are required. |
 | Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
@@ -183,15 +185,13 @@ Priority legend:
 
 ## 7. Recommended Next Work Order
 
-1. **P1: Plan entitlement model.** Centralize plan capabilities and limits (`free`, `growth`, `pro`, `custom`) for seats, API keys, webhook endpoints, exports, targets, teams, campaigns, and future automation.
-2. **P1: Billing lifecycle.** Add trial start/end fields, trial expiry behavior, plan upgrade/downgrade rules, invoice sync boundaries, and payment-provider integration when checkout/customer portal is required.
-3. **P1: Gate existing paid features.** Apply entitlement checks to API access, webhooks, team performance, targets, exports, billing settings, and admin UI visibility.
-4. **P2: Pricing truth cleanup.** Either implement or soften public claims for custom stages, multi-pipeline, forecasting, attribution, conversion funnel, and unlimited plan wording.
-5. **P2: Growth analytics depth.** Add funnel analytics, single-touch campaign attribution, forecast basics, and stronger revenue/campaign reporting.
-6. **P2: Workflow foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
-7. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
-8. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
-9. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
+1. **P1: Billing lifecycle.** Add trial start/end fields, trial expiry behavior, plan upgrade/downgrade rules, invoice sync boundaries, and payment-provider integration when checkout/customer portal is required.
+2. **P2: Pricing truth cleanup.** Either implement or soften public claims for custom stages, multi-pipeline, forecasting, attribution, conversion funnel, and unlimited plan wording.
+3. **P2: Growth analytics depth.** Add funnel analytics, single-touch campaign attribution, forecast basics, and stronger revenue/campaign reporting.
+4. **P2: Workflow foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
+5. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
+6. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
+7. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
 
 ---
 
@@ -210,8 +210,8 @@ Priority legend:
 - [x] Exports are tenant/role-scoped
 - [x] Route-level tenancy regression tests exist
 - [x] Seat limits are enforced
-- [ ] Plan entitlements are centralized and enforced
-- [ ] Existing paid-feature gates match pricing claims
+- [x] Plan entitlements are centralized and enforced
+- [x] Existing paid-feature gates match pricing claims
 - [ ] Trial start/end and expiry behavior exists
 - [ ] Provider billing is integrated
 - [ ] Pricing copy matches implemented product capabilities

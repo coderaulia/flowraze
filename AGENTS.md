@@ -262,13 +262,13 @@ NODE_ENV=development
 - [x] Campaign writes are limited to admin/manager roles with tenant-aware target user checks
 - [x] Route-level isolation regression tests cover critical manager, employee, export, and campaign permission paths
 - [x] Billing seat limits are enforced for company user creation and invites
+- [x] Centralized plan entitlements gate API access, webhooks, exports, campaigns, targets, and team performance
 
 ### In Progress
-- Centralized plan entitlement model for feature and usage gates
+- Billing lifecycle fields and trial expiry behavior
 
 ### Placeholder/Todo
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
-- [ ] Existing paid-feature gates match pricing claims
 - [ ] Payment provider integration for checkout/invoices/customer portal
 - [ ] White-label tenant/domain/branding layer
 - [ ] Future betterauth migration decision
@@ -279,7 +279,7 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| HIGH | Plan feature entitlements are not yet centralized or enforced across paid features | `apps/api/src/*`, `apps/web/src/*` |
+| HIGH | Trial start/end and expiry behavior is not yet modeled | `prisma/schema.prisma`, `apps/api/src/routes/billing.ts` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 

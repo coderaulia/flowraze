@@ -8,6 +8,7 @@ import { exportFilename, toCsv, toPdf } from '../utils/export.js';
 import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
 import { parseDateRange, getStartDate } from '../utils/date.js';
 import { activityScope, campaignScope, dealScope, leadScope, requireCompanyId, userScope } from '../utils/data-scope.js';
+import { assertFeature } from '../utils/entitlements.js';
 
 const router = Router();
 const EXPORT_ENTITIES = ['leads', 'deals', 'campaigns', 'activities', 'team-performance'] as const;
@@ -294,6 +295,7 @@ async function handleExport(req: AuthRequest, res: Response, next: NextFunction)
   try {
     const entity = requireExportEntity(req.params.entity ?? '');
     const format = requireExportFormat(req.params.format ?? req.query.format);
+    await assertFeature(req, 'exports');
     const exported = await buildExport(entity, req);
     const filename = exportFilename(entity, format);
 

@@ -4,6 +4,7 @@ import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { createApiKey, getKeyPrefix, hashSecret } from '../utils/security.js';
 import { requireObjectBody, requireString } from '../utils/request.js';
+import { assertApiKeyLimit, assertFeature } from '../utils/entitlements.js';
 
 const router = Router();
 
@@ -11,6 +12,7 @@ router.use(authenticate, requireAdmin());
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'apiKeys');
     const apiKeys = await prisma.apiKey.findMany({
       where: { companyId: req.companyId! },
       orderBy: { createdAt: 'desc' },
@@ -35,6 +37,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const name = requireString(body, 'name', 'Name');
+    await assertApiKeyLimit(req);
     const key = createApiKey();
 
     const apiKey = await prisma.apiKey.create({
@@ -69,6 +72,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'apiKeys');
     const apiKey = await prisma.apiKey.findFirst({
       where: { id: req.params.id, companyId: req.companyId! },
     });

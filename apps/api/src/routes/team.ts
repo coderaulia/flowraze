@@ -6,6 +6,7 @@ import { parseDateRange, getStartDate } from '../utils/date.js';
 import type { Prisma } from '@prisma/client';
 import { requireCompanyId, userScope } from '../utils/data-scope.js';
 import { getQueryString } from '../utils/query.js';
+import { assertFeature } from '../utils/entitlements.js';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use(authenticate, companyDataScope);
 
 router.get('/performance', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'teamPerformance');
     const pagination = getPagination(req.query);
     const range = parseDateRange(req.query.range);
     const role = getQueryString(req.query.role);

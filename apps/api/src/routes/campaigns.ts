@@ -17,6 +17,7 @@ import {
 } from '../utils/request.js';
 import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
 import { assertUserInCompany, campaignScope } from '../utils/data-scope.js';
+import { assertFeature } from '../utils/entitlements.js';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use(authenticate, companyDataScope);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'campaigns');
     const search = getQueryString(req.query.search);
     const channel = getQueryString(req.query.channel);
     const minCost = getQueryNumber(req.query.minCost, 'minCost');
@@ -90,6 +92,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
 
 router.get('/:id', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'campaigns');
     const campaign = await prisma.campaign.findFirst({
       where: await campaignScope(req, { id: req.params.id }),
       include: {
@@ -111,6 +114,7 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
 
 router.post('/', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'campaigns');
     const body = requireObjectBody(req.body);
     const name = requireString(body, 'name', 'Name');
     const channel = requireString(body, 'channel', 'Channel');
@@ -157,6 +161,7 @@ router.post('/', requireAdminOrManager(), async (req: AuthRequest, res, next) =>
 
 router.put('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'campaigns');
     const body = requireObjectBody(req.body);
     const data: Record<string, unknown> = {};
 
@@ -200,6 +205,7 @@ router.put('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) 
 
 router.delete('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'campaigns');
     const existingCampaign = await prisma.campaign.findFirst({
       where: await campaignScope(req, { id: req.params.id }),
       select: { id: true },

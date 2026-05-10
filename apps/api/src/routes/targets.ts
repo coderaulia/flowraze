@@ -9,6 +9,7 @@ import {
 } from '../utils/request.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { Prisma } from '@prisma/client';
+import { assertFeature } from '../utils/entitlements.js';
 
 const router = Router();
 router.use(authenticate, companyDataScope);
@@ -20,6 +21,7 @@ const VALID_PERIODS = ['monthly', 'quarterly', 'yearly'] as const;
 
 router.get('/teams', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const teams = await prisma.salesTeam.findMany({
       where: { companyId: req.companyId! },
       include: {
@@ -39,6 +41,7 @@ router.get('/teams', async (req: AuthRequest, res, next) => {
 
 router.post('/teams', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const body = req.body as Record<string, unknown>;
     const name = requireString(body, 'name');
     const managerId = requireString(body, 'managerId');
@@ -63,6 +66,7 @@ router.post('/teams', requireAdminOrManager(), async (req: AuthRequest, res, nex
 
 router.put('/teams/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const body = req.body as Record<string, unknown>;
     const existing = await prisma.salesTeam.findFirst({
       where: { id: req.params.id, companyId: req.companyId! },
@@ -84,6 +88,7 @@ router.put('/teams/:id', requireAdminOrManager(), async (req: AuthRequest, res, 
 
 router.delete('/teams/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const existing = await prisma.salesTeam.findFirst({
       where: { id: req.params.id, companyId: req.companyId! },
     });
@@ -100,6 +105,7 @@ router.delete('/teams/:id', requireAdminOrManager(), async (req: AuthRequest, re
 
 router.post('/teams/:id/members', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const body = req.body as Record<string, unknown>;
     const userId = requireString(body, 'userId');
     const existing = await prisma.salesTeam.findFirst({
@@ -118,6 +124,7 @@ router.post('/teams/:id/members', requireAdminOrManager(), async (req: AuthReque
 
 router.delete('/teams/:id/members/:userId', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const existing = await prisma.salesTeam.findFirst({
       where: { id: req.params.id, companyId: req.companyId! },
     });
@@ -138,6 +145,7 @@ router.delete('/teams/:id/members/:userId', requireAdminOrManager(), async (req:
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const q = req.query as Record<string, string>;
     const where: Prisma.SalesTargetWhereInput = { companyId: req.companyId! };
     if (q.scope) where.scope = q.scope as typeof VALID_SCOPES[number];
@@ -164,6 +172,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
 
 router.post('/', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const role = req.userRole;
     const body = req.body as Record<string, unknown>;
     const scope = requireEnum(body, 'scope', VALID_SCOPES);
@@ -231,6 +240,7 @@ router.post('/', requireAdminOrManager(), async (req: AuthRequest, res, next) =>
 
 router.put('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const body = req.body as Record<string, unknown>;
     const updates: Prisma.SalesTargetUpdateInput = {};
     if (body.name !== undefined) updates.name = requireString(body, 'name');
@@ -267,6 +277,7 @@ router.put('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) 
 
 router.delete('/:id', requireAdminOrManager(), async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'targets');
     const existing = await prisma.salesTarget.findFirst({
       where: { id: req.params.id, companyId: req.companyId! },
     });

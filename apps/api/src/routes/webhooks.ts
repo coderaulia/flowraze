@@ -13,6 +13,7 @@ import {
 import { getQueryBoolean } from '../utils/query.js';
 import { createWebhookSecret } from '../utils/security.js';
 import { dispatchWebhookEvent, processWebhookDelivery } from '../utils/webhooks.js';
+import { assertFeature, assertWebhookLimit } from '../utils/entitlements.js';
 
 const router = Router();
 const WEBHOOK_EVENTS = ['lead_created', 'deal_created', 'deal_won', 'activity_created'] as const;
@@ -37,6 +38,7 @@ function requireHttpUrl(value: unknown) {
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'webhooks');
     const isActive = getQueryBoolean(req.query.isActive, 'isActive');
     const webhooks = await prisma.webhookEndpoint.findMany({
       where: {
@@ -65,6 +67,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const name = requireString(body, 'name', 'Name');
     const url = requireHttpUrl(body.url);
     const event = optionalEnum(WEBHOOK_EVENTS, 'Event')(body.event);
+    await assertWebhookLimit(req);
 
     if (!event) {
       throw new AppError(400, 'Event is required');
@@ -93,6 +96,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
 router.put('/:id', async (req: AuthRequest, res, next) => {
   try {
+    await assertFeature(req, 'webhooks');
     const body = requireObjectBody(req.body);
     const data: Record<string, unknown> = {};
 
@@ -107,8 +111,17 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     }
     requireAtLeastOneField(data);
 
+    const existingWebhook = await prisma.webhookEndpoint.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+      select: { id: true },
+    });
+
+    if (!existingWebhook) {
+      throw new AppError(404, 'Webhook not found');
+    }
+
     const webhook = await prisma.webhookEndpoint.update({
-      where: { id: req.params.id },
+      where: { id: existingWebhook.id },
       data,
       include: {
         deliveries: {
@@ -126,8 +139,9 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
 router.post('/:id/test', async (req: AuthRequest, res, next) => {
   try {
-    const webhook = await prisma.webhookEndpoint.findUnique({
-      where: { id: req.params.id },
+    await assertFeature(req, 'webhooks');
+    const webhook = await prisma.webhookEndpoint.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
     });
 
     if (!webhook) {
@@ -148,10 +162,12 @@ router.post('/:id/test', async (req: AuthRequest, res, next) => {
 
 router.post('/:id/deliveries/:deliveryId/replay', async (req: AuthRequest, res, next) => {
   try {
-    const delivery = await prisma.webhookDelivery.findUnique({
+    await assertFeature(req, 'webhooks');
+    const delivery = await prisma.webhookDelivery.findFirst({
       where: {
         id: req.params.deliveryId,
         endpointId: req.params.id,
+        endpoint: { companyId: req.companyId! },
       },
     });
 
@@ -180,7 +196,17 @@ router.post('/:id/deliveries/:deliveryId/replay', async (req: AuthRequest, res, 
 
 router.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    await prisma.webhookEndpoint.delete({ where: { id: req.params.id } });
+    await assertFeature(req, 'webhooks');
+    const webhook = await prisma.webhookEndpoint.findFirst({
+      where: { id: req.params.id, companyId: req.companyId! },
+      select: { id: true },
+    });
+
+    if (!webhook) {
+      throw new AppError(404, 'Webhook not found');
+    }
+
+    await prisma.webhookEndpoint.delete({ where: { id: webhook.id } });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

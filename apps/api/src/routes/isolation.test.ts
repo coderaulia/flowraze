@@ -68,6 +68,14 @@ function mockManagerTeam() {
   });
 }
 
+function mockPlan(plan = 'growth', seats = 10) {
+  mockPrisma('billingAccount', 'findUnique', (args) => {
+    const where = (args as { where?: { companyId?: string } }).where;
+    assert.equal(where?.companyId, companyId);
+    return { plan, status: 'active', seats };
+  });
+}
+
 function tokenFor(user: TestUser) {
   return jwt.sign({ userId: user.id, role: user.role, companyId: user.companyId }, JWT_SECRET);
 }
@@ -157,6 +165,7 @@ async function verifyEmployeeLeadDetailScope() {
 
 async function verifyEmployeeLeadExportScope() {
   mockAuthUsers();
+  mockPlan('growth');
   mockPrisma('lead', 'findMany', (args) => {
     const where = (args as { where?: { companyId?: string; ownerId?: string } }).where;
     assert.equal(where?.companyId, companyId);
@@ -185,6 +194,7 @@ async function verifyEmployeeLeadExportScope() {
 async function verifyManagerTeamPerformanceScope() {
   mockAuthUsers();
   mockManagerTeam();
+  mockPlan('growth');
   mockTransaction();
   mockPrisma('user', 'findMany', (args) => {
     const where = (args as { where?: { companyId?: string; id?: { in?: string[] } } }).where;
@@ -228,17 +238,16 @@ async function verifyEmployeeCampaignWriteDenied() {
 }
 
 function mockFullSeats() {
-  mockTransaction();
   mockPrisma('billingAccount', 'findUnique', (args) => {
     const where = (args as { where?: { companyId?: string } }).where;
     assert.equal(where?.companyId, companyId);
-    return { seats: 1 };
+    return { plan: 'free', status: 'active', seats: 3 };
   });
   mockPrisma('user', 'count', (args) => {
     const where = (args as { where?: { companyId?: string; isActive?: boolean } }).where;
     assert.equal(where?.companyId, companyId);
     assert.equal(where?.isActive, true);
-    return 1;
+    return 3;
   });
 }
 
@@ -283,6 +292,48 @@ async function verifySeatLimitBlocksInvite() {
   });
 }
 
+async function verifyFreePlanBlocksApiKeys() {
+  mockAuthUsers();
+  mockPlan('free');
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, admin, '/api/api-keys', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Blocked key' }),
+    });
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'FEATURE_NOT_AVAILABLE');
+  });
+}
+
+async function verifyGrowthWebhookLimit() {
+  mockAuthUsers();
+  mockPlan('growth');
+  mockPrisma('webhookEndpoint', 'count', (args) => {
+    const where = (args as { where?: { companyId?: string; isActive?: boolean } }).where;
+    assert.equal(where?.companyId, companyId);
+    assert.equal(where?.isActive, true);
+    return 3;
+  });
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, admin, '/api/webhooks', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Limited webhook',
+        url: 'https://example.com/hook',
+        event: 'lead_created',
+      }),
+    });
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'ENTITLEMENT_LIMIT_REACHED');
+  });
+}
+
 test('production readiness route regressions', async () => {
   const originalConsoleError = console.error;
   console.error = () => undefined;
@@ -301,6 +352,10 @@ test('production readiness route regressions', async () => {
     await verifySeatLimitBlocksUserCreate();
     resetMocks();
     await verifySeatLimitBlocksInvite();
+    resetMocks();
+    await verifyFreePlanBlocksApiKeys();
+    resetMocks();
+    await verifyGrowthWebhookLimit();
   } finally {
     resetMocks();
     console.error = originalConsoleError;

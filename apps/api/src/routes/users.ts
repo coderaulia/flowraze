@@ -15,6 +15,7 @@ import {
 } from '../utils/request.js';
 import { createOpaqueToken, hashSecret } from '../utils/security.js';
 import { sendInviteEmail } from '../utils/email.js';
+import { getCompanyEntitlements } from '../utils/entitlements.js';
 
 const router = Router();
 const USER_ROLES = ['superadmin', 'admin', 'manager', 'employee'] as const;
@@ -86,20 +87,19 @@ async function guardAdminTarget(req: AuthRequest, targetId: string) {
 }
 
 async function ensureSeatAvailable(companyId: string) {
-  const [billingAccount, activeUsers] = await prisma.$transaction([
-    prisma.billingAccount.findUnique({
-      where: { companyId },
-      select: { seats: true },
-    }),
-    prisma.user.count({
-      where: {
-        companyId,
-        isActive: true,
-        role: { not: 'superadmin' },
-      },
-    }),
-  ]);
-  const seatLimit = billingAccount?.seats ?? 3;
+  const entitlements = await getCompanyEntitlements(companyId);
+  const activeUsers = await prisma.user.count({
+    where: {
+      companyId,
+      isActive: true,
+      role: { not: 'superadmin' },
+    },
+  });
+  const seatLimit = entitlements.seats;
+
+  if (!Number.isFinite(seatLimit)) {
+    return;
+  }
 
   if (activeUsers >= seatLimit) {
     throw new AppError(
