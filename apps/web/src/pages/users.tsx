@@ -39,7 +39,8 @@ const PAGE_LIMIT = 10;
 const ROLE_COLORS: Record<UserRole, 'default' | 'secondary' | 'warning'> = {
   superadmin: 'warning',
   admin: 'secondary',
-  staff: 'default',
+  manager: 'default',
+  employee: 'default',
 };
 
 type UserFormData = {
@@ -95,9 +96,8 @@ function validateInviteForm(data: InviteFormData): FormErrors {
 
 export function UsersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user: currentUser, isSuperadmin, isAdmin } = useAuthStore();
+  const { user: currentUser, isAdmin } = useAuthStore();
   const canManageUsers = isAdmin();
-  const currentUserIsSuperadmin = isSuperadmin();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
@@ -120,7 +120,7 @@ export function UsersPage() {
   const [inviteData, setInviteData] = useState<InviteFormData>({
     email: '',
     name: '',
-    role: 'staff',
+    role: 'employee',
   });
 
   const [resendingId, setResendingId] = useState<string | null>(null);
@@ -130,7 +130,7 @@ export function UsersPage() {
     email: '',
     password: '',
     name: '',
-    role: 'staff' as UserRole,
+    role: 'employee' as UserRole,
   });
 
   const fetchUsers = useCallback(async () => {
@@ -257,14 +257,14 @@ export function UsersPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingUser(null);
-    setFormData({ email: '', password: '', name: '', role: 'staff' });
+    setFormData({ email: '', password: '', name: '', role: 'employee' });
     setFormErrors({});
     setFormError('');
   };
 
   const closeInviteModal = () => {
     setIsInviteModalOpen(false);
-    setInviteData({ email: '', name: '', role: 'staff' });
+    setInviteData({ email: '', name: '', role: 'employee' });
     setInviteErrors({});
     setInviteError('');
     setInviteSuccess('');
@@ -338,7 +338,7 @@ export function UsersPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {user.invitePending && (currentUserIsSuperadmin || user.role !== 'superadmin') && (
+                      {user.invitePending && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -351,16 +351,14 @@ export function UsersPage() {
                           />
                         </Button>
                       )}
-                      {(currentUserIsSuperadmin || user.role !== 'superadmin') && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditModal(user)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {user.id !== currentUser?.id && (currentUserIsSuperadmin || user.role !== 'superadmin') && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditModal(user)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      {user.id !== currentUser?.id && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -435,11 +433,9 @@ export function UsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
-                  {currentUserIsSuperadmin && (
-                    <SelectItem value="superadmin">Superadmin</SelectItem>
-                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -522,11 +518,9 @@ export function UsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
-                  {currentUserIsSuperadmin && (
-                    <SelectItem value="superadmin">Superadmin</SelectItem>
-                  )}
                 </SelectContent>
               </Select>
             </div>

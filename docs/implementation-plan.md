@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-09  
 **Scope:** Role system, multi-tenancy (Company isolation), white-label prep  
-**Status:** Planning
+**Status:** In Progress (Phase 3)
 
 ---
 
@@ -250,7 +250,7 @@ function ownerDataScope(req, res, next) {
 
 ## 6. Implementation Phases
 
-### Phase 1: Database Schema Migration
+### Phase 1: Database Schema Migration [COMPLETED]
 **Files:** `prisma/schema.prisma`, new migration
 
 Steps:
@@ -281,7 +281,7 @@ ALTER TYPE "Role" ADD VALUE 'manager';
 -- Note: Postgres can't drop enum values; handle via new enum + column migration
 ```
 
-### Phase 2: JWT & Auth Middleware Update
+### Phase 2: JWT & Auth Middleware Update [COMPLETED]
 **Files:** `apps/api/src/routes/auth.ts`, `apps/api/src/middleware/auth.ts`
 
 Steps:

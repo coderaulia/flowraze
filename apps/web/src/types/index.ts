@@ -1,18 +1,35 @@
-export type UserRole = 'superadmin' | 'admin' | 'staff';
+export type UserRole = 'superadmin' | 'admin' | 'manager' | 'employee';
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified';
 export type DealStage = 'new' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
 export type DealStatus = 'active' | 'closed';
 export type ActivityType = 'note' | 'call' | 'follow_up';
+
+export interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  billing?: BillingAccount;
+  _count?: {
+    users: number;
+    leads: number;
+    deals: number;
+  };
+}
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  companyId: string | null;
   emailVerifiedAt?: Date | string | null;
   invitePending?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  company?: { id: string; name: string };
 }
 
 export interface Lead {

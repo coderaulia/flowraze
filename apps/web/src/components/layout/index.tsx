@@ -8,13 +8,15 @@ import {
   UserCircle,
   Settings,
   LogOut,
-  Shield,
+  Building2,
+  CreditCard,
   Plus,
   Search,
   Menu,
   X,
   Target,
   Activity,
+  Shield,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -23,9 +25,12 @@ import { useAuthStore } from '@/hooks/useAuthStore';
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSuperadmin, clearAuth, user } = useAuthStore();
+  const { isSuperadmin, isAdmin, clearAuth, user } = useAuthStore();
   const [globalSearch, setGlobalSearch] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const superadmin = isSuperadmin();
+  const admin = isAdmin();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -43,12 +48,18 @@ export function Layout() {
 
   const handleGlobalSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     const query = globalSearch.trim();
     navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
   };
 
-  const navItems = [
+  const superadminNavItems = [
+    { to: '/admin', icon: LayoutDashboard, label: 'Platform' },
+    { to: '/admin/companies', icon: Building2, label: 'Companies' },
+    { to: '/admin/users', icon: Users, label: 'All Users' },
+    { to: '/admin/billing', icon: CreditCard, label: 'Billing' },
+  ];
+
+  const companyNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/targets', icon: Target, label: 'Targets' },
     { to: '/leads', icon: Users, label: 'Leads' },
@@ -56,9 +67,10 @@ export function Layout() {
     { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
     { to: '/activities', icon: Activity, label: 'Activities' },
     { to: '/team', icon: UserCircle, label: 'Team' },
-    ...(isSuperadmin() ? [{ to: '/users', icon: Shield, label: 'Users' }] : []),
+    ...(admin ? [{ to: '/users', icon: Shield, label: 'Users' }] : []),
   ];
 
+  const navItems = superadmin ? superadminNavItems : companyNavItems;
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden">
@@ -84,7 +96,9 @@ export function Layout() {
             </div>
             <div>
               <h1 className="text-lg font-black text-primary tracking-tighter leading-none">FlowRaze</h1>
-              <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Growth Engine</p>
+              <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">
+                {superadmin ? 'Superadmin' : 'Growth Engine'}
+              </p>
             </div>
           </div>
           <button
@@ -102,6 +116,7 @@ export function Layout() {
             <NavLink
               key={to}
               to={to}
+              end={to === '/admin'}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
@@ -117,31 +132,31 @@ export function Layout() {
           ))}
         </nav>
 
-
-
         <div className="mt-auto shrink-0">
           <div className="px-3 py-4 space-y-1 border-t border-slate-200/50">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
-                isActive
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/50 hover:translate-x-1'
-              )
-            }
-          >
-            <Settings className="h-5 w-5" />
-            Settings
-          </NavLink>
-          <button
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all duration-300"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-5 w-5" />
-            Sign out
-          </button>
+            {admin && (
+              <NavLink
+                to="/settings"
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
+                    isActive
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/50 hover:translate-x-1'
+                  )
+                }
+              >
+                <Settings className="h-5 w-5" />
+                Settings
+              </NavLink>
+            )}
+            <button
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all duration-300"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-5 w-5" />
+              Sign out
+            </button>
           </div>
         </div>
       </aside>
@@ -158,17 +173,18 @@ export function Layout() {
               >
                 <Menu className="h-5 w-5" />
               </button>
-              <form className="relative group min-w-0 flex-1 sm:flex-none" onSubmit={handleGlobalSearch}>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                className="w-full rounded-full border-none bg-surface-container-low py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20 sm:w-64"
-                placeholder="Search CRM..."
-                type="text"
-                value={globalSearch}
-                onChange={(event) => setGlobalSearch(event.target.value)}
-              />
-            </form>
-
+              {!superadmin && (
+                <form className="relative group min-w-0 flex-1 sm:flex-none" onSubmit={handleGlobalSearch}>
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    className="w-full rounded-full border-none bg-surface-container-low py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20 sm:w-64"
+                    placeholder="Search CRM..."
+                    type="text"
+                    value={globalSearch}
+                    onChange={(event) => setGlobalSearch(event.target.value)}
+                  />
+                </form>
+              )}
             </div>
             <div className="flex items-center justify-between gap-4 sm:justify-end">
               <span className="text-sm font-medium text-slate-700">{user?.name}</span>
@@ -181,16 +197,18 @@ export function Layout() {
         </main>
       </div>
 
-      {/* Floating Action Button (FAB) */}
-      <div className="fixed bottom-6 right-6 z-40 sm:bottom-8 sm:right-8">
-        <button
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#2A3BB0] text-white shadow-2xl shadow-primary/40 transition-all duration-300 hover:scale-110 hover:rotate-90 active:scale-95 group"
-          onClick={() => navigate('/leads?new=true')}
-          title="Add Lead"
-        >
-          <Plus className="h-7 w-7 transition-transform group-hover:scale-110" />
-        </button>
-      </div>
+      {/* FAB — hidden for superadmin */}
+      {!superadmin && (
+        <div className="fixed bottom-6 right-6 z-40 sm:bottom-8 sm:right-8">
+          <button
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#2A3BB0] text-white shadow-2xl shadow-primary/40 transition-all duration-300 hover:scale-110 hover:rotate-90 active:scale-95 group"
+            onClick={() => navigate('/leads?new=true')}
+            title="Add Lead"
+          >
+            <Plus className="h-7 w-7 transition-transform group-hover:scale-110" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
