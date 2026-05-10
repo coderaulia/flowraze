@@ -97,6 +97,7 @@ Implemented under `/api/admin`:
 - Company user create and invite flows enforce active user counts against the workspace billing seat allowance.
 - A centralized plan entitlement module gates API keys, API-key authentication, webhooks, exports, campaigns, targets, and team performance according to the current pricing tiers.
 - Billing accounts now store trial/subscription lifecycle dates, new workspaces receive 14-day trial windows, paid marking sets subscription dates, and expired trials are canceled during entitlement checks.
+- Pricing copy now describes shipped capabilities and labels unsupported areas such as native apps, custom pipelines, forecasting, SSO, SOC2, and provider payments as roadmap/planning rather than current features.
 - Webhook deliveries persist, sign payloads, retry with backoff, and support manual replay.
 - SMTP-backed verification, invite, and password reset email delivery exists with a development logging fallback.
 
@@ -185,12 +186,11 @@ Priority legend:
 
 ## 7. Recommended Next Work Order
 
-1. **P2: Pricing truth cleanup.** Either implement or soften public claims for custom stages, multi-pipeline, forecasting, attribution, conversion funnel, and unlimited plan wording.
-2. **P2: Growth analytics depth.** Add funnel analytics, single-touch campaign attribution, forecast basics, and stronger revenue/campaign reporting.
-3. **P2: Workflow foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
-4. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
-5. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
-6. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
+1. **P2: Growth analytics depth.** Add funnel analytics, single-touch campaign attribution, forecast basics, and stronger revenue/campaign reporting.
+2. **P2: Workflow foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
+3. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
+4. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
+5. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
 
 ---
 
@@ -213,5 +213,5 @@ Priority legend:
 - [x] Existing paid-feature gates match pricing claims
 - [x] Trial start/end and expiry behavior exists
 - [ ] Provider billing is integrated
-- [ ] Pricing copy matches implemented product capabilities
+- [x] Pricing copy matches implemented product capabilities
 - [ ] White-label tenant routing is designed and implemented

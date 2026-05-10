@@ -26,11 +26,11 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: <>We accept all major credit cards, virtual accounts (BCA, Mandiri, BNI, BRI), GoPay, OVO, and bank transfer for annual plans. Enterprise customers can request invoicing with PO terms.</>,
+    a: <>FlowRaze currently supports manual invoice and payment tracking while checkout, customer portal, and provider-synced payment methods are being integrated.</>,
   },
   {
     q: 'Is my data secure?',
-    a: <>Your data is encrypted at rest and in transit. We're SOC 2 Type II audited and compliant with Indonesian data protection regulations (UU PDP). Enterprise customers can opt for in-region data residency.</>,
+    a: <>FlowRaze is built with tenant-scoped data access, role-based permissions, API key controls, and signed webhook deliveries. Formal compliance programs and data residency controls are on the enterprise roadmap.</>,
   },
   {
     q: 'Do you offer discounts for startups or non-profits?',
@@ -258,7 +258,7 @@ export function PricingPage() {
                   <li>Up to 3 users</li>
                   <li>Lead &amp; contact management</li>
                   <li>Basic deal pipeline (1 board)</li>
-                  <li>Mobile app (iOS &amp; Android)</li>
+                  <li>Responsive web app access</li>
                   <li>Email support</li>
                 </ul>
               </div>
@@ -280,11 +280,11 @@ export function PricingPage() {
                 <hr className="pr-plan-divider" />
                 <ul className="pr-plan-feats">
                   <li className="head-row">Everything in Starter, plus:</li>
-                  <li>Unlimited users &amp; pipelines</li>
-                  <li>Full sales pipeline tracking with stages</li>
-                  <li>Revenue dashboard &amp; forecasting</li>
+                  <li>Seat-based team expansion</li>
+                  <li>Full sales pipeline tracking with fixed stages</li>
+                  <li>Revenue dashboard with date ranges</li>
                   <li>Team performance tracking</li>
-                  <li>WhatsApp + email integrations</li>
+                  <li>Campaign and project tracking</li>
                   <li>Priority support (chat + email)</li>
                 </ul>
               </div>
@@ -305,12 +305,12 @@ export function PricingPage() {
                 <hr className="pr-plan-divider" />
                 <ul className="pr-plan-feats">
                   <li className="head-row">Everything in Growth, plus:</li>
-                  <li>Advanced analytics &amp; cohorts</li>
-                  <li>Multi-touch attribution &amp; ROAS</li>
-                  <li>Conversion funnel tracking</li>
-                  <li>API access &amp; workflow automation</li>
-                  <li>Custom roles &amp; permissions</li>
-                  <li>Dedicated onboarding specialist</li>
+                  <li>API access for integrations</li>
+                  <li>Unlimited webhook endpoints</li>
+                  <li>CSV/PDF exports for core CRM views</li>
+                  <li>Sales targets and team management</li>
+                  <li>Billing lifecycle controls</li>
+                  <li>Priority implementation support</li>
                 </ul>
               </div>
 
@@ -327,10 +327,10 @@ export function PricingPage() {
                 <hr className="pr-plan-divider" />
                 <ul className="pr-plan-feats">
                   <li className="head-row">Everything in Performance, plus:</li>
-                  <li>Custom integrations &amp; SSO</li>
+                  <li>Custom integration planning</li>
                   <li>Dedicated success manager</li>
-                  <li>SLA &amp; security audit</li>
-                  <li>Data residency options</li>
+                  <li>SLA and security review planning</li>
+                  <li>White-label and data residency roadmap</li>
                   <li>Custom contracts &amp; invoicing</li>
                   <li>24/7 priority support</li>
                 </ul>
@@ -359,25 +359,25 @@ export function PricingPage() {
                 </div>
 
                 <div className="pr-crow section-h"><div className="pr-ccell">Core platform</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">Users</div><div className="pr-ccell">Up to 3</div><div className="pr-ccell pop">Unlimited</div><div className="pr-ccell">Unlimited</div><div className="pr-ccell">Unlimited</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Users</div><div className="pr-ccell">Up to 3</div><div className="pr-ccell pop">Seat-based</div><div className="pr-ccell">Seat-based</div><div className="pr-ccell">Custom seats</div></div>
                 <div className="pr-crow"><div className="pr-ccell">Leads &amp; contacts</div><div className="pr-ccell"><Ck /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
-                <div className="pr-crow"><div className="pr-ccell">Deal pipelines</div><div className="pr-ccell">1 (basic)</div><div className="pr-ccell pop">Custom stages</div><div className="pr-ccell">Multi-pipeline</div><div className="pr-ccell">Multi-pipeline</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Mobile apps</div><div className="pr-ccell"><Ck /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow"><div className="pr-ccell">Deal pipeline</div><div className="pr-ccell">Fixed stages</div><div className="pr-ccell pop">Fixed stages</div><div className="pr-ccell">Fixed stages</div><div className="pr-ccell">Roadmap</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Mobile access</div><div className="pr-ccell">Responsive web</div><div className="pr-ccell pop">Responsive web</div><div className="pr-ccell">Responsive web</div><div className="pr-ccell">Roadmap</div></div>
 
                 <div className="pr-crow section-h"><div className="pr-ccell">Insights &amp; analytics</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">Revenue dashboard</div><div className="pr-ccell">Basic</div><div className="pr-ccell pop">Real-time</div><div className="pr-ccell">Real-time</div><div className="pr-ccell">Real-time</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Campaign attribution</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Single-touch</div><div className="pr-ccell">Multi-touch</div><div className="pr-ccell">Multi-touch + custom</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Conversion funnel</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
-                <div className="pr-crow"><div className="pr-ccell">Forecasting</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Linear</div><div className="pr-ccell">Predictive ML</div><div className="pr-ccell">Custom models</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Revenue dashboard</div><div className="pr-ccell">Basic</div><div className="pr-ccell pop">Range controls</div><div className="pr-ccell">Range controls</div><div className="pr-ccell">Custom review</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Campaign tracking</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow"><div className="pr-ccell">Conversion reporting</div><div className="pr-ccell">Stage counts</div><div className="pr-ccell pop">Stage counts</div><div className="pr-ccell">Stage counts</div><div className="pr-ccell">Roadmap</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Forecasting</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Roadmap</div><div className="pr-ccell">Roadmap</div></div>
 
                 <div className="pr-crow section-h"><div className="pr-ccell">Automation &amp; integrations</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">Workflow automation</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Manual triggers</div><div className="pr-ccell">Workflow engine</div><div className="pr-ccell">Custom flows</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Workflow automation</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Roadmap</div><div className="pr-ccell">Roadmap</div><div className="pr-ccell">Custom planning</div></div>
                 <div className="pr-crow"><div className="pr-ccell">API access</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell">Enterprise API</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Webhooks</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Limited</div><div className="pr-ccell">Unlimited</div><div className="pr-ccell">Unlimited</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Webhooks</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">3 endpoints</div><div className="pr-ccell">Unlimited</div><div className="pr-ccell">Unlimited</div></div>
 
                 <div className="pr-crow section-h"><div className="pr-ccell">Security &amp; support</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">SSO &amp; SAML</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
-                <div className="pr-crow"><div className="pr-ccell">Dedicated success manager</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Onboarding</div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow"><div className="pr-ccell">SSO &amp; SAML</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Roadmap</div><div className="pr-ccell">Roadmap</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Dedicated success manager</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Implementation support</div><div className="pr-ccell"><Ck /></div></div>
                 <div className="pr-crow"><div className="pr-ccell">Support</div><div className="pr-ccell">Email</div><div className="pr-ccell pop">Chat + email</div><div className="pr-ccell">Priority</div><div className="pr-ccell">24/7 + SLA</div></div>
               </div>
             </div>

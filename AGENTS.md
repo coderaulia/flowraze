@@ -264,9 +264,10 @@ NODE_ENV=development
 - [x] Billing seat limits are enforced for company user creation and invites
 - [x] Centralized plan entitlements gate API access, webhooks, exports, campaigns, targets, and team performance
 - [x] Billing lifecycle fields and expired-trial enforcement are implemented
+- [x] Pricing page copy no longer advertises unsupported native apps, provider payments, forecasting, SSO, SOC2, or custom pipeline features as shipped
 
 ### In Progress
-- Pricing truth cleanup for unsupported marketing claims
+- Growth analytics depth: funnel analytics, attribution basics, and forecast basics
 
 ### Placeholder/Todo
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
@@ -280,7 +281,7 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| HIGH | Pricing copy still advertises some unsupported features | `apps/web/src/pages/marketing/pricing.tsx` |
+| MEDIUM | Growth analytics still needs funnel, attribution, and forecast depth | `apps/api/src/routes/dashboard.ts`, `apps/web/src/pages/dashboard.tsx` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 
