@@ -85,6 +85,31 @@ async function guardAdminTarget(req: AuthRequest, targetId: string) {
   }
 }
 
+async function ensureSeatAvailable(companyId: string) {
+  const [billingAccount, activeUsers] = await prisma.$transaction([
+    prisma.billingAccount.findUnique({
+      where: { companyId },
+      select: { seats: true },
+    }),
+    prisma.user.count({
+      where: {
+        companyId,
+        isActive: true,
+        role: { not: 'superadmin' },
+      },
+    }),
+  ]);
+  const seatLimit = billingAccount?.seats ?? 3;
+
+  if (activeUsers >= seatLimit) {
+    throw new AppError(
+      403,
+      `Seat limit reached. This workspace allows ${seatLimit} active users.`,
+      'SEAT_LIMIT_REACHED'
+    );
+  }
+}
+
 router.get('/me', async (req: AuthRequest, res, next) => {
   try {
     const user = await prisma.user.findUnique({
@@ -212,6 +237,11 @@ router.post('/', requireRole('superadmin', 'admin'), async (req: AuthRequest, re
       throw new AppError(400, 'Email already in use');
     }
 
+    const companyId = isSuperadmin(req) ? null : requireAdminCompanyId(req);
+    if (companyId) {
+      await ensureSeatAvailable(companyId);
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
@@ -220,7 +250,7 @@ router.post('/', requireRole('superadmin', 'admin'), async (req: AuthRequest, re
         password: hashedPassword,
         name,
         role,
-        companyId: isSuperadmin(req) ? null : requireAdminCompanyId(req),
+        companyId,
       },
       select: userSelect,
     });
@@ -322,6 +352,11 @@ router.post('/invite', requireRole('superadmin', 'admin'), async (req: AuthReque
       throw new AppError(400, 'Email already in use');
     }
 
+    const companyId = isSuperadmin(req) ? null : requireAdminCompanyId(req);
+    if (companyId) {
+      await ensureSeatAvailable(companyId);
+    }
+
     const inviter = await prisma.user.findUnique({
       where: { id: req.userId },
       select: { name: true },
@@ -337,7 +372,7 @@ router.post('/invite', requireRole('superadmin', 'admin'), async (req: AuthReque
         name,
         role,
         password: tempPassword,
-        companyId: isSuperadmin(req) ? null : requireAdminCompanyId(req),
+        companyId,
         inviteToken: hashSecret(inviteToken),
         inviteExpiresAt,
       },

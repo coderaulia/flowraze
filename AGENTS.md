@@ -261,12 +261,14 @@ NODE_ENV=development
 - [x] Tenant and role isolation hardening for CRM reads, details, exports, search, dashboards, and team performance
 - [x] Campaign writes are limited to admin/manager roles with tenant-aware target user checks
 - [x] Route-level isolation regression tests cover critical manager, employee, export, and campaign permission paths
+- [x] Billing seat limits are enforced for company user creation and invites
 
 ### In Progress
-- Billing seat-limit enforcement on company user create/invite flows
+- Centralized plan entitlement model for feature and usage gates
 
 ### Placeholder/Todo
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
+- [ ] Existing paid-feature gates match pricing claims
 - [ ] Payment provider integration for checkout/invoices/customer portal
 - [ ] White-label tenant/domain/branding layer
 - [ ] Future betterauth migration decision
@@ -277,7 +279,7 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| MEDIUM | Company user create/invite flows do not enforce billing seat limits yet | `apps/api/src/routes/users.ts` |
+| HIGH | Plan feature entitlements are not yet centralized or enforced across paid features | `apps/api/src/*`, `apps/web/src/*` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 

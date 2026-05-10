@@ -17,6 +17,7 @@ type TestUser = {
 
 const companyId = 'company-a';
 const otherCompanyId = 'company-b';
+const admin: TestUser = { id: 'admin-a', role: 'admin', companyId, isActive: true };
 const manager: TestUser = { id: 'manager-a', role: 'manager', companyId, isActive: true };
 const employee: TestUser = { id: 'employee-a', role: 'employee', companyId, isActive: true };
 const outsider: TestUser = { id: 'employee-b', role: 'employee', companyId: otherCompanyId, isActive: true };
@@ -54,7 +55,7 @@ function mockTransaction() {
 function mockAuthUsers() {
   mockPrisma('user', 'findUnique', (args) => {
     const id = (args as { where?: { id?: string } }).where?.id;
-    return [manager, employee, outsider].find((user) => user.id === id) ?? null;
+    return [admin, manager, employee, outsider].find((user) => user.id === id) ?? null;
   });
 }
 
@@ -226,7 +227,63 @@ async function verifyEmployeeCampaignWriteDenied() {
   });
 }
 
-test('route isolation regressions', async () => {
+function mockFullSeats() {
+  mockTransaction();
+  mockPrisma('billingAccount', 'findUnique', (args) => {
+    const where = (args as { where?: { companyId?: string } }).where;
+    assert.equal(where?.companyId, companyId);
+    return { seats: 1 };
+  });
+  mockPrisma('user', 'count', (args) => {
+    const where = (args as { where?: { companyId?: string; isActive?: boolean } }).where;
+    assert.equal(where?.companyId, companyId);
+    assert.equal(where?.isActive, true);
+    return 1;
+  });
+}
+
+async function verifySeatLimitBlocksUserCreate() {
+  mockAuthUsers();
+  mockFullSeats();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, admin, '/api/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: 'new@example.com',
+        password: 'password123',
+        name: 'New User',
+        role: 'employee',
+      }),
+    });
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'SEAT_LIMIT_REACHED');
+  });
+}
+
+async function verifySeatLimitBlocksInvite() {
+  mockAuthUsers();
+  mockFullSeats();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, admin, '/api/users/invite', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: 'invite@example.com',
+        name: 'Invited User',
+        role: 'employee',
+      }),
+    });
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'SEAT_LIMIT_REACHED');
+  });
+}
+
+test('production readiness route regressions', async () => {
   const originalConsoleError = console.error;
   console.error = () => undefined;
 
@@ -240,6 +297,10 @@ test('route isolation regressions', async () => {
     await verifyManagerTeamPerformanceScope();
     resetMocks();
     await verifyEmployeeCampaignWriteDenied();
+    resetMocks();
+    await verifySeatLimitBlocksUserCreate();
+    resetMocks();
+    await verifySeatLimitBlocksInvite();
   } finally {
     resetMocks();
     console.error = originalConsoleError;

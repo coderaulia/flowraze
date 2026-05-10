@@ -14,6 +14,7 @@ This document tracks real gaps in the current codebase. Completed items are summ
 - **Tenant and role isolation:** Shared backend scope helpers enforce `companyId`, manager team, and employee owner visibility across core CRM reads, detail/update/delete paths, global search, dashboards, team performance, and exports.
 - **Campaign permissions:** Campaign writes are limited to admins and managers, with owner and sales-owner assignments validated inside the company.
 - **Route-level isolation tests:** Critical manager, employee, export, team-performance, lead-detail, and campaign write permission paths are covered with Express route tests.
+- **Seat enforcement:** Company user create and invite flows block new active users once the billing seat allowance is reached.
 - **Lead import:** Leads can be imported from CSV/XLSX-derived rows, with lowercased email duplicate checks inside the company scope.
 - **Deal pipeline:** Deals support CRUD, stage movement, closed-won timestamps, Kanban totals, edit/delete actions, and automatic project campaign creation when a deal is created.
 - **Sales targets and teams:** `/api/targets`, `/api/targets/teams`, `/api/dashboard/targets`, and the `/company/targets` page support target CRUD, sales team CRUD, member assignment, achievement KPIs, category mix, monthly breakdowns, and leaderboards.
@@ -26,7 +27,7 @@ This document tracks real gaps in the current codebase. Completed items are summ
 
 | Priority | Feature gap | Current state | Needed functionality |
 | --- | --- | --- | --- |
-| MEDIUM | Billing seat enforcement | Billing accounts store `seats`, but company user create/invite flows do not block writes above the seat allowance. | Enforce active-user counts against billing seats before company user creation/invitation, with clear errors and admin UI messaging. |
+| HIGH | Centralized plan entitlements | Billing accounts store plan and seats, but feature gates and usage limits are not centralized across API keys, webhooks, exports, teams, targets, campaigns, and future automation. | Add a plan capability module and enforce it consistently in backend routes and frontend visibility. |
 | MEDIUM | Expanded route regression coverage | Critical isolation route tests now exist, but admin, billing, API key, webhook, target, and additional dashboard edge cases can be covered further. | Broaden backend route tests across remaining production-sensitive endpoints and add frontend smoke tests for login, CRUD forms, exports, Settings, and Targets. |
 | MEDIUM | Payment provider integration | Billing supports local state, invoices, and manual payment checks only. There is no provider checkout, invoice sync, subscription webhook, or customer portal handoff. | Integrate the chosen provider, map provider customer/subscription IDs to `BillingAccount`, and sync plan/status from provider webhooks. |
 | MEDIUM | Webhook event coverage | Current event enum is `lead_created`, `deal_created`, `deal_won`, and `activity_created`. Lead/deal update/delete events are not emitted. | Decide the canonical event set, add update/delete events where useful, and expose them in the Settings webhook event picker. |
