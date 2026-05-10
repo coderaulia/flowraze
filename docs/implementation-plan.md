@@ -118,7 +118,6 @@ Implemented under `/api/admin`:
 
 | Priority | Gap | Evidence | Needed work |
 | --- | --- | --- | --- |
-| Medium | Expanded route isolation test matrix | Critical route-level isolation tests now exist for manager, employee, export, team-performance, and campaign permission paths. | Broaden the route matrix across admin, billing, API keys, webhooks, targets, and additional dashboard edge cases. |
 | Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
 | Medium | Payment provider integration | Billing supports local account state, invoices, and manual payment checks; no checkout/customer portal/provider webhook sync exists. | Choose a provider, map provider IDs to `BillingAccount`, and sync subscription/invoice status. |
 | Low | Rich PDF reporting | Export PDF is dependency-free and intentionally basic. | Adopt a richer PDF renderer only when branded, charted, or multi-page reports are required. |
@@ -186,9 +185,9 @@ Priority legend:
 
 ## 7. Recommended Next Work Order
 
-1. **P2: Growth analytics depth.** Add funnel analytics, single-touch campaign attribution, forecast basics, and stronger revenue/campaign reporting.
-2. **P2: Workflow foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
-3. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
+1. **P1: Provider billing.** Integrate a payment provider (checkout, invoices, customer portal) to enable paid self-service.
+2. **P2: Workflow/automation foundations.** Convert current webhooks into a broader automation base with rule triggers, actions, retry history, and manual trigger UI.
+3. **P3: Performance differentiators.** Add multi-touch attribution, ROAS/CAC improvements, cohorts, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
 4. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
 5. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
 
