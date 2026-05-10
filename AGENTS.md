@@ -260,12 +260,13 @@ NODE_ENV=development
 - [x] Webhook retry and manual replay policy
 - [x] Tenant and role isolation hardening for CRM reads, details, exports, search, dashboards, and team performance
 - [x] Campaign writes are limited to admin/manager roles with tenant-aware target user checks
+- [x] Route-level isolation regression tests cover critical manager, employee, export, and campaign permission paths
 
 ### In Progress
-- Route-level regression tests for tenant and role isolation
+- Billing seat-limit enforcement on company user create/invite flows
 
 ### Placeholder/Todo
-- [ ] Billing seat-limit enforcement on company user create/invite flows
+- [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
 - [ ] Payment provider integration for checkout/invoices/customer portal
 - [ ] White-label tenant/domain/branding layer
 - [ ] Future betterauth migration decision
@@ -276,8 +277,8 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| HIGH | Route-level tests do not yet cover tenant/role isolation | `apps/api/src/**/*.test.ts` |
 | MEDIUM | Company user create/invite flows do not enforce billing seat limits yet | `apps/api/src/routes/users.ts` |
+| MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 
 ---
