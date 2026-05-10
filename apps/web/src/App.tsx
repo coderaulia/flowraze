@@ -6,21 +6,30 @@ import {
   CompanyMemberRoute,
 } from './components/guards';
 import { COMPANY_ROUTES } from './lib/routes';
-import { LoginPage } from './pages/login';
-import { AcceptInvitePage } from './pages/accept-invite';
-import { LandingPage } from './pages/landing';
-import { SolutionsPage } from './pages/solutions';
-import { PricingPage } from './pages/pricing';
-import { DashboardPage } from './pages/dashboard';
-import { LeadsPage } from './pages/leads';
-import { DealsPage } from './pages/deals';
-import { CampaignsPage } from './pages/campaigns';
-import { TeamPage } from './pages/team';
-import { SettingsPage } from './pages/settings';
-import { UsersPage } from './pages/users';
-import { SearchPage } from './pages/search';
-import { TargetsPage } from './pages/targets';
-import { ActivitiesPage } from './pages/activities';
+import { LoginPage } from './pages/auth/login';
+import { RegisterPage } from './pages/auth/register';
+import { OnboardingPage } from './pages/company/onboarding';
+import { AcceptInvitePage } from './pages/company/accept-invite';
+import { LandingPage } from './pages/marketing/landing';
+import { SolutionsPage } from './pages/marketing/solutions';
+import { PricingPage } from './pages/marketing/pricing';
+import { AboutPage } from './pages/marketing/about';
+import { PrivacyPage } from './pages/marketing/privacy';
+import { TermsPage } from './pages/marketing/terms';
+import { BlogPage } from './pages/marketing/blog';
+import { CareersPage } from './pages/marketing/careers';
+import { HelpPage } from './pages/marketing/help';
+import { ResourcesPage } from './pages/marketing/resources';
+import { DashboardPage } from './pages/company';
+import { LeadsPage } from './pages/company/leads';
+import { DealsPage } from './pages/company/deals';
+import { CampaignsPage } from './pages/company/campaigns';
+import { TeamPage } from './pages/company/team';
+import { SettingsPage } from './pages/company/settings';
+import { UsersPage } from './pages/company/users';
+import { SearchPage } from './pages/company/search';
+import { TargetsPage } from './pages/company/targets';
+import { ActivitiesPage } from './pages/company/activities';
 import { AdminDashboardPage } from './pages/admin';
 import { AdminCompaniesPage } from './pages/admin/companies';
 import { AdminCompanyDetailPage } from './pages/admin/company-detail';
@@ -40,8 +49,17 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/solutions" element={<SolutionsPage />} />
         <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/blog" element={<BlogPage />} />
+        <Route path="/careers" element={<CareersPage />} />
+        <Route path="/help" element={<HelpPage />} />
+        <Route path="/resources" element={<ResourcesPage />} />
 
         {/* Legacy company app paths */}
         <Route path="/dashboard" element={<RedirectWithSearch to={COMPANY_ROUTES.dashboard} />} />

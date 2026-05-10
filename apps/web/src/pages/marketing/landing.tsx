@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LandingHeader, LandingFooter, LandingButton, Eyebrow } from '@/components/landing';
+import { SEO } from '@/components/SEO';
 import '@/components/landing/landing.css';
 
 const ROLE_DATA: Record<string, { h: string; p: string; ul: string[] }> = {
@@ -109,6 +110,10 @@ export function LandingPage() {
 
   return (
     <div className="lp-root">
+      <SEO 
+        title="CRM & Operations Analytics for Modern Teams" 
+        description="FlowRaze unifies sales, marketing, and team performance into one clear system. Stop juggling dashboards. Start making decisions that move the number."
+      />
       <LandingHeader />
 
       {/* HERO */}
@@ -133,7 +138,7 @@ export function LandingPage() {
             </p>
             <div className="lp-hero-ctas" data-reveal="up">
               <LandingButton asChild size="lg">
-                <Link to="/login">Start Free — No Card Required →</Link>
+                <Link to="/register">Start Free — No Card Required →</Link>
               </LandingButton>
               <LandingButton variant="ghost" size="lg">▶ Watch 2-min Demo</LandingButton>
             </div>
@@ -471,8 +476,8 @@ export function LandingPage() {
           <div className="lp-qauthor" data-reveal="up">
             <div className="av" />
             <div>
-              <div className="nm">Budi Hartono</div>
-              <div className="role">CTO, HyperStream Indonesia</div>
+              <div className="nm">Budi Kurniawan</div>
+              <div className="role">CTO, Vanaila Digital Indonesia</div>
             </div>
           </div>
         </div>
@@ -506,7 +511,7 @@ export function LandingPage() {
                 {role.ul.map((item, i) => <li key={i}>{item}</li>)}
               </ul>
               <LandingButton asChild>
-                <Link to="/login">Explore Solution →</Link>
+                <Link to="/register">Explore Solution →</Link>
               </LandingButton>
             </div>
             <div className="lp-role-vis">
@@ -539,7 +544,7 @@ export function LandingPage() {
           <p>Set up in under 30 minutes. No credit card. No mandatory call. Just clarity.</p>
           <div className="lp-final-btns">
             <LandingButton asChild size="lg">
-              <Link to="/login">Get Started Free →</Link>
+              <Link to="/register">Get Started Free →</Link>
             </LandingButton>
             <LandingButton variant="ghost" size="lg">Talk to a Specialist</LandingButton>
           </div>

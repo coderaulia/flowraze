@@ -18,6 +18,7 @@ import billingRoutes from './routes/billing.js';
 import exportsRoutes from './routes/exports.js';
 import webhooksRoutes from './routes/webhooks.js';
 import targetsRoutes from './routes/targets.js';
+import onboardingRoutes from './routes/onboarding.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { processPendingWebhooks } from './utils/webhooks.js';
 
@@ -61,6 +62,7 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/exports', exportsRoutes);
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/targets', targetsRoutes);
+app.use('/api/onboarding', onboardingRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

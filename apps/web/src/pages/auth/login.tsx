@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -155,6 +155,14 @@ export function LoginPage() {
               >
                 Forgot password?
               </button>
+            </div>
+            <div className="text-center mt-4 pt-4 border-t border-surface-container-high">
+              <p className="text-sm text-on-surface-variant/70">
+                Don't have an account?{' '}
+                <Link to="/register" className="text-secondary font-semibold hover:underline">
+                  Sign up
+                </Link>
+              </p>
             </div>
           </form>
           {(showReset || urlToken) && (

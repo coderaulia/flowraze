@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
+import { SEO } from '@/components/SEO';
+import { LandingHeader, LandingFooter } from '@/components/landing';
 
 const N = '#1d2879'; // navy
 const G = '#1aa86b'; // green
@@ -54,6 +56,10 @@ export function SolutionsPage() {
 
   return (
     <>
+      <SEO 
+        title="Tailored Revenue Intelligence" 
+        description="Discover how FlowRaze solves revenue disconnectedness for Sales Teams, Marketing Teams, Founders, and Agencies."
+      />
       <style>{`
         @keyframes nodeFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
         @keyframes solDash { to { stroke-dashoffset: -200; } }
@@ -98,25 +104,7 @@ export function SolutionsPage() {
 
       <div className="min-h-screen bg-white" style={{ fontFamily: '"Inter", system-ui, sans-serif', color: '#0c1030' }}>
 
-        {/* NAV */}
-        <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(255,255,255,.88)', backdropFilter: 'saturate(180%) blur(14px)', borderBottom: '1px solid #e6e8f0' }}>
-          <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', gap: 48, height: 64 }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 20, color: N, letterSpacing: '-0.01em', textDecoration: 'none' }}>
-              <span className="sol-logo-dot" />
-              FlowRaze
-            </Link>
-            <div style={{ display: 'flex', gap: 36, fontSize: 14.5, fontWeight: 500, color: '#3a4060' }}>
-              <Link to="/" style={{ color: '#3a4060', textDecoration: 'none', padding: '6px 0' }} className="hover:text-[#1d2879]">Features</Link>
-              <Link to="/solutions" style={{ position: 'relative', color: N, fontWeight: 600, textDecoration: 'none', padding: '6px 0' }} className="sol-nav-active">Solutions</Link>
-              <Link to="/pricing" style={{ color: '#3a4060', textDecoration: 'none', padding: '6px 0' }}>Pricing</Link>
-              <a href="#" style={{ color: '#3a4060', textDecoration: 'none', padding: '6px 0' }}>Resources</a>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 18, fontSize: 14.5, fontWeight: 500 }}>
-              <Link to="/login" style={{ color: '#3a4060', textDecoration: 'none' }}>Log In</Link>
-              <Link to="/login" style={{ background: N, color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 14, textDecoration: 'none', boxShadow: '0 1px 2px rgba(20,26,77,.2),0 6px 18px -8px rgba(20,26,77,.45)' }}>Get Started Free</Link>
-            </div>
-          </div>
-        </nav>
+        <LandingHeader />
 
         {/* HERO */}
         <section style={{ padding: '64px 32px 48px', overflow: 'hidden', position: 'relative', background: '#fff' }}>
@@ -611,36 +599,7 @@ export function SolutionsPage() {
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer style={{ padding: '64px 32px 40px', borderTop: '1px solid #e6e8f0', background: '#fff' }}>
-          <div style={{ maxWidth: 1240, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 48 }}>
-            <div>
-              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 20, color: N, textDecoration: 'none' }}>
-                <span className="sol-logo-dot" />
-                FlowRaze
-              </Link>
-              <p style={{ color: '#5a6178', fontSize: 14, marginTop: 14, maxWidth: 300, lineHeight: 1.6 }}>Understand what drives your revenue. Precision-engineered for the modern revenue team.</p>
-            </div>
-            {[
-              { title: 'Product', links: ['Features', 'Solutions', 'Pricing', 'Integrations'] },
-              { title: 'Company', links: ['About', 'Customers', 'Careers', 'Blog'] },
-              { title: 'Support', links: ['Documentation', 'Help Center', 'Privacy', 'Terms'] },
-            ].map(({ title, links }) => (
-              <div key={title}>
-                <h4 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '.08em', color: '#7a809a', marginBottom: 16, fontWeight: 600 }}>{title}</h4>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {links.map((l) => (
-                    <li key={l}><a href="#" style={{ fontSize: 14, color: '#3a4060', textDecoration: 'none' }}>{l}</a></li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div style={{ maxWidth: 1240, margin: '48px auto 0', paddingTop: 24, borderTop: '1px solid #e6e8f0', display: 'flex', justifyContent: 'space-between', color: '#7a809a', fontSize: 13 }}>
-            <span>© 2025 FlowRaze. Precision in Motion.</span>
-            <span>Made in Jakarta · Built for the world</span>
-          </div>
-        </footer>
+        <LandingFooter />
       </div>
     </>
   );
