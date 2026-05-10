@@ -44,11 +44,11 @@ export async function authenticate(
           revokedAt: null,
         },
         include: {
-          createdBy: { select: { id: true, role: true, companyId: true } },
+          createdBy: { select: { id: true, role: true, companyId: true, isActive: true } },
         },
       });
 
-      if (!record) {
+      if (!record || !record.createdBy.isActive) {
         return next(new AppError(401, 'Invalid API key'));
       }
 
@@ -83,9 +83,19 @@ export async function authenticate(
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new AppError(500, 'Server configuration error');
     const decoded = jwt.verify(token, secret) as TokenPayload;
-    req.userId = decoded.userId;
-    req.userRole = decoded.role;
-    req.companyId = decoded.companyId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, role: true, companyId: true, isActive: true },
+    });
+
+    if (!user?.isActive) {
+      return next(new AppError(401, 'User account is inactive'));
+    }
+
+    req.userId = user.id;
+    req.userRole = user.role;
+    req.companyId = user.companyId;
     req.authType = 'jwt';
     next();
   } catch {

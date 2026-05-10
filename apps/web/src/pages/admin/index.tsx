@@ -8,7 +8,24 @@ interface PlatformStats {
   totalCompanies: number;
   activeCompanies: number;
   totalUsers: number;
+  activeUsers: number;
+  activeSeats: number;
+  estimatedMRR: number;
   planDistribution: Record<string, number>;
+  billingStatusDistribution: Record<string, number>;
+}
+
+interface AdminOverviewResponse {
+  stats: PlatformStats;
+  recentCompanies: Company[];
+}
+
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 export function AdminDashboardPage() {
@@ -19,15 +36,14 @@ export function AdminDashboardPage() {
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const [companiesRes] = await Promise.all([
-      get<{ companies: Company[]; stats: PlatformStats }>('/admin/companies?limit=5'),
-    ]);
+    setError('');
+    const overviewRes = await get<AdminOverviewResponse>('/admin/overview');
 
-    if (companiesRes.success && companiesRes.data) {
-      setCompanies(companiesRes.data.companies ?? []);
-      setStats(companiesRes.data.stats ?? null);
+    if (overviewRes.success && overviewRes.data) {
+      setCompanies(overviewRes.data.recentCompanies);
+      setStats(overviewRes.data.stats);
     } else {
-      setError(companiesRes.error || 'Failed to load platform data');
+      setError(overviewRes.error || 'Failed to load platform data');
     }
     setIsLoading(false);
   }, []);
@@ -54,16 +70,16 @@ export function AdminDashboardPage() {
       href: '/admin/companies',
     },
     {
-      label: 'Total Users',
-      value: stats?.totalUsers ?? '—',
+      label: 'Active Users',
+      value: stats ? `${stats.activeUsers}/${stats.totalUsers}` : '—',
       icon: Users,
       color: 'text-purple-600',
       bg: 'bg-purple-50',
       href: '/admin/users',
     },
     {
-      label: 'Plans Active',
-      value: stats ? Object.values(stats.planDistribution).reduce((a, b) => a + b, 0) : '—',
+      label: 'Estimated MRR',
+      value: stats ? formatRupiah(stats.estimatedMRR) : '—',
       icon: CreditCard,
       color: 'text-orange-600',
       bg: 'bg-orange-50',
@@ -99,6 +115,37 @@ export function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      {!isLoading && stats && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-xl bg-white border border-gray-200 p-5">
+            <h2 className="font-semibold text-primary">Plan Distribution</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {['free', 'growth', 'pro', 'custom'].map((plan) => (
+                <div key={plan} className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-on-surface-variant">{plan}</p>
+                  <p className="mt-1 text-xl font-semibold text-primary">
+                    {stats.planDistribution[plan] ?? 0}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white border border-gray-200 p-5">
+            <h2 className="font-semibold text-primary">Billing Health</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {['trialing', 'active', 'past_due', 'canceled'].map((status) => (
+                <div key={status} className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-on-surface-variant">{status}</p>
+                  <p className="mt-1 text-xl font-semibold text-primary">
+                    {stats.billingStatusDistribution[status] ?? 0}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

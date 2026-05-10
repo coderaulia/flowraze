@@ -27,6 +27,7 @@ export interface User {
   companyId: string | null;
   emailVerifiedAt?: Date | string | null;
   invitePending?: boolean;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
   company?: { id: string; name: string };
@@ -129,15 +130,47 @@ export interface WebhookEndpoint {
 
 export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
 export type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+export type InvoiceStatus = 'open' | 'paid' | 'void' | 'overdue';
+export type PaymentStatus = 'pending' | 'paid' | 'rejected' | 'expired';
 
 export interface BillingAccount {
   id: string;
+  companyId: string;
   workspaceName: string;
   plan: PlanTier;
   status: BillingStatus;
   seats: number;
   renewalDate?: Date | string | null;
   externalCustomer?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface BillingInvoice {
+  id: string;
+  companyId: string;
+  billingAccountId: string;
+  invoiceNumber: string;
+  amount: number;
+  status: InvoiceStatus;
+  dueDate: Date | string;
+  paidAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface BillingPayment {
+  id: string;
+  companyId: string;
+  billingAccountId: string;
+  invoiceId?: string | null;
+  amount: number;
+  status: PaymentStatus;
+  method: string;
+  reference?: string | null;
+  checkedAt?: Date | string | null;
+  paidAt?: Date | string | null;
+  notes?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CreditCard, TrendingUp } from 'lucide-react';
+import { CreditCard, RefreshCw, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -23,16 +23,35 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { get, put } from '@/lib/api';
-import type { Company, PlanTier } from '@/types';
+import { get, post, put } from '@/lib/api';
+import type { BillingAccount, BillingInvoice, BillingPayment, BillingStatus, Company, PlanTier } from '@/types';
 
-interface BillingSummary {
-  totalMRR: number;
-  planDistribution: Record<PlanTier, number>;
-  companies: Array<Company & { billing: NonNullable<Company['billing']> }>;
+type CountByPlan = { plan: PlanTier; _count: { _all: number } };
+type CountByStatus = { status: BillingStatus; _count: { _all: number } };
+
+type AdminBillingAccount = BillingAccount & {
+  company: Pick<Company, 'id' | 'name' | 'slug' | 'isActive'>;
+  invoices?: BillingInvoice[];
+  payments?: BillingPayment[];
+};
+
+interface AdminBillingResponse {
+  accounts: AdminBillingAccount[];
+  summary: {
+    byPlan: CountByPlan[];
+    byStatus: CountByStatus[];
+    total: number;
+  };
 }
 
 const PLAN_OPTIONS: PlanTier[] = ['free', 'growth', 'pro', 'custom'];
+
+const PLAN_MONTHLY_PRICE: Record<PlanTier, number> = {
+  free: 0,
+  growth: 149_000,
+  pro: 299_000,
+  custom: 0,
+};
 
 const PLAN_COLORS: Record<PlanTier, string> = {
   free: 'bg-gray-100 text-gray-700',
@@ -41,20 +60,46 @@ const PLAN_COLORS: Record<PlanTier, string> = {
   custom: 'bg-orange-50 text-orange-700',
 };
 
+function getPlanDistribution(accounts: AdminBillingAccount[]) {
+  return accounts.reduce<Record<PlanTier, number>>(
+    (acc, account) => {
+      acc[account.plan] += 1;
+      return acc;
+    },
+    { free: 0, growth: 0, pro: 0, custom: 0 }
+  );
+}
+
+function getEstimatedMRR(accounts: AdminBillingAccount[]) {
+  return accounts.reduce((total, account) => {
+    return total + PLAN_MONTHLY_PRICE[account.plan] * account.seats;
+  }, 0);
+}
+
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export function AdminBillingPage() {
-  const [summary, setSummary] = useState<BillingSummary | null>(null);
+  const [billing, setBilling] = useState<AdminBillingResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [editingCompany, setEditingCompany] = useState<BillingSummary['companies'][number] | null>(null);
+  const [editingAccount, setEditingAccount] = useState<AdminBillingAccount | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>('free');
   const [overrideError, setOverrideError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const fetchBilling = useCallback(async () => {
     setIsLoading(true);
-    const res = await get<BillingSummary>('/admin/billing');
+    setError('');
+    const res = await get<AdminBillingResponse>('/admin/billing');
     if (res.success && res.data) {
-      setSummary(res.data);
+      setBilling(res.data);
     } else {
       setError(res.error || 'Failed to load billing data');
     }
@@ -65,24 +110,46 @@ export function AdminBillingPage() {
     fetchBilling();
   }, [fetchBilling]);
 
-  const openOverride = (company: BillingSummary['companies'][number]) => {
-    setEditingCompany(company);
-    setSelectedPlan(company.billing.plan);
+  const openOverride = (account: AdminBillingAccount) => {
+    setEditingAccount(account);
+    setSelectedPlan(account.plan);
     setOverrideError('');
   };
 
   const handleOverride = async () => {
-    if (!editingCompany) return;
-    const res = await put<Company>(`/admin/billing/${editingCompany.id}`, { plan: selectedPlan });
+    if (!editingAccount) return;
+    const res = await put<BillingAccount>(`/admin/billing/${editingAccount.companyId}`, { plan: selectedPlan });
     if (res.success) {
       fetchBilling();
-      setEditingCompany(null);
+      setEditingAccount(null);
     } else {
       setOverrideError(res.error || 'Failed to update plan');
     }
   };
 
-  const planDist = summary?.planDistribution;
+  const accounts = billing?.accounts ?? [];
+  const planDist = getPlanDistribution(accounts);
+  const estimatedMRR = getEstimatedMRR(accounts);
+
+  const handleCheckPayment = async (account: AdminBillingAccount) => {
+    setActionError('');
+    const res = await post<AdminBillingAccount>(`/admin/billing/${account.companyId}/check-payment`, {});
+    if (res.success) {
+      fetchBilling();
+    } else {
+      setActionError(res.error || 'Failed to check payment');
+    }
+  };
+
+  const handleMarkPaid = async (account: AdminBillingAccount) => {
+    setActionError('');
+    const res = await post<AdminBillingAccount>(`/admin/billing/${account.companyId}/mark-paid`, {});
+    if (res.success) {
+      fetchBilling();
+    } else {
+      setActionError(res.error || 'Failed to mark payment as paid');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -94,6 +161,9 @@ export function AdminBillingPage() {
       {error && (
         <div className="rounded-lg bg-error/10 px-4 py-3 text-sm text-error">{error}</div>
       )}
+      {actionError && (
+        <div className="rounded-lg bg-error/10 px-4 py-3 text-sm text-error">{actionError}</div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="col-span-1 sm:col-span-2 rounded-xl bg-white border border-gray-200 p-5">
@@ -102,7 +172,7 @@ export function AdminBillingPage() {
             <span className="text-sm font-medium text-on-surface-variant">Monthly Revenue</span>
           </div>
           <p className="text-3xl font-bold text-primary">
-            {isLoading ? '...' : `$${(summary?.totalMRR ?? 0).toLocaleString()}`}
+            {isLoading ? '...' : formatRupiah(estimatedMRR)}
           </p>
         </div>
         {PLAN_OPTIONS.map((plan) => (
@@ -113,7 +183,7 @@ export function AdminBillingPage() {
               </span>
             </div>
             <p className="text-2xl font-bold text-primary">
-              {isLoading ? '...' : (planDist?.[plan] ?? 0)}
+              {isLoading ? '...' : planDist[plan]}
             </p>
             <p className="text-xs text-on-surface-variant">companies</p>
           </div>
@@ -136,40 +206,74 @@ export function AdminBillingPage() {
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Seats</TableHead>
+                <TableHead>Invoice</TableHead>
+                <TableHead>Payment</TableHead>
                 <TableHead>Renewal</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {summary?.companies.map((company) => (
-                <TableRow key={company.id}>
-                  <TableCell className="font-medium">{company.name}</TableCell>
+              {accounts.map((account) => (
+                <TableRow key={account.id}>
+                  <TableCell className="font-medium">{account.company.name}</TableCell>
                   <TableCell>
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${PLAN_COLORS[company.billing.plan]}`}>
-                      {company.billing.plan}
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${PLAN_COLORS[account.plan]}`}>
+                      {account.plan}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className={`text-xs ${company.billing.status === 'active' ? 'text-green-600' : 'text-amber-600'}`}>
-                      {company.billing.status}
+                    <span className={`text-xs ${account.status === 'active' ? 'text-green-600' : 'text-amber-600'}`}>
+                      {account.status}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm">{company.billing.seats}</TableCell>
+                  <TableCell className="text-sm">{account.seats}</TableCell>
+                  <TableCell className="text-sm">
+                    {account.invoices?.[0] ? (
+                      <div>
+                        <p className="font-medium text-primary">{formatRupiah(account.invoices[0].amount)}</p>
+                        <p className="text-xs text-on-surface-variant">{account.invoices[0].status}</p>
+                      </div>
+                    ) : (
+                      <span className="text-on-surface-variant">No invoice</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {account.payments?.[0] ? (
+                      <div>
+                        <p className="font-medium text-primary">{account.payments[0].status}</p>
+                        <p className="text-xs text-on-surface-variant">
+                          {account.payments[0].checkedAt
+                            ? `Checked ${new Date(account.payments[0].checkedAt).toLocaleDateString()}`
+                            : 'Not checked'}
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="text-on-surface-variant">No check</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm text-on-surface-variant">
-                    {company.billing.renewalDate
-                      ? new Date(company.billing.renewalDate).toLocaleDateString()
+                    {account.renewalDate
+                      ? new Date(account.renewalDate).toLocaleDateString()
                       : '—'}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => openOverride(company)} title="Override plan">
-                      <CreditCard className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleCheckPayment(account)} title="Check payment">
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleMarkPaid(account)} title="Mark paid">
+                        <TrendingUp className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openOverride(account)} title="Override plan">
+                        <CreditCard className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
-              {!summary?.companies.length && (
+              {accounts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-on-surface-variant py-8">
+                  <TableCell colSpan={8} className="text-center text-on-surface-variant py-8">
                     No billing data
                   </TableCell>
                 </TableRow>
@@ -179,10 +283,10 @@ export function AdminBillingPage() {
         )}
       </div>
 
-      <Dialog open={!!editingCompany} onOpenChange={() => setEditingCompany(null)}>
+      <Dialog open={!!editingAccount} onOpenChange={() => setEditingAccount(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Override Plan — {editingCompany?.name}</DialogTitle>
+            <DialogTitle>Override Plan — {editingAccount?.company.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {overrideError && (
@@ -203,7 +307,7 @@ export function AdminBillingPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setEditingCompany(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setEditingAccount(null)}>Cancel</Button>
             <Button onClick={handleOverride}>Apply Override</Button>
           </DialogFooter>
         </DialogContent>

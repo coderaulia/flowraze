@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../prisma/index.js';
-import { authenticate, requireRole, requireAdminOrManager, AuthRequest, companyDataScope } from '../middleware/auth.js';
+import { authenticate, requireAdminOrManager, AuthRequest, companyDataScope } from '../middleware/auth.js';
 import {
   requireString,
   requireNumber,

@@ -189,7 +189,9 @@ export function AdminCompanyDetailPage() {
                   <Badge variant={ROLE_COLORS[user.role] ?? 'default'}>{user.role}</Badge>
                 </TableCell>
                 <TableCell>
-                  {user.invitePending ? (
+                  {!user.isActive ? (
+                    <Badge variant="secondary">Inactive</Badge>
+                  ) : user.invitePending ? (
                     <Badge variant="secondary">Invite Pending</Badge>
                   ) : (
                     <Badge variant="default">Active</Badge>

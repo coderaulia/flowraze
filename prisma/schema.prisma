@@ -25,6 +25,8 @@ model Company {
   salesTargets     SalesTarget[]
   apiKeys          ApiKey[]
   webhookEndpoints WebhookEndpoint[]
+  billingInvoices  BillingInvoice[]
+  billingPayments  BillingPayment[]
 }
 
 model User {
@@ -41,6 +43,7 @@ model User {
   passwordResetExpiresAt   DateTime?
   inviteToken              String?   @unique
   inviteExpiresAt          DateTime?
+  isActive                 Boolean   @default(true)
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
@@ -248,6 +251,8 @@ model BillingAccount {
   updatedAt        DateTime      @updatedAt
 
   company          Company       @relation(fields: [companyId], references: [id])
+  invoices         BillingInvoice[]
+  payments         BillingPayment[]
 }
 
 enum PlanTier {
@@ -262,6 +267,57 @@ enum BillingStatus {
   active
   past_due
   canceled
+}
+
+model BillingInvoice {
+  id               String        @id @default(cuid())
+  companyId        String
+  billingAccountId String
+  invoiceNumber    String        @unique
+  amount           Float
+  status           InvoiceStatus @default(open)
+  dueDate          DateTime
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  company          Company       @relation(fields: [companyId], references: [id])
+  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+  payments         BillingPayment[]
+}
+
+model BillingPayment {
+  id               String        @id @default(cuid())
+  companyId        String
+  billingAccountId String
+  invoiceId        String?
+  amount           Float
+  status           PaymentStatus @default(pending)
+  method           String        @default("manual")
+  reference        String?
+  checkedAt        DateTime?
+  paidAt           DateTime?
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  company          Company       @relation(fields: [companyId], references: [id])
+  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+  invoice          BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+}
+
+enum InvoiceStatus {
+  open
+  paid
+  void
+  overdue
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  rejected
+  expired
 }
 
 // ─── Sales Teams ────────────────────────────────────────────────────────────
