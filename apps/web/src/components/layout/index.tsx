@@ -42,6 +42,17 @@ export function Layout() {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    const scrollLockClass = 'flowraze-app-shell-scroll-lock';
+    document.documentElement.classList.add(scrollLockClass);
+    document.body.classList.add(scrollLockClass);
+
+    return () => {
+      document.documentElement.classList.remove(scrollLockClass);
+      document.body.classList.remove(scrollLockClass);
+    };
+  }, []);
+
   const handleLogout = () => {
     clearAuth();
     navigate('/login');
@@ -74,7 +85,7 @@ export function Layout() {
   const navItems = superadmin ? superadminNavItems : companyNavItems;
 
   return (
-    <div className="flex h-dvh min-h-0 overflow-hidden">
+    <div className="flex h-screen h-dvh min-h-0 overflow-hidden">
       {isSidebarOpen && (
         <button
           aria-label="Close navigation"
@@ -162,7 +173,7 @@ export function Layout() {
         </div>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="fixed left-0 right-0 top-0 z-30 min-h-16 bg-[#f7f9fb] border-b border-slate-200 px-4 py-3 lg:left-64 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3 sm:gap-6">
@@ -193,7 +204,7 @@ export function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-surface px-4 pb-8 pt-32 sm:px-6 sm:pt-24 lg:px-8">
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-surface px-4 pb-8 pt-32 sm:px-6 sm:pt-24 lg:px-8">
           <Outlet />
         </main>
       </div>
