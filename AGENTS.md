@@ -263,9 +263,10 @@ NODE_ENV=development
 - [x] Route-level isolation regression tests cover critical manager, employee, export, and campaign permission paths
 - [x] Billing seat limits are enforced for company user creation and invites
 - [x] Centralized plan entitlements gate API access, webhooks, exports, campaigns, targets, and team performance
+- [x] Billing lifecycle fields and expired-trial enforcement are implemented
 
 ### In Progress
-- Billing lifecycle fields and trial expiry behavior
+- Pricing truth cleanup for unsupported marketing claims
 
 ### Placeholder/Todo
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
@@ -279,7 +280,7 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| HIGH | Trial start/end and expiry behavior is not yet modeled | `prisma/schema.prisma`, `apps/api/src/routes/billing.ts` |
+| HIGH | Pricing copy still advertises some unsupported features | `apps/web/src/pages/marketing/pricing.tsx` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 

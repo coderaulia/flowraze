@@ -50,6 +50,11 @@ router.put('/', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'plan', optionalEnum(PLAN_TIERS, 'Plan'));
     setIfPresent(data, body, 'status', optionalEnum(BILLING_STATUSES, 'Status'));
     setIfPresent(data, body, 'renewalDate', optionalDate);
+    setIfPresent(data, body, 'trialStartedAt', optionalDate);
+    setIfPresent(data, body, 'trialEndsAt', optionalDate);
+    setIfPresent(data, body, 'subscriptionStartedAt', optionalDate);
+    setIfPresent(data, body, 'subscriptionEndsAt', optionalDate);
+    setIfPresent(data, body, 'canceledAt', optionalDate);
     setIfPresent(data, body, 'externalCustomer', optionalNonEmptyString);
 
     if (Object.prototype.hasOwnProperty.call(body, 'seats')) {

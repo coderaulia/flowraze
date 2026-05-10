@@ -121,6 +121,11 @@ export interface BillingAccount {
   status: BillingStatus;
   seats: number;
   renewalDate?: Date | string | null;
+  trialStartedAt?: Date | string | null;
+  trialEndsAt?: Date | string | null;
+  subscriptionStartedAt?: Date | string | null;
+  subscriptionEndsAt?: Date | string | null;
+  canceledAt?: Date | string | null;
   externalCustomer?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;

@@ -23,10 +23,6 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
     const body = requireObjectBody(req.body);
     const companyName = requireString(body, 'name', 'Company name');
     
-    // Optional fields
-    const industry = typeof body.industry === 'string' ? body.industry : undefined;
-    const companySize = typeof body.companySize === 'string' ? body.companySize : undefined;
-
     const user = await prisma.user.findUnique({
       where: { id: req.userId }
     });
@@ -62,10 +58,13 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
       });
 
       // Create billing account
+      const trialStartedAt = new Date();
       await tx.billingAccount.create({
         data: {
           companyId: company.id,
           workspaceName: `${companyName} Workspace`,
+          trialStartedAt,
+          trialEndsAt: new Date(trialStartedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
         }
       });
 

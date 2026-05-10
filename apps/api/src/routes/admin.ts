@@ -5,6 +5,7 @@ import { authenticate, AuthRequest, requireSuperadmin } from '../middleware/auth
 import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import {
+  optionalDate,
   optionalEnum,
   optionalNonEmptyString,
   requireAtLeastOneField,
@@ -260,8 +261,15 @@ router.post('/companies', async (req: AuthRequest, res, next) => {
 
     const company = await prisma.$transaction(async (tx) => {
       const newCompany = await tx.company.create({ data: { name, slug } });
+      const trialStartedAt = new Date();
 
-      await tx.billingAccount.create({ data: { companyId: newCompany.id } });
+      await tx.billingAccount.create({
+        data: {
+          companyId: newCompany.id,
+          trialStartedAt,
+          trialEndsAt: addDays(trialStartedAt, 14),
+        },
+      });
 
       await tx.user.create({
         data: {
@@ -625,6 +633,11 @@ router.put('/billing/:companyId', async (req: AuthRequest, res, next) => {
     if (plan) data.plan = plan;
     if (status) data.status = status;
     if (typeof body.seats === 'number' && body.seats > 0) data.seats = body.seats;
+    if (Object.prototype.hasOwnProperty.call(body, 'trialStartedAt')) data.trialStartedAt = optionalDate(body.trialStartedAt);
+    if (Object.prototype.hasOwnProperty.call(body, 'trialEndsAt')) data.trialEndsAt = optionalDate(body.trialEndsAt);
+    if (Object.prototype.hasOwnProperty.call(body, 'subscriptionStartedAt')) data.subscriptionStartedAt = optionalDate(body.subscriptionStartedAt);
+    if (Object.prototype.hasOwnProperty.call(body, 'subscriptionEndsAt')) data.subscriptionEndsAt = optionalDate(body.subscriptionEndsAt);
+    if (Object.prototype.hasOwnProperty.call(body, 'canceledAt')) data.canceledAt = optionalDate(body.canceledAt);
 
     const updated = await prisma.billingAccount.update({
       where: { companyId: req.params.companyId },
@@ -761,7 +774,13 @@ router.post('/billing/:companyId/mark-paid', async (req: AuthRequest, res, next)
       }),
       prisma.billingAccount.update({
         where: { id: account.id },
-        data: { status: 'active', renewalDate: addDays(now, 30) },
+        data: {
+          status: 'active',
+          renewalDate: addDays(now, 30),
+          subscriptionStartedAt: account.subscriptionStartedAt ?? now,
+          subscriptionEndsAt: addDays(now, 30),
+          canceledAt: null,
+        },
       }),
     ]);
 

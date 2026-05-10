@@ -8,12 +8,12 @@ datasource db {
 }
 
 model Company {
-  id               String            @id @default(cuid())
-  name             String
-  slug             String            @unique
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   billing          BillingAccount?
   users            User[]
@@ -47,17 +47,17 @@ model User {
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
-  leads                    Lead[]
-  deals                    Deal[]
-  activities               Activity[]
-  apiKeys                  ApiKey[]
-  webhookEndpoints         WebhookEndpoint[]
-  campaigns                Campaign[] @relation("CampaignOwner")
-  salesCampaigns           Campaign[] @relation("CampaignSalesOwner")
-  managedTeams             SalesTeam[]        @relation("TeamManager")
-  teamMemberships          SalesTeamMember[]
-  salesTargets             SalesTarget[]
-  company                  Company?          @relation(fields: [companyId], references: [id])
+  leads            Lead[]
+  deals            Deal[]
+  activities       Activity[]
+  apiKeys          ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+  campaigns        Campaign[]        @relation("CampaignOwner")
+  salesCampaigns   Campaign[]        @relation("CampaignSalesOwner")
+  managedTeams     SalesTeam[]       @relation("TeamManager")
+  teamMemberships  SalesTeamMember[]
+  salesTargets     SalesTarget[]
+  company          Company?          @relation(fields: [companyId], references: [id])
 }
 
 enum Role {
@@ -68,26 +68,26 @@ enum Role {
 }
 
 model Lead {
-  id           String      @id @default(cuid())
-  companyId    String
-  fullName     String
-  email        String
-  phone        String?
-  companyName  String?
-  source       String
-  serviceType  String?
-  campaignId   String?
-  ownerId      String
-  status       LeadStatus  @default(new)
-  notes        String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id          String     @id @default(cuid())
+  companyId   String
+  fullName    String
+  email       String
+  phone       String?
+  companyName String?
+  source      String
+  serviceType String?
+  campaignId  String?
+  ownerId     String
+  status      LeadStatus @default(new)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  owner        User        @relation(fields: [ownerId], references: [id])
-  campaign     Campaign?   @relation(fields: [campaignId], references: [id])
-  company      Company     @relation(fields: [companyId], references: [id])
-  deals        Deal[]
-  activities   Activity[]
+  owner      User       @relation(fields: [ownerId], references: [id])
+  campaign   Campaign?  @relation(fields: [campaignId], references: [id])
+  company    Company    @relation(fields: [companyId], references: [id])
+  deals      Deal[]
+  activities Activity[]
 
   @@unique([companyId, email])
 }
@@ -100,22 +100,22 @@ enum LeadStatus {
 }
 
 model Deal {
-  id                String      @id @default(cuid())
+  id                String     @id @default(cuid())
   companyId         String
   leadId            String
   title             String
   value             Float
-  stage             DealStage   @default(new)
+  stage             DealStage  @default(new)
   ownerId           String
   expectedCloseDate DateTime?
   closedAt          DateTime?
-  status            DealStatus  @default(active)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  status            DealStatus @default(active)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
-  lead              Lead        @relation(fields: [leadId], references: [id])
-  owner             User        @relation(fields: [ownerId], references: [id])
-  company           Company     @relation(fields: [companyId], references: [id])
+  lead    Lead    @relation(fields: [leadId], references: [id])
+  owner   User    @relation(fields: [ownerId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 
   @@unique([leadId, title, ownerId])
 }
@@ -135,38 +135,38 @@ enum DealStatus {
 }
 
 model Campaign {
-  id        String    @id @default(cuid())
-  companyId String
-  name      String
-  type      String?
-  channel   String
-  cost      Float?
-  startDate DateTime
-  endDate   DateTime?
-  ownerId   String?
+  id           String    @id @default(cuid())
+  companyId    String
+  name         String
+  type         String?
+  channel      String
+  cost         Float?
+  startDate    DateTime
+  endDate      DateTime?
+  ownerId      String?
   salesOwnerId String?
-  createdAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
 
-  owner     User?     @relation("CampaignOwner", fields: [ownerId], references: [id])
-  salesOwner User?    @relation("CampaignSalesOwner", fields: [salesOwnerId], references: [id])
-  company   Company   @relation(fields: [companyId], references: [id])
-  leads     Lead[]
+  owner      User?   @relation("CampaignOwner", fields: [ownerId], references: [id])
+  salesOwner User?   @relation("CampaignSalesOwner", fields: [salesOwnerId], references: [id])
+  company    Company @relation(fields: [companyId], references: [id])
+  leads      Lead[]
 
   @@unique([companyId, name, channel, startDate])
 }
 
 model Activity {
-  id        String        @id @default(cuid())
+  id        String       @id @default(cuid())
   companyId String
   leadId    String
   type      ActivityType
   content   String
   createdBy String
-  createdAt DateTime      @default(now())
+  createdAt DateTime     @default(now())
 
-  lead      Lead          @relation(fields: [leadId], references: [id])
-  creator   User          @relation(fields: [createdBy], references: [id])
-  company   Company       @relation(fields: [companyId], references: [id])
+  lead    Lead    @relation(fields: [leadId], references: [id])
+  creator User    @relation(fields: [createdBy], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 
   @@unique([leadId, type, content, createdBy])
 }
@@ -188,41 +188,41 @@ model ApiKey {
   revokedAt   DateTime?
   createdAt   DateTime  @default(now())
 
-  createdBy   User      @relation(fields: [createdById], references: [id])
-  company     Company   @relation(fields: [companyId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
 }
 
 model WebhookEndpoint {
-  id              String            @id @default(cuid())
+  id              String       @id @default(cuid())
   companyId       String
   name            String
   url             String
   event           WebhookEvent
   secret          String
-  isActive        Boolean           @default(true)
+  isActive        Boolean      @default(true)
   createdById     String
   lastTriggeredAt DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
-  createdBy       User              @relation(fields: [createdById], references: [id])
-  company         Company           @relation(fields: [companyId], references: [id])
-  deliveries      WebhookDelivery[]
+  createdBy  User              @relation(fields: [createdById], references: [id])
+  company    Company           @relation(fields: [companyId], references: [id])
+  deliveries WebhookDelivery[]
 }
 
 model WebhookDelivery {
-  id              String          @id @default(cuid())
-  endpointId      String
-  event           WebhookEvent
-  payload         Json
-  status          WebhookStatus
-  responseStatus  Int?
-  error           String?
-  retryCount      Int             @default(0)
-  nextRetryAt     DateTime?
-  createdAt       DateTime        @default(now())
+  id             String        @id @default(cuid())
+  endpointId     String
+  event          WebhookEvent
+  payload        Json
+  status         WebhookStatus
+  responseStatus Int?
+  error          String?
+  retryCount     Int           @default(0)
+  nextRetryAt    DateTime?
+  createdAt      DateTime      @default(now())
 
-  endpoint        WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 }
 
 enum WebhookEvent {
@@ -239,20 +239,25 @@ enum WebhookStatus {
 }
 
 model BillingAccount {
-  id               String        @id @default(cuid())
-  companyId        String        @unique
-  workspaceName    String        @default("FlowRaze Workspace")
-  plan             PlanTier      @default(free)
-  status           BillingStatus @default(trialing)
-  seats            Int           @default(3)
-  renewalDate      DateTime?
-  externalCustomer String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id                    String        @id @default(cuid())
+  companyId             String        @unique
+  workspaceName         String        @default("FlowRaze Workspace")
+  plan                  PlanTier      @default(free)
+  status                BillingStatus @default(trialing)
+  seats                 Int           @default(3)
+  renewalDate           DateTime?
+  trialStartedAt        DateTime?
+  trialEndsAt           DateTime?
+  subscriptionStartedAt DateTime?
+  subscriptionEndsAt    DateTime?
+  canceledAt            DateTime?
+  externalCustomer      String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
-  company          Company       @relation(fields: [companyId], references: [id])
-  invoices         BillingInvoice[]
-  payments         BillingPayment[]
+  company  Company          @relation(fields: [companyId], references: [id])
+  invoices BillingInvoice[]
+  payments BillingPayment[]
 }
 
 enum PlanTier {
@@ -281,9 +286,9 @@ model BillingInvoice {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  company          Company       @relation(fields: [companyId], references: [id])
-  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-  payments         BillingPayment[]
+  company        Company          @relation(fields: [companyId], references: [id])
+  billingAccount BillingAccount   @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+  payments       BillingPayment[]
 }
 
 model BillingPayment {
@@ -301,9 +306,9 @@ model BillingPayment {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  company          Company       @relation(fields: [companyId], references: [id])
-  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-  invoice          BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  company        Company         @relation(fields: [companyId], references: [id])
+  billingAccount BillingAccount  @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+  invoice        BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 }
 
 enum InvoiceStatus {
@@ -323,17 +328,17 @@ enum PaymentStatus {
 // ─── Sales Teams ────────────────────────────────────────────────────────────
 
 model SalesTeam {
-  id        String            @id @default(cuid())
+  id        String   @id @default(cuid())
   companyId String
   name      String
   managerId String
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  manager   User              @relation("TeamManager", fields: [managerId], references: [id])
-  company   Company           @relation(fields: [companyId], references: [id])
-  members   SalesTeamMember[]
-  targets   SalesTarget[]
+  manager User              @relation("TeamManager", fields: [managerId], references: [id])
+  company Company           @relation(fields: [companyId], references: [id])
+  members SalesTeamMember[]
+  targets SalesTarget[]
 
   @@unique([companyId, name])
 }
@@ -341,10 +346,10 @@ model SalesTeam {
 model SalesTeamMember {
   teamId    String
   userId    String
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  team      SalesTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id])
+  team SalesTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id])
 
   @@id([teamId, userId])
 }
@@ -356,23 +361,23 @@ model SalesTarget {
   companyId     String
   name          String
   scope         TargetScope  @default(company)
-  userId        String?      // set when scope = individual
-  teamId        String?      // set when scope = team
+  userId        String? // set when scope = individual
+  teamId        String? // set when scope = team
   period        TargetPeriod
   year          Int
-  quarter       Int?         // 1-4, set when period = quarterly
-  month         Int?         // 1-12, set when period = monthly
-  targetValue   Float        // revenue target in IDR
-  targetLeads   Int?         // optional lead-count goal
-  targetDeals   Int?         // optional deal-count goal
-  category      String?      // maps to Campaign.type (null = all categories)
-  shareOfParent Float?       // % of quarterly/annual target this period represents (0-100)
+  quarter       Int? // 1-4, set when period = quarterly
+  month         Int? // 1-12, set when period = monthly
+  targetValue   Float // revenue target in IDR
+  targetLeads   Int? // optional lead-count goal
+  targetDeals   Int? // optional deal-count goal
+  category      String? // maps to Campaign.type (null = all categories)
+  shareOfParent Float? // % of quarterly/annual target this period represents (0-100)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  user          User?        @relation(fields: [userId], references: [id])
-  team          SalesTeam?   @relation(fields: [teamId], references: [id])
-  company       Company      @relation(fields: [companyId], references: [id])
+  user    User?      @relation(fields: [userId], references: [id])
+  team    SalesTeam? @relation(fields: [teamId], references: [id])
+  company Company    @relation(fields: [companyId], references: [id])
 }
 
 enum TargetScope {

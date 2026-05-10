@@ -76,6 +76,31 @@ function mockPlan(plan = 'growth', seats = 10) {
   });
 }
 
+function mockExpiredTrial() {
+  mockPrisma('billingAccount', 'findUnique', (args) => {
+    const where = (args as { where?: { companyId?: string } }).where;
+    assert.equal(where?.companyId, companyId);
+    return {
+      id: 'billing-a',
+      plan: 'growth',
+      status: 'trialing',
+      seats: 10,
+      trialEndsAt: new Date('2020-01-01T00:00:00Z'),
+    };
+  });
+  mockPrisma('billingAccount', 'update', (args) => {
+    const where = (args as { where?: { id?: string } }).where;
+    assert.equal(where?.id, 'billing-a');
+    return {
+      id: 'billing-a',
+      plan: 'growth',
+      status: 'canceled',
+      seats: 10,
+      trialEndsAt: new Date('2020-01-01T00:00:00Z'),
+    };
+  });
+}
+
 function tokenFor(user: TestUser) {
   return jwt.sign({ userId: user.id, role: user.role, companyId: user.companyId }, JWT_SECRET);
 }
@@ -334,6 +359,19 @@ async function verifyGrowthWebhookLimit() {
   });
 }
 
+async function verifyExpiredTrialBlocksPaidFeatures() {
+  mockAuthUsers();
+  mockExpiredTrial();
+
+  await withServer(async (baseUrl) => {
+    const response = await apiFetch(baseUrl, employee, '/api/exports/leads.csv');
+    const body = await response.json() as { code?: string };
+
+    assert.equal(response.status, 403);
+    assert.equal(body.code, 'FEATURE_NOT_AVAILABLE');
+  });
+}
+
 test('production readiness route regressions', async () => {
   const originalConsoleError = console.error;
   console.error = () => undefined;
@@ -356,6 +394,8 @@ test('production readiness route regressions', async () => {
     await verifyFreePlanBlocksApiKeys();
     resetMocks();
     await verifyGrowthWebhookLimit();
+    resetMocks();
+    await verifyExpiredTrialBlocksPaidFeatures();
   } finally {
     resetMocks();
     console.error = originalConsoleError;
