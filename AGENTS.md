@@ -267,9 +267,10 @@ NODE_ENV=development
 - [x] Pricing page copy no longer advertises unsupported native apps, provider payments, forecasting, SSO, SOC2, or custom pipeline features as shipped
 - [x] Growth analytics depth: funnel analytics, single-touch attribution, linear forecast, and lead velocity
 - [x] Midtrans payment provider integration with Snap checkout, webhook verification, and payment processing
+- [x] Subscription lifecycle: renewal cron, cancellation/downgrade flows, reactivation, and customer self-service portal
 
 ### In Progress
-- Subscription renewal automation and customer self-service portal
+- Workflow/automation foundations (next P2 item)
 
 ### Placeholder/Todo
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases

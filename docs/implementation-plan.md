@@ -1,10 +1,10 @@
 # Implementation Plan Status: Multi-Tenant SaaS Role Rework
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-11
 
 **Scope:** Role system, company tenancy, pricing/package promises, platform admin, billing foundation, white-label prep
 
-**Current status:** Implemented; company data isolation, role-based access, and plan entitlements are enforced. Integration with a live payment provider and white-labeling are the remaining platform gaps.
+**Current status:** Implemented; company data isolation, role-based access, plan entitlements, and subscription lifecycle (renewal, cancellation, self-service portal) are enforced. Workflow automation and white-labeling are the remaining platform gaps.
 
 This document is now the source-of-truth status check for the multi-tenant rework. It compares the original plan with the current codebase and separates shipped work from remaining gaps.
 
@@ -119,7 +119,7 @@ Implemented under `/api/admin`:
 | Priority | Gap | Evidence | Needed work |
 | --- | --- | --- | --- |
 | Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
-| Medium | Payment provider integration | Billing supports local account state, invoices, manual payment checks, and Midtrans Snap checkout integration (session creation, webhook verification, payment processing). Customer portal and subscription renewal automation are not yet implemented. | Add subscription renewal cron, cancellation flow, and customer self-service portal. |
+| Medium | Payment provider integration | Billing supports local account state, invoices, manual payment checks, and Midtrans Snap checkout integration (session creation, webhook verification, payment processing). Subscription renewal automation, cancellation/downgrade flows, reactivation, and customer self-service portal are implemented. | Remaining: automated invoice generation on renewal, payment retry with updated payment methods. |
 | Low | Rich PDF reporting | Export PDF is dependency-free and intentionally basic. | Adopt a richer PDF renderer only when branded, charted, or multi-page reports are required. |
 | Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
 | Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
@@ -150,7 +150,7 @@ The public pricing page is the current packaging promise. This table maps `apps/
 | Webhooks limited/unlimited | Growth+ | Done | Webhook CRUD, delivery signing, retry, replay, and plan-based limits exist. `assertWebhookLimit()` enforces per-plan webhook count (growth=3, pro=unlimited). | Done |
 | Custom roles and permissions | Performance+ | Missing | Roles are fixed enum values: `superadmin`, `admin`, `manager`, `employee`. | P3 |
 | SSO and SAML | Performance+ | Missing | Auth is email/password JWT with invite/reset/verification flows only. | P3 |
-| Billing plan changes from dashboard | FAQ | Mostly done | Admin can initiate Midtrans Snap checkout from settings; plan/status updates on payment success. Customer portal for managing existing subscriptions is not yet built. | P2 |
+| Billing plan changes from dashboard | FAQ | Done | Admin can initiate Midtrans Snap checkout from settings; plan/status updates on payment success. Customer self-service portal with subscription management, cancellation, reactivation, downgrade, and payment history is implemented. | Done |
 | Payment methods: cards, virtual accounts, wallets, bank transfer | FAQ | Done via Midtrans | Midtrans Snap supports credit cards, bank transfers, e-wallets, and virtual accounts. All methods available through the checkout dialog. | Done |
 | 14-day Performance trial | Trial/FAQ | Done | Onboarding creates `trialStartedAt` + `trialEndsAt` (14 days); `getCompanyEntitlements()` auto-expires trials and cancels billing status. | Done |
 | SOC 2, UU PDP, data residency, SLA/security audit | FAQ/Enterprise | Missing as product controls | No compliance evidence, audit workflow, residency configuration, or SLA enforcement exists in code. | P4 |
@@ -185,12 +185,11 @@ Priority legend:
 
 ## 7. Recommended Next Work Order
 
-1. **P2: Subscription lifecycle.** Add renewal cron job, cancellation/downgrade flow, and customer self-service portal for managing active subscriptions.
-2. **P2: Workflow/automation foundations.** Build an automation rule model with trigger/action definitions, a job runner, manual trigger UI, and retry history — extending the existing webhook infrastructure.
-3. **P2: Multi-pipeline / custom stages.** Add a `Pipeline` + `PipelineStage` model so companies can define custom deal stages beyond the fixed enum.
-4. **P3: Performance differentiators.** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
-5. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
-6. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
+1. **P2: Workflow/automation foundations.** Build an automation rule model with trigger/action definitions, a job runner, manual trigger UI, and retry history — extending the existing webhook infrastructure.
+2. **P2: Multi-pipeline / custom stages.** Add a `Pipeline` + `PipelineStage` model so companies can define custom deal stages beyond the fixed enum.
+3. **P3: Performance differentiators.** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
+4. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
+5. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
 
 ---
 

@@ -150,6 +150,22 @@ export function Layout() {
           <div className="px-3 py-4 space-y-1 border-t border-slate-200/50">
             {admin && (
               <NavLink
+                to={COMPANY_ROUTES.subscription}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
+                    isActive
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/50 hover:translate-x-1'
+                  )
+                }
+              >
+                <CreditCard className="h-5 w-5" />
+                Subscription
+              </NavLink>
+            )}
+            {admin && (
+              <NavLink
                 to={COMPANY_ROUTES.settings}
                 className={({ isActive }) =>
                   cn(

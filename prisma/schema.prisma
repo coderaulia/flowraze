@@ -245,12 +245,14 @@ model BillingAccount {
   plan                  PlanTier      @default(free)
   status                BillingStatus @default(trialing)
   seats                 Int           @default(3)
+  billingCycle          BillingCycle  @default(monthly)
   renewalDate           DateTime?
   trialStartedAt        DateTime?
   trialEndsAt           DateTime?
   subscriptionStartedAt DateTime?
   subscriptionEndsAt    DateTime?
   canceledAt            DateTime?
+  cancelReason          String?
   externalCustomer      String?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -272,6 +274,11 @@ enum BillingStatus {
   active
   past_due
   canceled
+}
+
+enum BillingCycle {
+  monthly
+  annual
 }
 
 model BillingInvoice {

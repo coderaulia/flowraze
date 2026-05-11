@@ -16,6 +16,7 @@ import { AppError } from '../middleware/errorHandler.js';
 const router = Router();
 const PLAN_TIERS = ['free', 'growth', 'pro', 'custom'] as const;
 const BILLING_STATUSES = ['trialing', 'active', 'past_due', 'canceled'] as const;
+const BILLING_CYCLES = ['monthly', 'annual'] as const;
 
 router.use(authenticate, requireAdmin());
 
@@ -56,6 +57,7 @@ router.put('/', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'subscriptionEndsAt', optionalDate);
     setIfPresent(data, body, 'canceledAt', optionalDate);
     setIfPresent(data, body, 'externalCustomer', optionalNonEmptyString);
+    setIfPresent(data, body, 'billingCycle', optionalEnum(BILLING_CYCLES, 'Billing cycle'));
 
     if (Object.prototype.hasOwnProperty.call(body, 'seats')) {
       const seats = optionalNumber(body.seats);

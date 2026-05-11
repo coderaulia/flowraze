@@ -31,6 +31,7 @@ import { DealsPage } from './pages/company/deals';
 import { CampaignsPage } from './pages/company/campaigns';
 import { TeamPage } from './pages/company/team';
 import { SettingsPage } from './pages/company/settings';
+import { SubscriptionPage } from './pages/company/subscription';
 import { UsersPage } from './pages/company/users';
 import { SearchPage } from './pages/company/search';
 import { TargetsPage } from './pages/company/targets';
@@ -166,6 +167,14 @@ function App() {
             element={
               <AdminRoute>
                 <SettingsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="subscription"
+            element={
+              <AdminRoute>
+                <SubscriptionPage />
               </AdminRoute>
             }
           />

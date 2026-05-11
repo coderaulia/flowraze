@@ -130,6 +130,7 @@ export interface WebhookEndpoint {
 
 export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
 export type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+export type BillingCycle = 'monthly' | 'annual';
 export type InvoiceStatus = 'open' | 'paid' | 'void' | 'overdue';
 export type PaymentStatus = 'pending' | 'paid' | 'rejected' | 'expired';
 
@@ -139,6 +140,7 @@ export interface BillingAccount {
   workspaceName: string;
   plan: PlanTier;
   status: BillingStatus;
+  billingCycle: BillingCycle;
   seats: number;
   renewalDate?: Date | string | null;
   trialStartedAt?: Date | string | null;
@@ -146,9 +148,29 @@ export interface BillingAccount {
   subscriptionStartedAt?: Date | string | null;
   subscriptionEndsAt?: Date | string | null;
   canceledAt?: Date | string | null;
+  cancelReason?: string | null;
   externalCustomer?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+}
+
+export interface SubscriptionDetails {
+  id: string;
+  plan: PlanTier;
+  status: BillingStatus;
+  billingCycle: BillingCycle;
+  seats: number;
+  subscriptionStartedAt?: Date | string | null;
+  subscriptionEndsAt?: Date | string | null;
+  renewalDate?: Date | string | null;
+  trialEndsAt?: Date | string | null;
+  canceledAt?: Date | string | null;
+  cancelReason?: string | null;
+  isCanceling: boolean;
+  isDowngrading: boolean;
+  downgradeTarget?: string | null;
+  nextRenewalAmount: number;
+  planLabel: string;
 }
 
 export interface BillingInvoice {
