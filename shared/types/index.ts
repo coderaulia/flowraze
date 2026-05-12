@@ -146,6 +146,30 @@ export interface AutomationRule {
   runs?: AutomationRun[];
 }
 
+export type SupportTicketType = 'bug' | 'question' | 'onboarding' | 'billing' | 'feature_request';
+export type SupportTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type SupportTicketStatus = 'open' | 'in_progress' | 'waiting_on_customer' | 'resolved' | 'closed';
+
+export interface SupportTicket {
+  id: string;
+  companyId: string;
+  requesterId: string;
+  assignedToId?: string | null;
+  type: SupportTicketType;
+  priority: SupportTicketPriority;
+  status: SupportTicketStatus;
+  subject: string;
+  description: string;
+  pageUrl?: string | null;
+  browserInfo?: string | null;
+  slaDueAt?: Date | string | null;
+  resolvedAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  requester?: { id: string; name: string; email: string };
+  assignedTo?: { id: string; name: string; email: string } | null;
+}
+
 export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
 export type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
 export type InvoiceStatus = 'open' | 'paid' | 'void' | 'overdue';

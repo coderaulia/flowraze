@@ -16,6 +16,7 @@ export const COMPANY_ROUTES = {
   users: '/company/users',
   settings: '/company/settings',
   subscription: '/company/subscription',
+  support: '/company/support',
   search: '/company/search',
 } as const;
 

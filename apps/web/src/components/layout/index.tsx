@@ -19,6 +19,7 @@ import {
   Shield,
   TrendingUp,
   Workflow,
+  LifeBuoy,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -180,6 +181,22 @@ export function Layout() {
               >
                 <Settings className="h-5 w-5" />
                 Settings
+              </NavLink>
+            )}
+            {!superadmin && (
+              <NavLink
+                to={COMPANY_ROUTES.support}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
+                    isActive
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/50 hover:translate-x-1'
+                  )
+                }
+              >
+                <LifeBuoy className="h-5 w-5" />
+                Support
               </NavLink>
             )}
             <button

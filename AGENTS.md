@@ -269,10 +269,12 @@ NODE_ENV=development
 - [x] Midtrans payment provider integration with Snap checkout, webhook verification, and payment processing
 - [x] Subscription lifecycle: renewal cron, cancellation/downgrade flows, reactivation, and customer self-service portal
 - [x] Workflow automation foundations with tenant-scoped rules, manual runs, retry history, and admin UI
+- [x] In-app support ticket intake with bug reports, SLA due dates, admin triage, assignment, and resolution tracking
 
 ### Placeholder/Todo
 - [ ] Multi-pipeline/custom deal stages
 - [ ] Workflow automation expansion for richer triggers/actions
+- [ ] Live support chat, onboarding playbooks, and success-manager routing
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
 - [ ] Payment provider integration for checkout/invoices/customer portal
 - [ ] White-label tenant/domain/branding layer

@@ -112,6 +112,7 @@ Implemented under `/api/admin`:
 - Admin-only company routes protect `/company/users` and `/company/settings`.
 - Targets page includes create/edit/delete target flows plus sales team create/edit/delete and membership management.
 - Automations page lets admins create trigger/action rules, run them manually against a lead, pause/resume rules, and inspect recent retry history.
+- Support page lets company members submit bug reports and help requests, while admins can triage, assign, and resolve tickets with SLA due dates.
 
 ---
 
@@ -156,7 +157,7 @@ The public pricing page is the current packaging promise. This table maps `apps/
 | Payment methods: cards, virtual accounts, wallets, bank transfer | FAQ | Done via Midtrans | Midtrans Snap supports credit cards, bank transfers, e-wallets, and virtual accounts. All methods available through the checkout dialog. | Done |
 | 14-day Performance trial | Trial/FAQ | Done | Onboarding creates `trialStartedAt` + `trialEndsAt` (14 days); `getCompanyEntitlements()` auto-expires trials and cancels billing status. | Done |
 | SOC 2, UU PDP, data residency, SLA/security audit | FAQ/Enterprise | Missing as product controls | No compliance evidence, audit workflow, residency configuration, or SLA enforcement exists in code. | P4 |
-| Dedicated onboarding/success/support tiers | Performance/Enterprise | Operational only | No in-app support/chat, onboarding workflow, SLA tracking, or success-manager assignment exists. | P4 |
+| Dedicated onboarding/success/support tiers | Performance/Enterprise | Partial | In-app support tickets exist with bug reports, request types, priorities, SLA due dates, admin triage, assignment, and resolution tracking. Live chat, onboarding playbooks, and dedicated success-manager routing remain future work. | P4 |
 | Custom integrations and white-label/client portal | Enterprise and landing pages | Missing | `Company.slug` exists only as prep; no `Tenant`, custom domain, branding API, or client portal exists. | P4 |
 
 Priority legend:

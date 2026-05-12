@@ -27,6 +27,7 @@ model Company {
   webhookEndpoints WebhookEndpoint[]
   automationRules  AutomationRule[]
   automationRuns   AutomationRun[]
+  supportTickets   SupportTicket[]
   billingInvoices  BillingInvoice[]
   billingPayments  BillingPayment[]
 }
@@ -57,6 +58,8 @@ model User {
   automationRules  AutomationRule[]
   campaigns        Campaign[]        @relation("CampaignOwner")
   salesCampaigns   Campaign[]        @relation("CampaignSalesOwner")
+  submittedSupportTickets SupportTicket[] @relation("SupportTicketRequester")
+  assignedSupportTickets  SupportTicket[] @relation("SupportTicketAssignee")
   managedTeams     SalesTeam[]       @relation("TeamManager")
   teamMemberships  SalesTeamMember[]
   salesTargets     SalesTarget[]
@@ -298,6 +301,51 @@ enum AutomationRunStatus {
   running
   success
   failed
+}
+
+model SupportTicket {
+  id           String                @id @default(cuid())
+  companyId    String
+  requesterId  String
+  assignedToId String?
+  type         SupportTicketType
+  priority     SupportTicketPriority @default(medium)
+  status       SupportTicketStatus   @default(open)
+  subject      String
+  description  String
+  pageUrl      String?
+  browserInfo  String?
+  slaDueAt     DateTime?
+  resolvedAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requester User    @relation("SupportTicketRequester", fields: [requesterId], references: [id])
+  assignedTo User?  @relation("SupportTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+}
+
+enum SupportTicketType {
+  bug
+  question
+  onboarding
+  billing
+  feature_request
+}
+
+enum SupportTicketPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum SupportTicketStatus {
+  open
+  in_progress
+  waiting_on_customer
+  resolved
+  closed
 }
 
 model BillingAccount {
