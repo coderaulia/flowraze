@@ -98,3 +98,31 @@ export async function del<T>(url: string): Promise<ApiResponse<T>> {
     };
   }
 }
+
+function getFilename(disposition: string | undefined, fallback: string) {
+  const match = disposition?.match(/filename="?(?<filename>[^"]+)"?/);
+  return match?.groups?.filename ?? fallback;
+}
+
+export async function downloadFile(url: string, fallbackFilename: string): Promise<ApiResponse<{ filename: string }>> {
+  try {
+    const response = await api.get<Blob>(url, { responseType: 'blob' });
+    const filename = getFilename(response.headers['content-disposition'], fallbackFilename);
+    const blobUrl = window.URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(blobUrl);
+
+    return { success: true, data: { filename } };
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } }; message?: string };
+    return {
+      success: false,
+      error: err.response?.data?.error || err.message || 'Export failed',
+    };
+  }
+}

@@ -1,13 +1,36 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type UserRole = 'superadmin' | 'admin' | 'staff';
+export type UserRole = 'superadmin' | 'admin' | 'manager' | 'employee';
+
+export interface Entitlements {
+  plan: string;
+  status: string;
+  isActive: boolean;
+  seats: number;
+  features: {
+    analytics: boolean;
+    apiKeys: boolean;
+    campaigns: boolean;
+    exports: boolean;
+    targets: boolean;
+    teamPerformance: boolean;
+    webhooks: boolean;
+  };
+  limits: {
+    apiKeys: number;
+    webhooks: number;
+  };
+}
 
 interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  companyId: string | null;
+  emailVerifiedAt?: Date | string | null;
+  entitlements?: Entitlements | null;
 }
 
 interface AuthState {
@@ -16,8 +39,13 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
+  updateUser: (user: Partial<User>) => void;
   isSuperadmin: () => boolean;
   isAdmin: () => boolean;
+  isManager: () => boolean;
+  isAdminOrManager: () => boolean;
+  isCompanyMember: () => boolean;
+  hasFeature: (feature: keyof Entitlements['features']) => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -26,22 +54,36 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      
+
       setAuth: (user: User, token: string) => {
         set({ user, token, isAuthenticated: true });
       },
-      
+
       clearAuth: () => {
         set({ user: null, token: null, isAuthenticated: false });
       },
-      
-      isSuperadmin: () => {
-        return get().user?.role === 'superadmin';
+
+      updateUser: (updatedUser) => {
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updatedUser } : null,
+        }));
       },
-      
-      isAdmin: () => {
+
+      isSuperadmin: () => get().user?.role === 'superadmin',
+      isAdmin: () => get().user?.role === 'admin',
+      isManager: () => get().user?.role === 'manager',
+      isAdminOrManager: () => {
         const role = get().user?.role;
-        return role === 'superadmin' || role === 'admin';
+        return role === 'admin' || role === 'manager';
+      },
+      isCompanyMember: () => {
+        const role = get().user?.role;
+        return role === 'admin' || role === 'manager' || role === 'employee';
+      },
+      hasFeature: (feature) => {
+        const user = get().user;
+        if (user?.role === 'superadmin') return true;
+        return Boolean(user?.entitlements?.features[feature]);
       },
     }),
     {

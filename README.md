@@ -1,42 +1,30 @@
-# FlowRaze - CRM & Operations Analytics
+# FlowRaze
 
-A modern CRM + Operations Analytics web app for growing teams. Built with React, TypeScript, Express, and PostgreSQL.
+FlowRaze is a multi-tenant CRM and operations analytics platform for growing sales teams. It provides company workspaces for managing leads, deals, campaigns, targets, billing, and team performance.
 
 ## Features
 
-- **Lead Management** - Track and manage your sales leads
-- **Deal Pipeline** - Visual Kanban-style deal tracking
-- **Campaign Tracking** - Monitor marketing campaign performance
-- **Activity Logging** - Log calls, notes, and follow-ups
-- **Dashboard** - Real-time sales metrics and analytics
-- **Team Performance** - Track team member performance
+- **Lead Management** — Track leads through their full lifecycle with status, source, and assignment.
+- **Deal Pipeline** — Visual Kanban board for moving deals through stages from prospect to close.
+- **Campaign Tracking** — Monitor marketing campaigns and the leads they generate.
+- **Activity Logging** — Log calls, notes, and follow-ups against leads with a full audit trail.
+- **Dashboard & Analytics** — Real-time metrics for revenue, conversion rates, and pipeline health.
+- **Team Performance** — Per-member reporting on leads assigned, deals won, and revenue closed.
+- **Sales Targets** — Company, team, and individual target tracking with achievement dashboards.
+- **Platform Admin** — Superadmin tools for companies, users, billing, invoices, and manual payment checks.
+- **Global Search** — Search across leads, deals, campaigns, and activities from anywhere.
+- **Data Export** — Download filtered datasets as CSV or PDF reports.
+- **API & Webhooks** — API key authentication and outbound webhook delivery for external integrations.
+- **Settings & Security** — Email verification, password reset, invites, billing management, and role-based access control.
 
 ## Tech Stack
 
-- **Frontend**: React 18+, Vite, TypeScript, Tailwind CSS, Recharts
-- **Backend**: Node.js, Express, TypeScript, Prisma ORM
-- **Database**: PostgreSQL
-- **Auth**: JWT-based authentication
-
-## Project Structure
-
-```
-flowraze/
-+-- apps/
-|   +-- web/              # React frontend
-|   |   +-- src/
-|   |   |   +-- components/   # UI components
-|   |   |   +-- pages/        # Route pages
-|   |   |   +-- lib/          # Utilities & API client
-|   |   |   +-- hooks/        # Custom React hooks
-|   +-- api/              # Express backend
-|       +-- src/
-|       |   +-- routes/       # API routes
-|       |   +-- middleware/   # Auth & error handling
-|       |   +-- prisma/       # Database client
-+-- prisma/               # Database schema & seed
-+-- shared/               # Shared TypeScript types
-```
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Recharts |
+| Backend | Node.js, Express, TypeScript, Prisma ORM |
+| Database | PostgreSQL 14+ |
+| Auth | JWT + API key |
 
 ## Getting Started
 
@@ -46,110 +34,64 @@ flowraze/
 - npm 9+
 - PostgreSQL 14+
 
-### Installation
+### Setup
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd flowraze
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Set up environment variables:
-   ```bash
-   # apps/api/.env
-   DATABASE_URL="postgresql://user:password@localhost:5432/flowraze"
-   JWT_SECRET=your-secret-key
-   PORT=3000
-   ```
-
-4. Set up the database:
-   ```bash
-   cd apps/api
-   npm run prisma:generate
-   npm run prisma:migrate
-   npm run prisma:seed
-   ```
-
-### Running Development
-
-Start both frontend and backend:
 ```bash
+# Install dependencies
+npm install
+
+# Configure the backend
+cp apps/api/.env.example apps/api/.env
+# Edit apps/api/.env with your DATABASE_URL and JWT_SECRET
+
+# Run database migrations and seed
+npm run db:setup
+
+# Start development servers
 npm run dev
 ```
 
-Or separately:
-```bash
-# Frontend (http://localhost:5173)
-cd apps/web && npm run dev
+Frontend runs at `http://localhost:5173`, backend at `http://localhost:3000`.
 
-# Backend (http://localhost:3000)
-cd apps/api && npm run dev
-```
+### Default Logins (Development Seed)
 
-### Default Login
+All seeded demo users use `admin123`.
 
-After seeding the database:
-- **Email**: admin@flowraze.com
-- **Password**: admin123
+| Scope | Email | Company |
+|-------|-------|---------|
+| Superadmin | `superadmin@flowraze.com` | Platform |
+| Admin | `admin@flowraze.com` | FlowRaze Demo Agency |
+| Manager | `sarah@flowraze.com` | FlowRaze Demo Agency |
+| Employee | `michael@flowraze.com` | FlowRaze Demo Agency |
+| Admin | `admin@nusantara-retail.demo` | Nusantara Retail Group |
+| Admin | `admin@byteworks-cloud.demo` | ByteWorks Cloud |
 
 ## Scripts
 
-### Root
-- `npm run dev` - Start all apps in dev mode
-- `npm run build` - Build all apps
-- `npm run lint` - Run ESLint
-- `npm run typecheck` - TypeScript check
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start frontend and backend in dev mode |
+| `npm run build` | Build all apps for production |
+| `npm run typecheck` | TypeScript check across all workspaces |
+| `npm run lint` | ESLint across all workspaces |
+| `npm test` | Run tests across all workspaces |
 
-### Frontend (apps/web)
-- `npm run dev` - Vite dev server
-- `npm run build` - Production build
-- No frontend test script exists yet
+## Documentation
 
-### Backend (apps/api)
-- `npm run dev` - Start dev server
-- `npm run build` - Compile TypeScript
-- `npm run start` - Production server
-- `npm run prisma:generate` - Generate Prisma client
-- `npm run prisma:migrate` - Run migrations
-- `npm run prisma:seed` - Seed database
+| Document | Description |
+|----------|-------------|
+| [docs/api.md](docs/api.md) | Full API endpoint reference |
+| [docs/deployment.md](docs/deployment.md) | VPS deployment guide |
+| [docs/implementation-plan.md](docs/implementation-plan.md) | Multi-tenant implementation status and remaining hardening checklist |
+| [docs/manual.md](docs/manual.md) | User manual (Employee, Manager, Admin, Superadmin) |
+| [docs/missing-features.md](docs/missing-features.md) | Current missing features and roadmap gaps |
 
-## API Endpoints
+## Current Caveats
 
-List endpoints support optional `page` and `limit` query params and return pagination metadata when those params are present.
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/login | User login |
-| POST | /api/auth/register | User registration |
-| GET | /api/leads | List leads |
-| POST | /api/leads | Create lead |
-| PUT | /api/leads/:id | Update lead |
-| DELETE | /api/leads/:id | Delete lead |
-| GET | /api/deals | List deals |
-| POST | /api/deals | Create deal |
-| PUT | /api/deals/:id | Update deal |
-| GET | /api/campaigns | List campaigns |
-| POST | /api/campaigns | Create campaign |
-| GET | /api/activities | List activities |
-| POST | /api/activities | Create activity |
-| GET | /api/dashboard | Dashboard stats |
-| GET | /api/team/performance | Team performance |
-
-## Roadmap
-
-- [ ] Full authentication implementation
-- [ ] Email/password reset flow
-- [ ] Advanced filtering and search
-- [ ] Export functionality (CSV/PDF)
-- [ ] Webhook integrations
-- [ ] Mobile responsive improvements
-- [ ] Multi-tenant billing system
+The multi-company foundation is implemented, but production multi-tenant rollout still needs route-level hardening for several detail/export/reporting paths and manager/employee read scopes. Track that work in [docs/missing-features.md](docs/missing-features.md).
 
 ## License
 
-Private - All rights reserved
+Copyright © 2026 FlowRaze. All rights reserved.
+
+This software is proprietary and confidential. Unauthorized copying, distribution, modification, or use of this software, in whole or in part, is strictly prohibited without prior written permission from the copyright holder.

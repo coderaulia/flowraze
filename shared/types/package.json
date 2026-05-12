@@ -10,6 +10,7 @@
   "scripts": {
     "build": "echo 'No build needed for types package'",
     "lint": "echo 'No lint needed for types package'",
+    "test": "echo 'No tests needed for types package'",
     "typecheck": "echo 'No typecheck needed for types package'"
   }
 }

@@ -54,6 +54,7 @@ npm run build            # Build all apps
 npm run dev              # Dev mode (all apps)
 npm run lint             # ESLint all packages
 npm run lint:fix         # Auto-fix lint
+npm test                 # Run API/web/shared tests
 npm run typecheck        # TypeScript check all
 ```
 
@@ -65,8 +66,8 @@ npm run build            # Production build
 npm run preview          # Preview build
 npm run lint             # ESLint
 npm run lint:fix         # Fix lint
+npm test                 # Node test runner via tsx
 npm run typecheck        # TSC check
-# No test script exists yet for apps/web
 ```
 
 ### Backend (apps/api)
@@ -77,6 +78,7 @@ npm run build            # Compile TS to dist/
 npm run start            # Production server
 npm run lint             # ESLint
 npm run lint:fix         # Fix lint
+npm test                 # Node test runner via tsx
 npm run typecheck        # TSC check
 npm run prisma:generate  # Generate Prisma client
 npm run prisma:migrate   # Run migrations
@@ -179,7 +181,7 @@ The UI follows the "Kinetic Architect" design system:
 - **Background:** `surface` (#0b1326), `surface-container` (#171f33)
 - **Primary:** `#bcc3ff` text, `#1e2a78` container
 - **Secondary/Growth:** `#4ae176` (positive metrics)
-- **Text:** min `on_surface_variant` (#c6c5d3) for body
+- **Text:** min `on-surface-variant` for body
 
 ### Key Rules
 - **NO 1px borders** for sectioning - use background color shifts
@@ -222,6 +224,7 @@ NODE_ENV=development
 ## 7. Feature Status
 
 ### Completed
+- [x] Activity Feed UI
 - [x] Project scaffolding & workspace setup
 - [x] Database schema (Prisma) & seed data
 - [x] JWT authentication (login/register)
@@ -237,20 +240,40 @@ NODE_ENV=development
 - [x] Header search is wired to lead search via `/leads?search=...`
 - [x] Frontend table views expose API-backed pagination controls
 - [x] API write routes use shared validation helpers for strings, numbers, enums, and dates
-- [x] Active frontend forms show client-side field validation and submit errors before/after API calls
+- [x] Dashboard UI supports range controls, chart empty states, and persisted revenue trends
+- [x] Frontend forms show inline validation and API error feedback before writes
+- [x] Layout shell supports mobile navigation and responsive table scrolling
+- [x] Deals Kanban board supports stage totals, drag updates, edit, and delete
+- [x] Frontend and backend workspaces expose `npm test` with initial coverage
+- [x] Global search covers leads, deals, campaigns, and activities
+- [x] Settings includes profile, security, billing, API key, and webhook controls
+- [x] Auth supports email verification and password-reset token flows
+- [x] Superadmins can manage roles, API keys, webhooks, and billing state
+- [x] Leads, deals, campaigns, activities, and team performance support CSV/PDF export
+- [x] List/export endpoints support combined filters for core CRM views
+- [x] Sales Targets Tracking (company, team, and individual achievement)
+- [x] Multi-company schema foundation with `Company`, `companyId`, and role enum migration
+- [x] Company onboarding creates workspace billing and first admin
+- [x] Superadmin platform pages and `/api/admin/*` company/user/billing controls
+- [x] Targets page supports target CRUD, sales team CRUD, and team membership management
+- [x] SMTP-backed verification, invite, and password-reset email delivery with development fallback
+- [x] Webhook retry and manual replay policy
+- [x] Tenant and role isolation hardening for CRM reads, details, exports, search, dashboards, and team performance
+- [x] Campaign writes are limited to admin/manager roles with tenant-aware target user checks
+- [x] Route-level isolation regression tests cover critical manager, employee, export, and campaign permission paths
+- [x] Billing seat limits are enforced for company user creation and invites
+- [x] Centralized plan entitlements gate API access, webhooks, exports, campaigns, targets, and team performance
+- [x] Billing lifecycle fields and expired-trial enforcement are implemented
+- [x] Pricing page copy no longer advertises unsupported native apps, provider payments, forecasting, SSO, SOC2, or custom pipeline features as shipped
 
 ### In Progress
-- [ ] Dashboard UI refinement around charts, empty states, and date ranges
-- [ ] Layout mobile responsiveness
+- Growth analytics depth: funnel analytics, attribution basics, and forecast basics
 
 ### Placeholder/Todo
-- [ ] Deals Kanban Board
-- [ ] Activity Feed UI
-- [ ] Team Performance real integration
-- [ ] Settings Page (Profile/Security)
-- [ ] Global Search functionality
-- [ ] Pagination for all tables
-- [ ] CSV/PDF Export
+- [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
+- [ ] Payment provider integration for checkout/invoices/customer portal
+- [ ] White-label tenant/domain/branding layer
+- [ ] Future betterauth migration decision
 
 ---
 
@@ -258,9 +281,9 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| MEDIUM | No frontend test runner/script exists yet | `apps/web/package.json` |
-| MEDIUM | Search is lead-only; cross-entity search still needs a dedicated API/UI flow | `apps/web/src/components/layout/index.tsx` |
-| LOW | Settings page is still a placeholder and does not persist profile, notification, or billing changes | `apps/web/src/pages/settings.tsx` |
+| MEDIUM | Growth analytics still needs funnel, attribution, and forecast depth | `apps/api/src/routes/dashboard.ts`, `apps/web/src/pages/dashboard.tsx` |
+| MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
+| LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 
 ---
 

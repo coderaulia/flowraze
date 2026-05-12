@@ -27,6 +27,14 @@ export function errorHandler(
     });
   }
 
+  if ('code' in err && err.code === 'P2002') {
+    return res.status(409).json({
+      success: false,
+      error: 'A matching record already exists',
+      code: 'DUPLICATE_RECORD',
+    });
+  }
+
   return res.status(500).json({
     success: false,
     error: 'Internal server error',
