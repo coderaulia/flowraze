@@ -9,10 +9,11 @@
 // ---------------------------------------------------------------------------
 
 type ExportRow = Record<string, string | number | boolean | null | undefined>;
+type ExportValue = ExportRow[string];
 
 // ── CSV helpers ──────────────────────────────────────────────────────────────
 
-function escapeCsvValue(value: ExportRow[string]) {
+function escapeCsvValue(value: ExportValue) {
   if (value === null || value === undefined) return '';
   const text = String(value);
   if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
@@ -39,10 +40,38 @@ function pdfStr(value: string): string {
 }
 
 /** Truncate a cell value so it fits within `maxChars`. */
-function cell(value: ExportRow[string], maxChars: number): string {
+function cell(value: ExportValue, maxChars: number): string {
   if (value === null || value === undefined) return '';
   const s = String(value);
-  return s.length > maxChars ? s.slice(0, maxChars - 1) + '…' : s;
+  return s.length > maxChars ? `${s.slice(0, Math.max(0, maxChars - 3))}...` : s;
+}
+
+function formatReportValue(value: ExportValue, header = ''): string {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') {
+    const isCurrency = /revenue|value|cost|amount|closed/i.test(header);
+    if (isCurrency) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+      }).format(value).replace('IDR', 'Rp');
+    }
+
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
+  }
+
+  const date = /^\d{4}-\d{2}-\d{2}T/.test(value) ? new Date(value) : null;
+  if (date && !Number.isNaN(date.getTime())) {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    }).format(date);
+  }
+
+  return value;
 }
 
 // ── Layout constants ─────────────────────────────────────────────────────────
@@ -60,6 +89,10 @@ const BODY_SIZE   = 8;
 // Row heights
 const TABLE_HEAD_H = 18;
 const ROW_H        = 15;
+const SUMMARY_TOP_GAP = 16;
+const SUMMARY_CARD_H = 46;
+const CHART_H = 78;
+const SUMMARY_BOTTOM_GAP = 14;
 
 // Colours
 const COL_SURFACE   = '0.043 0.075 0.149';   // #0b1326
@@ -70,6 +103,85 @@ const COL_LIGHT_BG  = '0.957 0.961 0.980';   // slightly off-white stripe
 const COL_GRID      = '0.820 0.827 0.878';   // column separator
 const COL_DARK_TEXT = '0.082 0.106 0.200';   // near-black for light rows
 const COL_DIM_TEXT  = '0.450 0.467 0.560';   // muted for meta / footer
+const COL_CARD_BG   = '0.925 0.937 0.969';   // light blue panel
+const COL_BAR_BG    = '0.878 0.890 0.941';   // muted chart rail
+
+// ── Summary builder ─────────────────────────────────────────────────────────
+
+interface SummaryMetric {
+  label: string;
+  value: string;
+}
+
+interface ChartItem {
+  label: string;
+  count: number;
+}
+
+interface ReportSummary {
+  metrics: SummaryMetric[];
+  chartTitle: string;
+  chartItems: ChartItem[];
+}
+
+function titleCase(value: string) {
+  return value
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function pickDistributionHeader(headers: string[]) {
+  return headers.find((header) => /status|stage|role|type|channel|source/i.test(header)) ?? headers[0] ?? '';
+}
+
+function buildDistribution(rows: ExportRow[], header: string): ChartItem[] {
+  const counts = new Map<string, number>();
+
+  for (const row of rows) {
+    const raw = row[header];
+    const label = raw === null || raw === undefined || raw === '' ? 'Unknown' : titleCase(String(raw));
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, 5);
+}
+
+function buildNumericMetric(rows: ExportRow[], headers: string[]): SummaryMetric | null {
+  const numericHeader = headers.find((header) =>
+    rows.some((row) => typeof row[header] === 'number') && /revenue|value|cost|amount|leads|deals|activities/i.test(header)
+  );
+
+  if (!numericHeader) return null;
+
+  const total = rows.reduce((sum, row) => {
+    const value = row[numericHeader];
+    return typeof value === 'number' ? sum + value : sum;
+  }, 0);
+
+  return { label: `Total ${numericHeader}`, value: formatReportValue(total, numericHeader) };
+}
+
+function buildReportSummary(rows: ExportRow[], headers: string[]): ReportSummary {
+  const distributionHeader = pickDistributionHeader(headers);
+  const numericMetric = buildNumericMetric(rows, headers);
+  const metrics: SummaryMetric[] = [
+    { label: 'Records', value: new Intl.NumberFormat('en-US').format(rows.length) },
+    numericMetric ?? { label: 'Columns', value: String(headers.length) },
+    {
+      label: 'Generated',
+      value: new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).format(new Date()),
+    },
+  ];
+
+  return {
+    metrics,
+    chartTitle: distributionHeader ? `${distributionHeader} Mix` : 'Record Mix',
+    chartItems: distributionHeader ? buildDistribution(rows, distributionHeader) : [],
+  };
+}
 
 // ── Column layout calculator ─────────────────────────────────────────────────
 
@@ -128,6 +240,48 @@ function pushHLine(s: ContentStream, x1: number, y: number, x2: number, rgbColor
   s.push(`${x1} ${y} m ${x2} ${y} l S`);
 }
 
+function pushMetricCards(s: ContentStream, summary: ReportSummary, topY: number) {
+  const gap = 12;
+  const cardW = (PAGE_W - MARGIN * 2 - gap * 2) / 3;
+
+  summary.metrics.slice(0, 3).forEach((metric, index) => {
+    const x = MARGIN + index * (cardW + gap);
+    const y = topY - SUMMARY_CARD_H;
+    pushRect(s, x, y, cardW, SUMMARY_CARD_H, COL_CARD_BG);
+    pushRect(s, x, y, 4, SUMMARY_CARD_H, index === 0 ? COL_BRAND : COL_ACCENT);
+    pushTextLine(s, metric.label.toUpperCase(), x + 12, y + 28, META_SIZE, COL_DIM_TEXT, 'F2');
+    pushTextLine(s, cell(metric.value, Math.floor((cardW - 24) / 7)), x + 12, y + 12, 14, COL_DARK_TEXT, 'F2');
+  });
+}
+
+function pushDistributionChart(s: ContentStream, summary: ReportSummary, topY: number) {
+  const y = topY - CHART_H;
+  const chartW = PAGE_W - MARGIN * 2;
+  const titleY = y + CHART_H - 18;
+  pushRect(s, MARGIN, y, chartW, CHART_H, COL_WHITE);
+  pushHLine(s, MARGIN, y + CHART_H, MARGIN + chartW, COL_GRID);
+  pushTextLine(s, summary.chartTitle.toUpperCase(), MARGIN + 10, titleY, META_SIZE, COL_DIM_TEXT, 'F2');
+
+  if (summary.chartItems.length === 0) {
+    pushTextLine(s, 'No grouped data available for this export.', MARGIN + 10, y + 28, BODY_SIZE, COL_DIM_TEXT, 'F1');
+    return;
+  }
+
+  const maxCount = Math.max(...summary.chartItems.map((item) => item.count), 1);
+  const labelW = 112;
+  const barW = chartW - labelW - 72;
+  const rowGap = 11;
+
+  summary.chartItems.forEach((item, index) => {
+    const rowY = y + CHART_H - 34 - index * rowGap;
+    const width = Math.max(4, (item.count / maxCount) * barW);
+    pushTextLine(s, cell(item.label, 20), MARGIN + 10, rowY, BODY_SIZE, COL_DARK_TEXT, 'F1');
+    pushRect(s, MARGIN + labelW, rowY - 2, barW, 6, COL_BAR_BG);
+    pushRect(s, MARGIN + labelW, rowY - 2, width, 6, index === 0 ? COL_BRAND : COL_ACCENT);
+    pushTextLine(s, String(item.count), MARGIN + labelW + barW + 12, rowY, BODY_SIZE, COL_DARK_TEXT, 'F2');
+  });
+}
+
 function buildPageContent(
   pageIndex: number,
   totalPages: number,
@@ -136,6 +290,7 @@ function buildPageContent(
   cols: ColDef[],
   pageRows: ExportRow[],
   totalRows: number,
+  summary: ReportSummary,
 ): string {
   const s: ContentStream = [];
 
@@ -163,8 +318,16 @@ function buildPageContent(
   pushRect(s, badgeX, PAGE_H - 36, badge.length * 4.8 + 12, 16, COL_ACCENT);
   pushTextLine(s, badge, badgeX + 6, PAGE_H - 30, META_SIZE, COL_WHITE, 'F2');
 
+  let tableTop = headerBarY - 4;
+
+  if (pageIndex === 0) {
+    const summaryTop = headerBarY - SUMMARY_TOP_GAP;
+    pushMetricCards(s, summary, summaryTop);
+    pushDistributionChart(s, summary, summaryTop - SUMMARY_CARD_H - 10);
+    tableTop = summaryTop - SUMMARY_CARD_H - 10 - CHART_H - SUMMARY_BOTTOM_GAP;
+  }
+
   // ── Table header row ────────────────────────────────────────────────────
-  const tableTop = headerBarY - 4;
   const tableHeadY = tableTop - TABLE_HEAD_H;
   const tableW = PAGE_W - MARGIN * 2;
 
@@ -187,9 +350,9 @@ function buildPageContent(
     const rowBg = ri % 2 === 0 ? COL_LIGHT_BG : COL_WHITE;
     pushRect(s, MARGIN, rowY, tableW, ROW_H, rowBg);
 
-    const currentRow = pageRows[ri]!;
+      const currentRow = pageRows[ri]!;
     for (const col of cols) {
-      const text = cell(currentRow[col.header], col.maxChars);
+      const text = cell(formatReportValue(currentRow[col.header], col.header), col.maxChars);
       pushTextLine(s, text, col.x + 4, rowY + 4, BODY_SIZE, COL_DARK_TEXT, 'F1');
     }
 
@@ -312,18 +475,31 @@ function buildPdf(contentStreams: string[]): Buffer {
 
 export function toPdf(title: string, rows: ExportRow[], headers: string[]): Buffer {
   const cols = buildCols(headers);
+  const summary = buildReportSummary(rows, headers);
 
-  // How many data rows fit on the first page vs subsequent pages?
   const headerBarH = 54;
-  const tableTop   = PAGE_H - headerBarH - 4;
   const footerArea = 40; // reserved for footer
-  const usable     = tableTop - TABLE_HEAD_H - footerArea;
-  const rowsPerPage = Math.max(1, Math.floor(usable / ROW_H));
+  const firstTableTop =
+    PAGE_H -
+    headerBarH -
+    SUMMARY_TOP_GAP -
+    SUMMARY_CARD_H -
+    10 -
+    CHART_H -
+    SUMMARY_BOTTOM_GAP;
+  const laterTableTop = PAGE_H - headerBarH - 4;
+  const firstRowsPerPage = Math.max(1, Math.floor((firstTableTop - TABLE_HEAD_H - footerArea) / ROW_H));
+  const laterRowsPerPage = Math.max(1, Math.floor((laterTableTop - TABLE_HEAD_H - footerArea) / ROW_H));
 
   // Slice rows into pages
   const pages: ExportRow[][] = [];
-  for (let i = 0; i < Math.max(1, rows.length); i += rowsPerPage) {
-    pages.push(rows.slice(i, i + rowsPerPage));
+  if (rows.length === 0) {
+    pages.push([]);
+  } else {
+    pages.push(rows.slice(0, firstRowsPerPage));
+    for (let i = firstRowsPerPage; i < rows.length; i += laterRowsPerPage) {
+      pages.push(rows.slice(i, i + laterRowsPerPage));
+    }
   }
 
   const meta = `Exported: ${new Date().toLocaleString('en-US', {
@@ -332,7 +508,7 @@ export function toPdf(title: string, rows: ExportRow[], headers: string[]): Buff
   })}`;
 
   const streams = pages.map((pageRows, pageIndex) =>
-    buildPageContent(pageIndex, pages.length, title, meta, cols, pageRows, rows.length),
+    buildPageContent(pageIndex, pages.length, title, meta, cols, pageRows, rows.length, summary),
   );
 
   return buildPdf(streams);

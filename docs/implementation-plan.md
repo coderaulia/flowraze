@@ -122,7 +122,7 @@ Implemented under `/api/admin`:
 | Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
 | Medium | Payment provider integration | Billing supports local account state, invoices, manual payment checks, and Midtrans Snap checkout integration (session creation, webhook verification, payment processing). Subscription renewal automation, cancellation/downgrade flows, reactivation, and customer self-service portal are implemented. | Remaining: automated invoice generation on renewal, payment retry with updated payment methods. |
 | Medium | Workflow action coverage | Automation rules, manual triggers, job retries, and admin UI exist for creating activities and updating lead status on CRM events. | Add more triggers/actions after the event contract stabilizes, such as notifications, owner assignment, and webhook fan-out actions. |
-| Low | Rich PDF reporting | Export PDF is dependency-free and intentionally basic. | Adopt a richer PDF renderer only when branded, charted, or multi-page reports are required. |
+| Low | Rich PDF reporting | Done | PDF exports now render branded multi-page reports with summary cards, grouped distribution bars, formatted dates/currency, and paginated tables without adding a new runtime dependency. |
 | Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
 | Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
 
