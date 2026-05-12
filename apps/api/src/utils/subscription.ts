@@ -7,7 +7,7 @@
 
 import prisma from '../prisma/index.js';
 import { sendEmail } from './email.js';
-import { createCheckoutSession, PLAN_PRICES } from './payment-provider.js';
+import { PLAN_PRICES } from './payment-provider.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -216,7 +216,6 @@ export async function reactivateSubscription(companyId: string) {
     throw new Error('Subscription is not scheduled for cancellation');
   }
 
-  const now = new Date();
   if (account.status === 'canceled' && account.plan === 'free') {
     throw new Error('Subscription has already been fully canceled. Please upgrade again.');
   }

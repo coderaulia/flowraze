@@ -25,6 +25,8 @@ model Company {
   salesTargets     SalesTarget[]
   apiKeys          ApiKey[]
   webhookEndpoints WebhookEndpoint[]
+  automationRules  AutomationRule[]
+  automationRuns   AutomationRun[]
   billingInvoices  BillingInvoice[]
   billingPayments  BillingPayment[]
 }
@@ -52,6 +54,7 @@ model User {
   activities       Activity[]
   apiKeys          ApiKey[]
   webhookEndpoints WebhookEndpoint[]
+  automationRules  AutomationRule[]
   campaigns        Campaign[]        @relation("CampaignOwner")
   salesCampaigns   Campaign[]        @relation("CampaignSalesOwner")
   managedTeams     SalesTeam[]       @relation("TeamManager")
@@ -234,6 +237,65 @@ enum WebhookEvent {
 
 enum WebhookStatus {
   pending
+  success
+  failed
+}
+
+model AutomationRule {
+  id              String                  @id @default(cuid())
+  companyId       String
+  name            String
+  triggerEvent    AutomationTriggerEvent
+  actionType      AutomationActionType
+  actionConfig    Json
+  isActive        Boolean                 @default(true)
+  createdById     String
+  lastTriggeredAt DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id])
+  runs      AutomationRun[]
+
+  @@unique([companyId, name])
+}
+
+model AutomationRun {
+  id          String              @id @default(cuid())
+  companyId   String
+  ruleId      String
+  triggerEvent AutomationTriggerEvent
+  actionType  AutomationActionType
+  payload     Json
+  status      AutomationRunStatus @default(pending)
+  result      Json?
+  error       String?
+  retryCount  Int                 @default(0)
+  nextRetryAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rule    AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+}
+
+enum AutomationTriggerEvent {
+  manual
+  lead_created
+  deal_created
+  deal_won
+  activity_created
+}
+
+enum AutomationActionType {
+  create_activity
+  update_lead_status
+}
+
+enum AutomationRunStatus {
+  pending
+  running
   success
   failed
 }

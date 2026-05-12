@@ -17,6 +17,16 @@ router.use(authenticate, companyDataScope);
 
 const VALID_SCOPES = ['company', 'team', 'individual'] as const;
 const VALID_PERIODS = ['monthly', 'quarterly', 'yearly'] as const;
+type ValidScope = (typeof VALID_SCOPES)[number];
+type ValidPeriod = (typeof VALID_PERIODS)[number];
+
+function isValidScope(value: string): value is ValidScope {
+  return VALID_SCOPES.includes(value as ValidScope);
+}
+
+function isValidPeriod(value: string): value is ValidPeriod {
+  return VALID_PERIODS.includes(value as ValidPeriod);
+}
 
 // ─── SalesTeam CRUD ──────────────────────────────────────────────────────────
 
@@ -151,8 +161,8 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const q = req.query as Record<string, string>;
     const where: Prisma.SalesTargetWhereInput = { companyId };
     
-    if (q.scope) where.scope = q.scope as any;
-    if (q.period) where.period = q.period as any;
+    if (q.scope && isValidScope(q.scope)) where.scope = q.scope;
+    if (q.period && isValidPeriod(q.period)) where.period = q.period;
     if (q.year) {
       const y = parseInt(q.year, 10);
       if (!isNaN(y)) where.year = y;

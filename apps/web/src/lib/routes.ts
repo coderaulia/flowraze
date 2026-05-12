@@ -6,6 +6,7 @@ export const COMPANY_ROUTES = {
   root: '/company',
   dashboard: '/company/dashboard',
   analytics: '/company/analytics',
+  automations: '/company/automations',
   targets: '/company/targets',
   leads: '/company/leads',
   deals: '/company/deals',

@@ -268,11 +268,11 @@ NODE_ENV=development
 - [x] Growth analytics depth: funnel analytics, single-touch attribution, linear forecast, and lead velocity
 - [x] Midtrans payment provider integration with Snap checkout, webhook verification, and payment processing
 - [x] Subscription lifecycle: renewal cron, cancellation/downgrade flows, reactivation, and customer self-service portal
-
-### In Progress
-- Workflow/automation foundations (next P2 item)
+- [x] Workflow automation foundations with tenant-scoped rules, manual runs, retry history, and admin UI
 
 ### Placeholder/Todo
+- [ ] Multi-pipeline/custom deal stages
+- [ ] Workflow automation expansion for richer triggers/actions
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
 - [ ] Payment provider integration for checkout/invoices/customer portal
 - [ ] White-label tenant/domain/branding layer

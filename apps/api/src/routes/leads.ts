@@ -16,6 +16,7 @@ import {
 import { getQueryDate, getQueryString } from '../utils/query.js';
 import { buildLeadImportCandidates } from '../utils/lead-import.js';
 import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
+import { dispatchAutomationEvent, toAutomationPayload } from '../utils/automation.js';
 import { assertCampaignInCompany, leadScope } from '../utils/data-scope.js';
 
 const router = Router();
@@ -182,8 +183,11 @@ router.post('/import', async (req: AuthRequest, res, next) => {
     }
 
     created.forEach((lead) => {
-      void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead })).catch((error) => {
+      void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead }), req.companyId!).catch((error) => {
         console.error('Lead webhook dispatch failed:', error);
+      });
+      void dispatchAutomationEvent(req.companyId!, 'lead_created', toAutomationPayload({ lead })).catch((error) => {
+        console.error('Lead automation dispatch failed:', error);
       });
     });
 
@@ -267,8 +271,11 @@ router.post('/', async (req: AuthRequest, res, next) => {
       },
     });
 
-    void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead })).catch((error) => {
+    void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead }), req.companyId!).catch((error) => {
       console.error('Lead webhook dispatch failed:', error);
+    });
+    void dispatchAutomationEvent(req.companyId!, 'lead_created', toAutomationPayload({ lead })).catch((error) => {
+      console.error('Lead automation dispatch failed:', error);
     });
 
     res.status(201).json({ success: true, data: lead });

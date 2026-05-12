@@ -371,7 +371,7 @@ export function PricingPage() {
                 <div className="pr-crow"><div className="pr-ccell">Forecasting</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Roadmap</div><div className="pr-ccell">Roadmap</div></div>
 
                 <div className="pr-crow section-h"><div className="pr-ccell">Automation &amp; integrations</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">Workflow automation</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Roadmap</div><div className="pr-ccell">Roadmap</div><div className="pr-ccell">Custom planning</div></div>
+                <div className="pr-crow"><div className="pr-ccell">Workflow automation</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Basic rules</div><div className="pr-ccell">Basic rules</div><div className="pr-ccell">Custom planning</div></div>
                 <div className="pr-crow"><div className="pr-ccell">API access</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell">Enterprise API</div></div>
                 <div className="pr-crow"><div className="pr-ccell">Webhooks</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">3 endpoints</div><div className="pr-ccell">Unlimited</div><div className="pr-ccell">Unlimited</div></div>
 

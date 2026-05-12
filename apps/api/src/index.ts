@@ -4,6 +4,7 @@ dotenv.config();
 import { createApp } from './app.js';
 import { processPendingWebhooks } from './utils/webhooks.js';
 import { processSubscriptionRenewals } from './utils/subscription.js';
+import { processPendingAutomationRuns } from './utils/automation.js';
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.error('CRITICAL: JWT_SECRET must be set in production');
@@ -20,6 +21,13 @@ app.listen(PORT, () => {
   setInterval(() => {
     processPendingWebhooks().catch((error) => {
       console.error('Webhook retry processor error:', error);
+    });
+  }, 60 * 1000);
+
+  // Automation retry processor — every 60 seconds
+  setInterval(() => {
+    processPendingAutomationRuns().catch((error) => {
+      console.error('Automation retry processor error:', error);
     });
   }, 60 * 1000);
 

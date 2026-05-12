@@ -83,7 +83,7 @@ export interface ApiKey {
 }
 
 export type WebhookEvent = 'lead_created' | 'deal_created' | 'deal_won' | 'activity_created';
-export type WebhookStatus = 'success' | 'failed';
+export type WebhookStatus = 'pending' | 'success' | 'failed';
 
 export interface WebhookDelivery {
   id: string;
@@ -92,6 +92,8 @@ export interface WebhookDelivery {
   status: WebhookStatus;
   responseStatus?: number | null;
   error?: string | null;
+  retryCount: number;
+  nextRetryAt?: Date | string | null;
   createdAt: Date | string;
 }
 
@@ -106,6 +108,42 @@ export interface WebhookEndpoint {
   createdAt: Date | string;
   updatedAt: Date | string;
   deliveries?: WebhookDelivery[];
+}
+
+export type AutomationTriggerEvent = 'manual' | WebhookEvent;
+export type AutomationActionType = 'create_activity' | 'update_lead_status';
+export type AutomationRunStatus = 'pending' | 'running' | 'success' | 'failed';
+
+export interface AutomationRun {
+  id: string;
+  ruleId: string;
+  triggerEvent: AutomationTriggerEvent;
+  actionType: AutomationActionType;
+  payload: Record<string, unknown>;
+  status: AutomationRunStatus;
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+  retryCount: number;
+  nextRetryAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  triggerEvent: AutomationTriggerEvent;
+  actionType: AutomationActionType;
+  actionConfig: {
+    activityType?: ActivityType;
+    content?: string;
+    status?: Lead['status'];
+  };
+  isActive: boolean;
+  lastTriggeredAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  runs?: AutomationRun[];
 }
 
 export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';

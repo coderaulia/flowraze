@@ -17,6 +17,7 @@ import {
 } from '../utils/request.js';
 import { getQueryDate, getQueryNumber, getQueryString } from '../utils/query.js';
 import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
+import { dispatchAutomationEvent, toAutomationPayload } from '../utils/automation.js';
 import { assertLeadVisible, dealScope } from '../utils/data-scope.js';
 
 const router = Router();
@@ -184,12 +185,18 @@ router.post('/', async (req: AuthRequest, res, next) => {
       data: { campaignId: campaign.id },
     });
 
-    void dispatchWebhookEvent('deal_created', toWebhookPayload({ deal })).catch((error) => {
+    void dispatchWebhookEvent('deal_created', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
       console.error('Deal webhook dispatch failed:', error);
     });
+    void dispatchAutomationEvent(req.companyId!, 'deal_created', toAutomationPayload({ deal })).catch((error) => {
+      console.error('Deal automation dispatch failed:', error);
+    });
     if (deal.stage === 'won') {
-      void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal })).catch((error) => {
+      void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
         console.error('Deal won webhook dispatch failed:', error);
+      });
+      void dispatchAutomationEvent(req.companyId!, 'deal_won', toAutomationPayload({ deal })).catch((error) => {
+        console.error('Deal won automation dispatch failed:', error);
       });
     }
 
@@ -240,8 +247,11 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     });
 
     if (existingDeal.stage !== 'won' && deal.stage === 'won') {
-      void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal })).catch((error) => {
+      void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
         console.error('Deal won webhook dispatch failed:', error);
+      });
+      void dispatchAutomationEvent(req.companyId!, 'deal_won', toAutomationPayload({ deal })).catch((error) => {
+        console.error('Deal won automation dispatch failed:', error);
       });
     }
 

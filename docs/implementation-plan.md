@@ -4,7 +4,7 @@
 
 **Scope:** Role system, company tenancy, pricing/package promises, platform admin, billing foundation, white-label prep
 
-**Current status:** Implemented; company data isolation, role-based access, plan entitlements, and subscription lifecycle (renewal, cancellation, self-service portal) are enforced. Workflow automation and white-labeling are the remaining platform gaps.
+**Current status:** Implemented; company data isolation, role-based access, plan entitlements, subscription lifecycle (renewal, cancellation, self-service portal), and workflow automation foundations are enforced. Multi-pipeline customization and white-labeling are the remaining platform gaps.
 
 This document is now the source-of-truth status check for the multi-tenant rework. It compares the original plan with the current codebase and separates shipped work from remaining gaps.
 
@@ -111,6 +111,7 @@ Implemented under `/api/admin`:
 - Company app routes live under `/company/*`, with legacy redirects from `/dashboard`, `/leads`, `/deals`, and related paths.
 - Admin-only company routes protect `/company/users` and `/company/settings`.
 - Targets page includes create/edit/delete target flows plus sales team create/edit/delete and membership management.
+- Automations page lets admins create trigger/action rules, run them manually against a lead, pause/resume rules, and inspect recent retry history.
 
 ---
 
@@ -120,6 +121,7 @@ Implemented under `/api/admin`:
 | --- | --- | --- | --- |
 | Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
 | Medium | Payment provider integration | Billing supports local account state, invoices, manual payment checks, and Midtrans Snap checkout integration (session creation, webhook verification, payment processing). Subscription renewal automation, cancellation/downgrade flows, reactivation, and customer self-service portal are implemented. | Remaining: automated invoice generation on renewal, payment retry with updated payment methods. |
+| Medium | Workflow action coverage | Automation rules, manual triggers, job retries, and admin UI exist for creating activities and updating lead status on CRM events. | Add more triggers/actions after the event contract stabilizes, such as notifications, owner assignment, and webhook fan-out actions. |
 | Low | Rich PDF reporting | Export PDF is dependency-free and intentionally basic. | Adopt a richer PDF renderer only when branded, charted, or multi-page reports are required. |
 | Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
 | Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
@@ -145,7 +147,7 @@ The public pricing page is the current packaging promise. This table maps `apps/
 | Conversion funnel tracking | Growth+ | Done | Dedicated funnel analytics endpoint (`/analytics/funnel`) and UI panel with stage-to-stage conversion rates and drop-off. | Done |
 | Advanced analytics and cohorts | Performance+ | Missing | No cohort model, endpoint, or UI exists. | P3 |
 | WhatsApp + email integrations | Growth+ | Missing for CRM | SMTP is used for auth/invite/reset only; no Gmail/WhatsApp inbox, sync, messaging, or provider integration exists. | P3 |
-| Workflow automation / manual triggers / workflow engine | Growth+ | Missing | Webhooks exist, but no automation rule model, trigger/action builder, or job engine exists. | P2 |
+| Workflow automation / manual triggers / workflow engine | Growth+ | Partial | `AutomationRule` and `AutomationRun` support tenant-scoped triggers, retryable job runs, manual admin runs, and actions for creating activities or updating lead status. | P2 |
 | API access | Performance+ | Done | API key CRUD, `X-API-Key` auth, and plan-based gating exist. `authenticate()` checks `entitlements.features.apiKeys`; `assertApiKeyLimit()` enforces per-plan key count. | Done |
 | Webhooks limited/unlimited | Growth+ | Done | Webhook CRUD, delivery signing, retry, replay, and plan-based limits exist. `assertWebhookLimit()` enforces per-plan webhook count (growth=3, pro=unlimited). | Done |
 | Custom roles and permissions | Performance+ | Missing | Roles are fixed enum values: `superadmin`, `admin`, `manager`, `employee`. | P3 |
@@ -179,14 +181,14 @@ Priority legend:
 | 6 | Frontend rework | Mostly done | Admin and company route families exist; target/team management UI is implemented. Remaining work is mostly permission polish and tests. |
 | 7 | White-label preparation | Planned | Do not implement until tenancy hardening is complete. |
 | 8 | Pricing entitlement alignment | Done | Map public pricing features to plan gates, limits, and honest in-app behavior. |
-| 9 | Advanced paid-plan features | In progress | Funnel analytics, single-touch attribution, linear forecast, and lead velocity are shipped. Remaining: automation engine, multi-touch attribution, cohorts, custom roles, SSO, integrations. |
+| 9 | Advanced paid-plan features | In progress | Funnel analytics, single-touch attribution, linear forecast, lead velocity, and workflow automation foundations are shipped. Remaining: multi-touch attribution, cohorts, custom roles, SSO, integrations, and deeper automation actions. |
 
 ---
 
 ## 7. Recommended Next Work Order
 
-1. **P2: Workflow/automation foundations.** Build an automation rule model with trigger/action definitions, a job runner, manual trigger UI, and retry history — extending the existing webhook infrastructure.
-2. **P2: Multi-pipeline / custom stages.** Add a `Pipeline` + `PipelineStage` model so companies can define custom deal stages beyond the fixed enum.
+1. **P2: Multi-pipeline / custom stages.** Add a `Pipeline` + `PipelineStage` model so companies can define custom deal stages beyond the fixed enum.
+2. **P2: Workflow/automation expansion.** Add richer triggers/actions after the foundation stabilizes, especially assignment, notifications, and outbound webhook actions.
 3. **P3: Performance differentiators.** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
 4. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
 5. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.

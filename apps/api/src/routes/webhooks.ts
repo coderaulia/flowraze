@@ -152,7 +152,7 @@ router.post('/:id/test', async (req: AuthRequest, res, next) => {
       test: true,
       sentBy: req.userId ?? null,
       endpointId: webhook.id,
-    });
+    }, req.companyId!);
 
     res.json({ success: true, data: { sent: true } });
   } catch (error) {
