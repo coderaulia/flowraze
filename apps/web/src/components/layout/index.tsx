@@ -18,6 +18,8 @@ import {
   Activity,
   Shield,
   TrendingUp,
+  Workflow,
+  LifeBuoy,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -75,6 +77,7 @@ export function Layout() {
   const companyNavItems = [
     { to: COMPANY_ROUTES.dashboard, icon: LayoutDashboard, label: 'Dashboard' },
     ...(hasFeature('analytics') ? [{ to: COMPANY_ROUTES.analytics, icon: TrendingUp, label: 'Analytics' }] : []),
+    ...(admin && hasFeature('automation') ? [{ to: COMPANY_ROUTES.automations, icon: Workflow, label: 'Automations' }] : []),
     ...(hasFeature('targets') ? [{ to: COMPANY_ROUTES.targets, icon: Target, label: 'Targets' }] : []),
     { to: COMPANY_ROUTES.leads, icon: Users, label: 'Leads' },
     { to: COMPANY_ROUTES.deals, icon: Briefcase, label: 'Deals' },
@@ -150,6 +153,22 @@ export function Layout() {
           <div className="px-3 py-4 space-y-1 border-t border-slate-200/50">
             {admin && (
               <NavLink
+                to={COMPANY_ROUTES.subscription}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
+                    isActive
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/50 hover:translate-x-1'
+                  )
+                }
+              >
+                <CreditCard className="h-5 w-5" />
+                Subscription
+              </NavLink>
+            )}
+            {admin && (
+              <NavLink
                 to={COMPANY_ROUTES.settings}
                 className={({ isActive }) =>
                   cn(
@@ -162,6 +181,22 @@ export function Layout() {
               >
                 <Settings className="h-5 w-5" />
                 Settings
+              </NavLink>
+            )}
+            {!superadmin && (
+              <NavLink
+                to={COMPANY_ROUTES.support}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300',
+                    isActive
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/50 hover:translate-x-1'
+                  )
+                }
+              >
+                <LifeBuoy className="h-5 w-5" />
+                Support
               </NavLink>
             )}
             <button

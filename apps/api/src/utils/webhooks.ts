@@ -88,9 +88,10 @@ export async function processPendingWebhooks() {
   }
 }
 
-export async function dispatchWebhookEvent(event: WebhookEvent, payload: Prisma.InputJsonValue) {
+export async function dispatchWebhookEvent(event: WebhookEvent, payload: Prisma.InputJsonValue, companyId?: string) {
   const endpoints = await prisma.webhookEndpoint.findMany({
     where: {
+      ...(companyId ? { companyId } : {}),
       event,
       isActive: true,
     },

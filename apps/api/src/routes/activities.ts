@@ -7,6 +7,7 @@ import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pa
 import { requireEnum, requireObjectBody, requireString } from '../utils/request.js';
 import { getQueryDate, getQueryString } from '../utils/query.js';
 import { dispatchWebhookEvent, toWebhookPayload } from '../utils/webhooks.js';
+import { dispatchAutomationEvent, toAutomationPayload } from '../utils/automation.js';
 import { activityScope, assertLeadVisible } from '../utils/data-scope.js';
 
 const router = Router();
@@ -100,8 +101,11 @@ router.post('/', async (req: AuthRequest, res, next) => {
       },
     });
 
-    void dispatchWebhookEvent('activity_created', toWebhookPayload({ activity })).catch((error) => {
+    void dispatchWebhookEvent('activity_created', toWebhookPayload({ activity }), req.companyId!).catch((error) => {
       console.error('Activity webhook dispatch failed:', error);
+    });
+    void dispatchAutomationEvent(req.companyId!, 'activity_created', toAutomationPayload({ activity })).catch((error) => {
+      console.error('Activity automation dispatch failed:', error);
     });
 
     res.status(201).json({ success: true, data: activity });

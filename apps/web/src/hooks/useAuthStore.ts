@@ -11,6 +11,7 @@ export interface Entitlements {
   features: {
     analytics: boolean;
     apiKeys: boolean;
+    automation: boolean;
     campaigns: boolean;
     exports: boolean;
     targets: boolean;

@@ -265,11 +265,16 @@ NODE_ENV=development
 - [x] Centralized plan entitlements gate API access, webhooks, exports, campaigns, targets, and team performance
 - [x] Billing lifecycle fields and expired-trial enforcement are implemented
 - [x] Pricing page copy no longer advertises unsupported native apps, provider payments, forecasting, SSO, SOC2, or custom pipeline features as shipped
-
-### In Progress
-- Growth analytics depth: funnel analytics, attribution basics, and forecast basics
+- [x] Growth analytics depth: funnel analytics, single-touch attribution, linear forecast, and lead velocity
+- [x] Midtrans payment provider integration with Snap checkout, webhook verification, and payment processing
+- [x] Subscription lifecycle: renewal cron, cancellation/downgrade flows, reactivation, and customer self-service portal
+- [x] Workflow automation foundations with tenant-scoped rules, manual runs, retry history, and admin UI
+- [x] In-app support ticket intake with bug reports, SLA due dates, admin triage, assignment, and resolution tracking
 
 ### Placeholder/Todo
+- [ ] Multi-pipeline/custom deal stages
+- [ ] Workflow automation expansion for richer triggers/actions
+- [ ] Live support chat, onboarding playbooks, and success-manager routing
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
 - [ ] Payment provider integration for checkout/invoices/customer portal
 - [ ] White-label tenant/domain/branding layer
@@ -281,7 +286,7 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| MEDIUM | Growth analytics still needs funnel, attribution, and forecast depth | `apps/api/src/routes/dashboard.ts`, `apps/web/src/pages/dashboard.tsx` |
+| HIGH | Provider billing integration needed for paid self-service | `apps/api/src/routes/billing.ts`, `apps/web/src/pages/company/settings.tsx` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
 | LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
 

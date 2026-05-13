@@ -31,11 +31,14 @@ import { DealsPage } from './pages/company/deals';
 import { CampaignsPage } from './pages/company/campaigns';
 import { TeamPage } from './pages/company/team';
 import { SettingsPage } from './pages/company/settings';
+import { SubscriptionPage } from './pages/company/subscription';
 import { UsersPage } from './pages/company/users';
 import { SearchPage } from './pages/company/search';
 import { TargetsPage } from './pages/company/targets';
 import { ActivitiesPage } from './pages/company/activities';
 import { AnalyticsPage } from './pages/company/analytics';
+import { AutomationsPage } from './pages/company/automations';
+import { SupportPage } from './pages/company/support';
 import { AdminDashboardPage } from './pages/admin';
 import { AdminCompaniesPage } from './pages/admin/companies';
 import { AdminCompanyDetailPage } from './pages/admin/company-detail';
@@ -89,6 +92,7 @@ function App() {
         <Route path="/team" element={<RedirectWithSearch to={COMPANY_ROUTES.team} />} />
         <Route path="/users" element={<RedirectWithSearch to={COMPANY_ROUTES.users} />} />
         <Route path="/settings" element={<RedirectWithSearch to={COMPANY_ROUTES.settings} />} />
+        <Route path="/support" element={<RedirectWithSearch to={COMPANY_ROUTES.support} />} />
         <Route path="/search" element={<RedirectWithSearch to={COMPANY_ROUTES.search} />} />
 
         {/* Superadmin platform routes */}
@@ -123,6 +127,16 @@ function App() {
             element={
               <FeatureRoute feature="analytics">
                 <AnalyticsPage />
+              </FeatureRoute>
+            }
+          />
+          <Route
+            path="automations"
+            element={
+              <FeatureRoute feature="automation">
+                <AdminRoute>
+                  <AutomationsPage />
+                </AdminRoute>
               </FeatureRoute>
             }
           />
@@ -169,6 +183,15 @@ function App() {
               </AdminRoute>
             }
           />
+          <Route
+            path="subscription"
+            element={
+              <AdminRoute>
+                <SubscriptionPage />
+              </AdminRoute>
+            }
+          />
+          <Route path="support" element={<SupportPage />} />
           <Route path="search" element={<SearchPage />} />
         </Route>
 

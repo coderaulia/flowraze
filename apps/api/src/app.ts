@@ -17,6 +17,10 @@ import webhooksRoutes from './routes/webhooks.js';
 import targetsRoutes from './routes/targets.js';
 import onboardingRoutes from './routes/onboarding.js';
 import analyticsRoutes from './routes/analytics.js';
+import checkoutRoutes from './routes/checkout.js';
+import subscriptionRoutes from './routes/subscription.js';
+import automationsRoutes from './routes/automations.js';
+import supportRoutes from './routes/support.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 export function createApp() {
@@ -54,6 +58,10 @@ export function createApp() {
   app.use('/api/targets', targetsRoutes);
   app.use('/api/onboarding', onboardingRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/checkout', checkoutRoutes);
+  app.use('/api/subscription', subscriptionRoutes);
+  app.use('/api/automations', automationsRoutes);
+  app.use('/api/support', supportRoutes);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

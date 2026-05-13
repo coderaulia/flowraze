@@ -9,6 +9,10 @@ const router = Router();
 
 router.use(authenticate, companyDataScope);
 
+function monthKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 // ─── GET /analytics/funnel ───────────────────────────────────────────────────
 // Deal-stage conversion funnel: counts and drop-off rates between stages.
 router.get('/funnel', async (req: AuthRequest, res, next) => {
@@ -22,8 +26,6 @@ router.get('/funnel', async (req: AuthRequest, res, next) => {
       req,
       startDate ? { createdAt: { gte: startDate } } : {}
     );
-
-    const STAGES = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
 
     const stageCounts = await prisma.deal.groupBy({
       by: ['stage'],
@@ -195,11 +197,6 @@ router.get('/forecast', async (req: AuthRequest, res, next) => {
       where: wonWhere,
       select: { value: true, closedAt: true },
     });
-
-    // Bucket into calendar months
-    function monthKey(d: Date) {
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    }
 
     const buckets: Record<string, number> = {};
     const now = new Date();

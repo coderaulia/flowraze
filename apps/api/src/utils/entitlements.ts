@@ -7,6 +7,7 @@ import { requireCompanyId } from './data-scope.js';
 export type EntitlementFeature =
   | 'analytics'
   | 'apiKeys'
+  | 'automation'
   | 'campaigns'
   | 'exports'
   | 'targets'
@@ -17,6 +18,7 @@ type EntitlementConfig = {
   seats: number | null;
   analytics: boolean;
   apiKeys: number;
+  automation: boolean;
   campaigns: boolean;
   exports: boolean;
   targets: boolean;
@@ -31,6 +33,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     seats: 3,
     analytics: false,
     apiKeys: 0,
+    automation: false,
     campaigns: false,
     exports: false,
     targets: false,
@@ -41,6 +44,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     seats: null,
     analytics: true,
     apiKeys: 0,
+    automation: true,
     campaigns: true,
     exports: false,
     targets: false,
@@ -51,6 +55,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     seats: null,
     analytics: true,
     apiKeys: 5,
+    automation: true,
     campaigns: true,
     exports: true,
     targets: true,
@@ -61,6 +66,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     seats: null,
     analytics: true,
     apiKeys: Number.POSITIVE_INFINITY,
+    automation: true,
     campaigns: true,
     exports: true,
     targets: true,
@@ -95,6 +101,7 @@ export async function getCompanyEntitlements(companyId: string) {
     features: {
       analytics: isActive && config.analytics,
       apiKeys: isActive && config.apiKeys > 0,
+      automation: isActive && config.automation,
       campaigns: isActive && config.campaigns,
       exports: isActive && config.exports,
       targets: isActive && config.targets,
@@ -118,6 +125,7 @@ export async function assertFeature(req: AuthRequest, feature: EntitlementFeatur
       features: {
         analytics: true,
         apiKeys: true,
+        automation: true,
         campaigns: true,
         exports: true,
         targets: true,

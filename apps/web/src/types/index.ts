@@ -128,8 +128,70 @@ export interface WebhookEndpoint {
   deliveries?: WebhookDelivery[];
 }
 
+export type AutomationTriggerEvent = 'manual' | WebhookEvent;
+export type AutomationActionType = 'create_activity' | 'update_lead_status';
+export type AutomationRunStatus = 'pending' | 'running' | 'success' | 'failed';
+
+export interface AutomationRun {
+  id: string;
+  ruleId: string;
+  triggerEvent: AutomationTriggerEvent;
+  actionType: AutomationActionType;
+  payload: Record<string, unknown>;
+  status: AutomationRunStatus;
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+  retryCount: number;
+  nextRetryAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  triggerEvent: AutomationTriggerEvent;
+  actionType: AutomationActionType;
+  actionConfig: {
+    activityType?: ActivityType;
+    content?: string;
+    status?: LeadStatus;
+  };
+  isActive: boolean;
+  lastTriggeredAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  createdBy?: { id: string; name: string; email: string };
+  runs?: AutomationRun[];
+}
+
+export type SupportTicketType = 'bug' | 'question' | 'onboarding' | 'billing' | 'feature_request';
+export type SupportTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type SupportTicketStatus = 'open' | 'in_progress' | 'waiting_on_customer' | 'resolved' | 'closed';
+
+export interface SupportTicket {
+  id: string;
+  companyId: string;
+  requesterId: string;
+  assignedToId?: string | null;
+  type: SupportTicketType;
+  priority: SupportTicketPriority;
+  status: SupportTicketStatus;
+  subject: string;
+  description: string;
+  pageUrl?: string | null;
+  browserInfo?: string | null;
+  slaDueAt?: Date | string | null;
+  resolvedAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  requester?: { id: string; name: string; email: string };
+  assignedTo?: { id: string; name: string; email: string } | null;
+}
+
 export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
 export type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+export type BillingCycle = 'monthly' | 'annual';
 export type InvoiceStatus = 'open' | 'paid' | 'void' | 'overdue';
 export type PaymentStatus = 'pending' | 'paid' | 'rejected' | 'expired';
 
@@ -139,6 +201,7 @@ export interface BillingAccount {
   workspaceName: string;
   plan: PlanTier;
   status: BillingStatus;
+  billingCycle: BillingCycle;
   seats: number;
   renewalDate?: Date | string | null;
   trialStartedAt?: Date | string | null;
@@ -146,9 +209,29 @@ export interface BillingAccount {
   subscriptionStartedAt?: Date | string | null;
   subscriptionEndsAt?: Date | string | null;
   canceledAt?: Date | string | null;
+  cancelReason?: string | null;
   externalCustomer?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+}
+
+export interface SubscriptionDetails {
+  id: string;
+  plan: PlanTier;
+  status: BillingStatus;
+  billingCycle: BillingCycle;
+  seats: number;
+  subscriptionStartedAt?: Date | string | null;
+  subscriptionEndsAt?: Date | string | null;
+  renewalDate?: Date | string | null;
+  trialEndsAt?: Date | string | null;
+  canceledAt?: Date | string | null;
+  cancelReason?: string | null;
+  isCanceling: boolean;
+  isDowngrading: boolean;
+  downgradeTarget?: string | null;
+  nextRenewalAmount: number;
+  planLabel: string;
 }
 
 export interface BillingInvoice {
