@@ -30,7 +30,7 @@ router.get('/config', authenticate, async (_req: AuthRequest, res, next) => {
 
 // ─── GET /checkout/plans ─────────────────────────────────────────────────────
 // Returns available plan pricing for the checkout UI.
-router.get('/plans', async (_req, res) => {
+router.get('/plans', authenticate, async (_req: AuthRequest, res) => {
   const plans = Object.entries(PLAN_PRICES).map(([key, value]) => ({
     id: key,
     name: value.label,

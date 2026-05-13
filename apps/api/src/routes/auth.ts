@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import prisma from '../prisma/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -11,6 +12,14 @@ import { getCompanyEntitlements } from '../utils/entitlements.js';
 
 const router = Router();
 const PASSWORD_RESET_TTL_MINUTES = 30;
+
+const authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many attempts. Try again in 15 minutes.' },
+});
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -52,7 +61,7 @@ function requireStrongPassword(body: Record<string, unknown>) {
   return password;
 }
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', authRateLimit, async (req, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const email = requireString(body, 'email', 'Email');
@@ -73,7 +82,7 @@ router.post('/login', async (req, res, next) => {
     const token = jwt.sign(
       { userId: user.id, role: user.role, companyId: user.companyId },
       getJwtSecret(),
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
     const entitlements = user.companyId ? await getCompanyEntitlements(user.companyId) : null;
@@ -121,7 +130,7 @@ router.post('/register', async (req, res, next) => {
     const token = jwt.sign(
       { userId: user.id, role: user.role, companyId: user.companyId },
       getJwtSecret(),
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
     const verificationUrl = buildDevelopmentUrl('/login', verificationToken);
@@ -212,7 +221,7 @@ router.post('/verify-email', async (req, res, next) => {
   }
 });
 
-router.post('/password-reset/request', async (req, res, next) => {
+router.post('/password-reset/request', authRateLimit, async (req, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const email = requireString(body, 'email', 'Email');
@@ -249,7 +258,7 @@ router.post('/password-reset/request', async (req, res, next) => {
   }
 });
 
-router.post('/password-reset/confirm', async (req, res, next) => {
+router.post('/password-reset/confirm', authRateLimit, async (req, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const token = requireString(body, 'token', 'Reset token');
@@ -316,7 +325,7 @@ router.post('/accept-invite', async (req, res, next) => {
     const jwtToken = jwt.sign(
       { userId: updated.id, role: updated.role, companyId: updated.companyId },
       getJwtSecret(),
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
     const entitlements = updated.companyId ? await getCompanyEntitlements(updated.companyId) : null;
