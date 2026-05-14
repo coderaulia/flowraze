@@ -27,36 +27,44 @@ router.get('/funnel', async (req: AuthRequest, res, next) => {
       startDate ? { createdAt: { gte: startDate } } : {}
     );
 
+    // Fetch company's default pipeline stages
+    const defaultPipeline = req.companyId
+      ? await prisma.pipeline.findFirst({
+          where: { companyId: req.companyId, isDefault: true },
+          include: { stages: { orderBy: { order: 'asc' } } },
+        })
+      : null;
+    const allStages = defaultPipeline?.stages ?? [];
+
     const stageCounts = await prisma.deal.groupBy({
-      by: ['stage'],
+      by: ['pipelineStageId'],
       where: dealWhere,
       _count: { id: true },
     });
 
     const countMap: Record<string, number> = {};
     for (const row of stageCounts) {
-      countMap[row.stage] = row._count.id;
+      countMap[row.pipelineStageId] = row._count.id;
     }
 
-    // Build ordered funnel (exclude 'lost' from the conversion chain; show separately)
-    const funnelStages = ['new', 'qualified', 'proposal', 'negotiation', 'won'] as const;
+    // Funnel = non-lost stages in order; lost stages reported separately
+    const funnelStages = allStages.filter((s) => !s.isLost);
+    const lostStages = allStages.filter((s) => s.isLost);
 
     const funnelRows = funnelStages.map((stage, i) => {
-      const count = countMap[stage] ?? 0;
+      const count = countMap[stage.id] ?? 0;
       const prevStage = i === 0 ? undefined : funnelStages[i - 1];
-      const prevCount = prevStage === undefined ? null : (countMap[prevStage] ?? 0);
+      const prevCount = prevStage === undefined ? null : (countMap[prevStage.id] ?? 0);
       const conversionFromPrev =
         prevCount === null ? null : prevCount > 0 ? count / prevCount : 0;
-      return {
-        stage,
-        count,
-        conversionFromPrev,
-      };
+      return { stage: stage.name, stageId: stage.id, isWon: stage.isWon, count, conversionFromPrev };
     });
 
     const totalDeals = Object.values(countMap).reduce((s, v) => s + v, 0);
-    const wonCount = countMap['won'] ?? 0;
-    const lostCount = countMap['lost'] ?? 0;
+    const wonCount = funnelStages
+      .filter((s) => s.isWon)
+      .reduce((s, stage) => s + (countMap[stage.id] ?? 0), 0);
+    const lostCount = lostStages.reduce((s, stage) => s + (countMap[stage.id] ?? 0), 0);
     const overallConversion = totalDeals > 0 ? wonCount / totalDeals : 0;
 
     res.json({
@@ -105,7 +113,7 @@ router.get('/attribution', async (req: AuthRequest, res, next) => {
             deals: {
               select: {
                 id: true,
-                stage: true,
+                isWon: true,
                 value: true,
                 closedAt: true,
               },
@@ -120,7 +128,7 @@ router.get('/attribution', async (req: AuthRequest, res, next) => {
       const leads = campaign.leads.length;
       const allDeals = campaign.leads.flatMap((l) => l.deals);
       const deals = allDeals.length;
-      const wonDeals = allDeals.filter((d) => d.stage === 'won');
+      const wonDeals = allDeals.filter((d) => d.isWon);
       const revenue = wonDeals.reduce((s, d) => s + d.value, 0);
       const cost = campaign.cost ?? 0;
       const costPerLead = leads > 0 && cost > 0 ? cost / leads : null;
@@ -189,7 +197,7 @@ router.get('/forecast', async (req: AuthRequest, res, next) => {
     historyStart.setMonth(historyStart.getMonth() - HISTORY_MONTHS);
 
     const wonWhere = await dealScope(req, {
-      stage: 'won',
+      isWon: true,
       closedAt: { gte: historyStart },
     });
 
@@ -299,7 +307,7 @@ router.get('/lead-velocity', async (req: AuthRequest, res, next) => {
         createdAt: true,
         deals: {
           select: {
-            stage: true,
+            isWon: true,
             createdAt: true,
             closedAt: true,
           },
@@ -340,7 +348,7 @@ router.get('/lead-velocity', async (req: AuthRequest, res, next) => {
           (firstDeal.createdAt.getTime() - lead.createdAt.getTime()) / 86_400_000;
         bySource[src].totalDaysToFirstDeal += daysToFirstDeal;
 
-        if (firstDeal.stage === 'won' && firstDeal.closedAt) {
+        if (firstDeal.isWon && firstDeal.closedAt) {
           bySource[src].wonCount += 1;
           const daysToWin =
             (firstDeal.closedAt.getTime() - lead.createdAt.getTime()) / 86_400_000;

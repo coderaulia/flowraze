@@ -30,6 +30,7 @@ model Company {
   supportTickets   SupportTicket[]
   billingInvoices  BillingInvoice[]
   billingPayments  BillingPayment[]
+  pipelines        Pipeline[]
 }
 
 model User {
@@ -106,12 +107,15 @@ enum LeadStatus {
 }
 
 model Deal {
-  id                String     @id @default(cuid())
+  id                String    @id @default(cuid())
   companyId         String
   leadId            String
   title             String
   value             Float
-  stage             DealStage  @default(new)
+  pipelineId        String
+  pipelineStageId   String
+  isWon             Boolean   @default(false)
+  isLost            Boolean   @default(false)
   ownerId           String
   expectedCloseDate DateTime?
   closedAt          DateTime?
@@ -119,25 +123,51 @@ model Deal {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  lead    Lead    @relation(fields: [leadId], references: [id])
-  owner   User    @relation(fields: [ownerId], references: [id])
-  company Company @relation(fields: [companyId], references: [id])
+  lead          Lead          @relation(fields: [leadId], references: [id])
+  owner         User          @relation(fields: [ownerId], references: [id])
+  company       Company       @relation(fields: [companyId], references: [id])
+  pipeline      Pipeline      @relation(fields: [pipelineId], references: [id])
+  pipelineStage PipelineStage @relation(fields: [pipelineStageId], references: [id])
 
   @@unique([leadId, title, ownerId])
-}
-
-enum DealStage {
-  new
-  qualified
-  proposal
-  negotiation
-  won
-  lost
 }
 
 enum DealStatus {
   active
   closed
+}
+
+model Pipeline {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stages  PipelineStage[]
+  deals   Deal[]
+
+  @@unique([companyId, name])
+}
+
+model PipelineStage {
+  id         String   @id @default(cuid())
+  pipelineId String
+  name       String
+  order      Int
+  color      String   @default("#bcc3ff")
+  isWon      Boolean  @default(false)
+  isLost     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals    Deal[]
+
+  @@unique([pipelineId, order])
+  @@unique([pipelineId, name])
 }
 
 model Campaign {

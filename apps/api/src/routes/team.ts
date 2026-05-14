@@ -38,7 +38,7 @@ router.get('/performance', async (req: AuthRequest, res, next) => {
           deals: {
             where: {
               companyId,
-              stage: 'won',
+              isWon: true,
               ...(dateFilter ? { closedAt: dateFilter } : {}),
             },
             select: { id: true, value: true },

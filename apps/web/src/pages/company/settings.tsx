@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, KeyRound, ShieldCheck, Webhook } from 'lucide-react';
+import { CreditCard, GitBranch, KeyRound, Plus, ShieldCheck, Trash2, Webhook } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import type {
   ApiKey,
   BillingAccount,
   BillingStatus,
+  Pipeline,
+  PipelineStage,
   PlanTier,
   User,
   WebhookEndpoint,
@@ -69,6 +71,7 @@ export function SettingsPage() {
   const { user, updateUser, isSuperadmin, isAdmin, hasFeature } = useAuthStore();
   const canManageAdminTools = isSuperadmin();
   const canManageIntegrations = isSuperadmin() || (isAdmin() && (hasFeature('apiKeys') || hasFeature('webhooks')));
+  const canManagePipelines = isAdmin() || isSuperadmin();
   const [name, setName] = useState(user?.name || '');
   const [password, setPassword] = useState('');
   const [profileMessage, setProfileMessage] = useState<Message | null>(null);
@@ -101,6 +104,10 @@ export function SettingsPage() {
     externalCustomer: '',
   });
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [pipelineMessage, setPipelineMessage] = useState<Message | null>(null);
+  const [newStageName, setNewStageName] = useState<Record<string, string>>({});
+  const [newStageColor, setNewStageColor] = useState<Record<string, string>>({});
 
   const fetchAdminTools = useCallback(async () => {
     const billingResponse = await get<BillingAccount>('/billing');
@@ -115,6 +122,11 @@ export function SettingsPage() {
         renewalDate: toDateInputValue(account.renewalDate),
         externalCustomer: account.externalCustomer || '',
       });
+    }
+
+    if (canManagePipelines) {
+      const pipelinesRes = await get<Pipeline[]>('/pipelines');
+      if (pipelinesRes.success && pipelinesRes.data) setPipelines(pipelinesRes.data);
     }
 
     if (!canManageIntegrations) {
@@ -133,7 +145,7 @@ export function SettingsPage() {
     if (webhooksResponse.success && webhooksResponse.data) {
       setWebhooks(webhooksResponse.data);
     }
-  }, [canManageIntegrations]);
+  }, [canManageIntegrations, canManagePipelines]);
 
   useEffect(() => {
     fetchAdminTools();
@@ -693,6 +705,110 @@ export function SettingsPage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {canManagePipelines && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GitBranch className="h-5 w-5" />
+              Pipelines
+            </CardTitle>
+            <p className="text-sm text-on-surface-variant">Manage deal pipelines and custom stages</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {pipelineMessage && <AlertMessage message={pipelineMessage} />}
+            {pipelines.map((pipeline) => (
+              <div key={pipeline.id} className="border border-border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium text-primary">{pipeline.name}</span>
+                    {pipeline.isDefault && (
+                      <span className="ml-2 text-xs text-on-surface-variant">(default)</span>
+                    )}
+                  </div>
+                  {!pipeline.isDefault && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        const res = await del(`/pipelines/${pipeline.id}`);
+                        if (res.success) {
+                          fetchAdminTools();
+                        } else {
+                          setPipelineMessage({ type: 'error', text: res.error || 'Unable to delete pipeline' });
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  {pipeline.stages.map((stage: PipelineStage) => (
+                    <div key={stage.id} className="flex items-center justify-between py-1.5 px-3 rounded bg-surface-container">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+                        <span className="text-sm">{stage.name}</span>
+                        {stage.isWon && <span className="text-xs text-secondary font-medium">Won</span>}
+                        {stage.isLost && <span className="text-xs text-error font-medium">Lost</span>}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={async () => {
+                          const res = await del(`/pipelines/${pipeline.id}/stages/${stage.id}`);
+                          if (res.success) {
+                            fetchAdminTools();
+                          } else {
+                            setPipelineMessage({ type: 'error', text: res.error || 'Unable to delete stage' });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Input
+                    placeholder="New stage name"
+                    value={newStageName[pipeline.id] ?? ''}
+                    onChange={(e) => setNewStageName((prev) => ({ ...prev, [pipeline.id]: e.target.value }))}
+                    className="flex-1"
+                  />
+                  <input
+                    type="color"
+                    value={newStageColor[pipeline.id] ?? '#bcc3ff'}
+                    onChange={(e) => setNewStageColor((prev) => ({ ...prev, [pipeline.id]: e.target.value }))}
+                    className="w-10 h-10 rounded border cursor-pointer"
+                    title="Stage color"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      const name = newStageName[pipeline.id]?.trim();
+                      if (!name) return;
+                      const res = await post(`/pipelines/${pipeline.id}/stages`, {
+                        name,
+                        color: newStageColor[pipeline.id] ?? '#bcc3ff',
+                      });
+                      if (res.success) {
+                        setNewStageName((prev) => ({ ...prev, [pipeline.id]: '' }));
+                        fetchAdminTools();
+                      } else {
+                        setPipelineMessage({ type: 'error', text: res.error || 'Unable to add stage' });
+                      }
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Stage
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       <CheckoutDialog

@@ -21,6 +21,7 @@ type EntitlementConfig = {
   automation: boolean;
   campaigns: boolean;
   exports: boolean;
+  pipelines: number;
   targets: boolean;
   teamPerformance: boolean;
   webhooks: number;
@@ -36,6 +37,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     automation: false,
     campaigns: false,
     exports: false,
+    pipelines: 1,
     targets: false,
     teamPerformance: false,
     webhooks: 0,
@@ -47,6 +49,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     automation: true,
     campaigns: true,
     exports: false,
+    pipelines: 1,
     targets: false,
     teamPerformance: true,
     webhooks: 3,
@@ -58,6 +61,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     automation: true,
     campaigns: true,
     exports: true,
+    pipelines: Number.POSITIVE_INFINITY,
     targets: true,
     teamPerformance: true,
     webhooks: Number.POSITIVE_INFINITY,
@@ -69,6 +73,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     automation: true,
     campaigns: true,
     exports: true,
+    pipelines: Number.POSITIVE_INFINITY,
     targets: true,
     teamPerformance: true,
     webhooks: Number.POSITIVE_INFINITY,
@@ -110,6 +115,7 @@ export async function getCompanyEntitlements(companyId: string) {
     },
     limits: {
       apiKeys: config.apiKeys,
+      pipelines: config.pipelines,
       webhooks: config.webhooks,
     },
   };
@@ -134,6 +140,7 @@ export async function assertFeature(req: AuthRequest, feature: EntitlementFeatur
       },
       limits: {
         apiKeys: Number.POSITIVE_INFINITY,
+        pipelines: Number.POSITIVE_INFINITY,
         webhooks: Number.POSITIVE_INFINITY,
       },
     };

@@ -1,7 +1,28 @@
 export type UserRole = 'superadmin' | 'admin' | 'manager' | 'employee';
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified';
-export type DealStage = 'new' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
 export type DealStatus = 'active' | 'closed';
+
+export interface PipelineStage {
+  id: string;
+  pipelineId: string;
+  name: string;
+  order: number;
+  color: string;
+  isWon: boolean;
+  isLost: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface Pipeline {
+  id: string;
+  companyId: string;
+  name: string;
+  isDefault: boolean;
+  stages: PipelineStage[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
 export type ActivityType = 'note' | 'call' | 'follow_up';
 
 export interface Company {
@@ -54,13 +75,17 @@ export interface Deal {
   leadId: string;
   title: string;
   value: number;
-  stage: DealStage;
+  pipelineId: string;
+  pipelineStageId: string;
+  isWon: boolean;
+  isLost: boolean;
   ownerId: string;
   expectedCloseDate?: Date;
   closedAt?: Date | null;
   status: DealStatus;
   createdAt: Date;
   updatedAt: Date;
+  pipelineStage?: Pick<PipelineStage, 'id' | 'name' | 'color' | 'isWon' | 'isLost' | 'order'>;
 }
 
 export interface Campaign {
@@ -279,7 +304,7 @@ export interface DashboardStats {
   leadsBySource: Record<string, number>;
   revenueOverTime: { month: string; revenue: number }[];
   leadsOverTime: { month: string; leads: number }[];
-  dealsByStage: Record<DealStage, number>;
+  dealsByStage: Record<string, number>;
   campaignOverview: {
     total: number;
     active: number;

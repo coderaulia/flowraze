@@ -109,7 +109,7 @@ async function getDealRows(req: AuthRequest) {
   const minValue = getQueryNumber(req.query.minValue, 'minValue');
   const maxValue = getQueryNumber(req.query.maxValue, 'maxValue');
 
-  if (stage) where.stage = stage as Prisma.EnumDealStageFilter['equals'];
+  if (stage) where.pipelineStageId = stage;
   if (status) where.status = status as Prisma.EnumDealStatusFilter['equals'];
   if (ownerId) where.ownerId = ownerId;
   if (leadId) where.leadId = leadId;
@@ -133,6 +133,7 @@ async function getDealRows(req: AuthRequest) {
     include: {
       owner: { select: { name: true, email: true } },
       lead: { select: { fullName: true, companyName: true } },
+      pipelineStage: { select: { name: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: 1000,
@@ -146,7 +147,7 @@ async function getDealRows(req: AuthRequest) {
       Lead: deal.lead.fullName,
       Company: deal.lead.companyName,
       Value: deal.value,
-      Stage: deal.stage,
+      Stage: deal.pipelineStage.name,
       Status: deal.status,
       Owner: deal.owner.name,
       'Expected Close': deal.expectedCloseDate?.toISOString(),
@@ -254,7 +255,7 @@ async function getTeamRows(req: AuthRequest) {
       deals: {
         where: {
           companyId,
-          stage: 'won',
+          isWon: true,
           ...(dateFilter ? { closedAt: dateFilter } : {}),
         },
         select: { id: true, value: true },

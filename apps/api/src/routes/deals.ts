@@ -1,4 +1,3 @@
-// Force IDE re-evaluation for Prisma types
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/index.js';
@@ -7,7 +6,6 @@ import { AppError } from '../middleware/errorHandler.js';
 import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 import {
   optionalDate,
-  optionalEnum,
   optionalNonEmptyString,
   requireAtLeastOneField,
   requireNumber,
@@ -21,14 +19,14 @@ import { dispatchAutomationEvent, toAutomationPayload } from '../utils/automatio
 import { assertLeadVisible, dealScope } from '../utils/data-scope.js';
 
 const router = Router();
-const DEAL_STAGES = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
 const DEAL_STATUSES = ['active', 'closed'] as const;
 
 router.use(authenticate, companyDataScope);
 
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const stage = getQueryString(req.query.stage);
+    const pipelineId = getQueryString(req.query.pipelineId);
+    const pipelineStageId = getQueryString(req.query.pipelineStageId);
     const status = getQueryString(req.query.status);
     const search = getQueryString(req.query.search);
     const ownerId = getQueryString(req.query.ownerId);
@@ -41,21 +39,11 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const expectedCloseTo = getQueryDate(req.query.expectedCloseTo, 'expectedCloseTo');
     const where: Prisma.DealWhereInput = {};
 
-    if (stage) {
-      where.stage = stage as Prisma.EnumDealStageFilter['equals'];
-    }
-
-    if (status) {
-      where.status = status as Prisma.EnumDealStatusFilter['equals'];
-    }
-
-    if (ownerId) {
-      where.ownerId = ownerId;
-    }
-
-    if (leadId) {
-      where.leadId = leadId;
-    }
+    if (pipelineId) where.pipelineId = pipelineId;
+    if (pipelineStageId) where.pipelineStageId = pipelineStageId;
+    if (status) where.status = status as Prisma.EnumDealStatusFilter['equals'];
+    if (ownerId) where.ownerId = ownerId;
+    if (leadId) where.leadId = leadId;
 
     if (minValue !== undefined || maxValue !== undefined) {
       where.value = {
@@ -94,6 +82,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         include: {
           lead: { select: { id: true, fullName: true, companyName: true } },
           owner: { select: { id: true, name: true } },
+          pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
         },
         orderBy: { createdAt: 'desc' },
         ...getPaginationArgs(pagination),
@@ -114,6 +103,7 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
       include: {
         lead: true,
         owner: { select: { id: true, name: true } },
+        pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
       },
     });
 
@@ -133,9 +123,36 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const leadId = requireString(body, 'leadId', 'Lead');
     const title = requireString(body, 'title', 'Title');
     const value = requireNumber(body, 'value', 'Value');
-    const stage = optionalEnum(DEAL_STAGES, 'Stage')(body.stage) || 'new';
     const expectedCloseDate = optionalDate(body.expectedCloseDate) ?? undefined;
     await assertLeadVisible(req, leadId);
+
+    // Resolve pipeline stage
+    let pipelineStageId: string;
+    let pipelineId: string;
+
+    if (body.pipelineStageId) {
+      const stageId = String(body.pipelineStageId);
+      const stage = await prisma.pipelineStage.findFirst({
+        where: { id: stageId, pipeline: { companyId: req.companyId! } },
+        include: { pipeline: { select: { id: true } } },
+      });
+      if (!stage) throw new AppError(400, 'Invalid pipeline stage');
+      pipelineStageId = stage.id;
+      pipelineId = stage.pipeline.id;
+    } else {
+      // Default to first stage of default pipeline
+      const pipeline = await prisma.pipeline.findFirst({
+        where: { companyId: req.companyId!, isDefault: true },
+        include: { stages: { orderBy: { order: 'asc' }, take: 1 } },
+      });
+      if (!pipeline || pipeline.stages.length === 0) {
+        throw new AppError(500, 'No pipeline configured for this company');
+      }
+      pipelineId = pipeline.id;
+      pipelineStageId = pipeline.stages[0]!.id;
+    }
+
+    const stageRecord = await prisma.pipelineStage.findUniqueOrThrow({ where: { id: pipelineStageId } });
 
     const existingDeal = await prisma.deal.findFirst({
       where: {
@@ -157,14 +174,18 @@ router.post('/', async (req: AuthRequest, res, next) => {
         leadId,
         title,
         value,
-        stage,
+        pipelineId,
+        pipelineStageId,
+        isWon: stageRecord.isWon,
+        isLost: stageRecord.isLost,
         expectedCloseDate,
-        closedAt: stage === 'won' ? new Date() : undefined,
+        closedAt: stageRecord.isWon || stageRecord.isLost ? new Date() : undefined,
         ownerId: req.userId!,
       },
       include: {
         lead: { select: { id: true, fullName: true, companyName: true, serviceType: true, source: true } },
         owner: { select: { id: true, name: true } },
+        pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
       },
     });
 
@@ -191,7 +212,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
     void dispatchAutomationEvent(req.companyId!, 'deal_created', toAutomationPayload({ deal })).catch((error) => {
       console.error('Deal automation dispatch failed:', error);
     });
-    if (deal.stage === 'won') {
+    if (deal.isWon) {
       void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
         console.error('Deal won webhook dispatch failed:', error);
       });
@@ -213,26 +234,40 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
     setIfPresent(data, body, 'title', optionalNonEmptyString);
     setIfPresent(data, body, 'value', (value) => requireNumber({ value }, 'value', 'Value'));
-    setIfPresent(data, body, 'stage', optionalEnum(DEAL_STAGES, 'Stage'));
     setIfPresent(data, body, 'expectedCloseDate', optionalDate);
-    setIfPresent(data, body, 'status', optionalEnum(DEAL_STATUSES, 'Status'));
-    requireAtLeastOneField(data);
+    setIfPresent(data, body, 'status', (v) => (DEAL_STATUSES.includes(v as typeof DEAL_STATUSES[number]) ? v : undefined));
+    requireAtLeastOneField({ ...data, pipelineStageId: body.pipelineStageId });
 
     const existingDeal = await prisma.deal.findFirst({
       where: await dealScope(req, { id: req.params.id }),
-      select: { stage: true, ownerId: true },
+      select: { isWon: true, ownerId: true, pipelineStageId: true },
     });
 
     if (!existingDeal) {
       throw new AppError(404, 'Deal not found');
     }
 
-    // Auto-manage closedAt: set when transitioning to won, clear when leaving won
-    const newStage = data.stage as string | undefined;
-    if (newStage !== undefined) {
-      if (newStage === 'won' && existingDeal.stage !== 'won') {
+    // Handle pipeline stage change
+    if (body.pipelineStageId !== undefined) {
+      const stageId = String(body.pipelineStageId);
+      const newStage = await prisma.pipelineStage.findFirst({
+        where: { id: stageId, pipeline: { companyId: req.companyId! } },
+        include: { pipeline: { select: { id: true } } },
+      });
+      if (!newStage) throw new AppError(400, 'Invalid pipeline stage');
+
+      data.pipelineStageId = newStage.id;
+      data.pipelineId = newStage.pipeline.id;
+      data.isWon = newStage.isWon;
+      data.isLost = newStage.isLost;
+
+      const wasWon = existingDeal.isWon;
+      const nowWon = newStage.isWon;
+      const nowClosed = newStage.isWon || newStage.isLost;
+
+      if (nowClosed && !wasWon) {
         data.closedAt = new Date();
-      } else if (newStage !== 'won' && existingDeal.stage === 'won') {
+      } else if (!nowClosed && wasWon) {
         data.closedAt = null;
       }
     }
@@ -243,10 +278,11 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       include: {
         lead: { select: { id: true, fullName: true, companyName: true } },
         owner: { select: { id: true, name: true } },
+        pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
       },
     });
 
-    if (existingDeal.stage !== 'won' && deal.stage === 'won') {
+    if (!existingDeal.isWon && deal.isWon) {
       void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
         console.error('Deal won webhook dispatch failed:', error);
       });

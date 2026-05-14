@@ -66,7 +66,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     );
 
     const wonWhere = await dealScope(req, {
-      stage: 'won',
+      isWon: true,
       ...(startDate ? { closedAt: { gte: startDate } } : {}),
     });
 
@@ -134,15 +134,23 @@ router.get('/', async (req: AuthRequest, res, next) => {
       leadsBySourceMap[item.source] = item._count.id;
     }
 
-    const dealsByStage = await prisma.deal.groupBy({
-      by: ['stage'],
+    const dealsByStageGroup = await prisma.deal.groupBy({
+      by: ['pipelineStageId'],
       where: dealWhere,
       _count: { id: true },
     });
 
+    const stageIds = dealsByStageGroup.map((g) => g.pipelineStageId);
+    const stageRecords = await prisma.pipelineStage.findMany({
+      where: { id: { in: stageIds } },
+      select: { id: true, name: true },
+    });
+    const stageNameMap = Object.fromEntries(stageRecords.map((s) => [s.id, s.name]));
+
     const dealsByStageMap: Record<string, number> = {};
-    for (const item of dealsByStage) {
-      dealsByStageMap[item.stage] = item._count.id;
+    for (const item of dealsByStageGroup) {
+      const stageName = stageNameMap[item.pipelineStageId] ?? item.pipelineStageId;
+      dealsByStageMap[stageName] = item._count.id;
     }
 
     // --- Revenue over time (grouped by closedAt month) ---
@@ -345,7 +353,7 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
     const wonDeals = await prisma.deal.findMany({
       where: {
         companyId: req.companyId!,
-        stage: 'won',
+        isWon: true,
         closedAt: { gte: periodStart, lte: periodEnd },
         ...dealOwnerFilter,
       },
@@ -494,7 +502,7 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
       leaderboard = await Promise.all(
         individualTargets.map(async (t) => {
           const userDeals = await prisma.deal.findMany({
-            where: { companyId: req.companyId!, stage: 'won', ownerId: t.userId!, closedAt: { gte: periodStart, lte: periodEnd } },
+            where: { companyId: req.companyId!, isWon: true, ownerId: t.userId!, closedAt: { gte: periodStart, lte: periodEnd } },
             select: { value: true },
           });
           const actual = userDeals.reduce((s, d) => s + d.value, 0);

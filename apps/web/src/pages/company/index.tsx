@@ -87,14 +87,6 @@ const STAGE_COLORS: Record<string, string> = {
 
 const SOURCE_COLORS = ['#1e2a78', '#4ae176', '#ffb595', '#7dd3fc', '#f0abfc', '#c4b5fd'];
 
-const STAGE_LABELS: Record<string, string> = {
-  new: 'New',
-  qualified: 'Qualified',
-  proposal: 'Proposal',
-  negotiation: 'Negotiation',
-  won: 'Won',
-  lost: 'Lost',
-};
 
 function formatCompactCurrency(value: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -242,11 +234,8 @@ export function DashboardPage() {
     () =>
       stats
         ? Object.entries(stats.dealsByStage)
-          .map(([stage, count]) => ({
-            name: STAGE_LABELS[stage] || stage,
-            value: count,
-          }))
-          .filter((stage) => stage.value > 0)
+          .map(([stage, count]) => ({ name: stage, value: count }))
+          .filter((item) => item.value > 0)
         : [],
     [stats]
   );

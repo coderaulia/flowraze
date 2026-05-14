@@ -24,45 +24,25 @@ import {
   type FormErrors,
 } from '@/lib/form-validation';
 import { formatCurrency } from '@/lib/utils';
-import type { Deal, DealStage, Lead } from '@/types';
-
-const STAGES: { id: DealStage; label: string; color: string }[] = [
-  { id: 'new', label: 'New', color: '#bcc3ff' },
-  { id: 'qualified', label: 'Qualified', color: '#4ae176' },
-  { id: 'proposal', label: 'Proposal', color: '#ffb595' },
-  { id: 'negotiation', label: 'Negotiation', color: '#ff6b6b' },
-  { id: 'won', label: 'Won', color: '#4ae176' },
-  { id: 'lost', label: 'Lost', color: '#ffb4ab' },
-];
+import type { Deal, Lead, Pipeline, PipelineStage } from '@/types';
 
 type DealFormData = {
   leadId: string;
   title: string;
   value: number;
-  stage: DealStage;
+  pipelineStageId: string;
   expectedCloseDate: string;
   notes: string;
 };
 
 function validateDealForm(data: DealFormData): FormErrors {
   const errors: FormErrors = {};
-
-  if (!data.leadId) {
-    errors.leadId = 'Lead is required';
-  }
-
-  if (!data.title.trim()) {
-    errors.title = 'Deal title is required';
-  }
-
-  if (!isPositiveNumber(data.value)) {
-    errors.value = 'Value must be greater than zero';
-  }
-
+  if (!data.leadId) errors.leadId = 'Lead is required';
+  if (!data.title.trim()) errors.title = 'Deal title is required';
+  if (!isPositiveNumber(data.value)) errors.value = 'Value must be greater than zero';
   if (data.expectedCloseDate && !isValidDateValue(data.expectedCloseDate)) {
     errors.expectedCloseDate = 'Enter a valid close date';
   }
-
   return errors;
 }
 
@@ -70,6 +50,7 @@ export function DealsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<Deal | null>(null);
@@ -84,11 +65,14 @@ export function DealsPage() {
   const minValue = searchParams.get('minValue') ?? '';
   const maxValue = searchParams.get('maxValue') ?? '';
 
+  const stages: PipelineStage[] = pipeline?.stages ?? [];
+  const defaultStageId = stages[0]?.id ?? '';
+
   const [formData, setFormData] = useState<DealFormData>({
     leadId: '',
     title: '',
     value: 0,
-    stage: 'new' as DealStage,
+    pipelineStageId: '',
     expectedCloseDate: '',
     notes: '',
   });
@@ -97,18 +81,27 @@ export function DealsPage() {
     setIsLoading(true);
     const params = new URLSearchParams();
     if (search) params.set('search', search);
-    if (stageFilter !== 'all') params.set('stage', stageFilter);
+    if (stageFilter !== 'all') params.set('pipelineStageId', stageFilter);
     if (statusFilter !== 'all') params.set('status', statusFilter);
     if (minValue) params.set('minValue', minValue);
     if (maxValue) params.set('maxValue', maxValue);
     const query = params.toString();
 
-    const [dealsRes, leadsRes] = await Promise.all([
+    const [dealsRes, leadsRes, pipelinesRes] = await Promise.all([
       get<Deal[]>(`/deals${query ? `?${query}` : ''}`),
       get<Lead[]>('/leads'),
+      get<Pipeline[]>('/pipelines'),
     ]);
     if (dealsRes.success && dealsRes.data) setDeals(dealsRes.data);
     if (leadsRes.success && leadsRes.data) setLeads(leadsRes.data);
+    if (pipelinesRes.success && pipelinesRes.data) {
+      const defaultPipeline = pipelinesRes.data.find((p) => p.isDefault) ?? pipelinesRes.data[0] ?? null;
+      setPipeline(defaultPipeline);
+      setFormData((prev) => ({
+        ...prev,
+        pipelineStageId: prev.pipelineStageId || defaultPipeline?.stages[0]?.id || '',
+      }));
+    }
     setIsLoading(false);
   }, [maxValue, minValue, search, stageFilter, statusFilter]);
 
@@ -118,13 +111,11 @@ export function DealsPage() {
 
   const handleFilterChange = (key: string, value: string) => {
     const nextParams = new URLSearchParams(searchParams);
-
     if (!value || value === 'all') {
       nextParams.delete(key);
     } else {
       nextParams.set(key, value);
     }
-
     setSearchParams(nextParams, { replace: true });
   };
 
@@ -134,9 +125,7 @@ export function DealsPage() {
     setFormErrors(validationErrors);
     setFormError('');
 
-    if (hasFormErrors(validationErrors)) {
-      return;
-    }
+    if (hasFormErrors(validationErrors)) return;
 
     const payload = {
       ...formData,
@@ -157,21 +146,14 @@ export function DealsPage() {
     }
   };
 
-  const handleDragStart = (deal: Deal) => {
-    setDraggedDeal(deal);
-  };
+  const handleDragStart = (deal: Deal) => setDraggedDeal(deal);
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent, stageId: string) => {
     e.preventDefault();
-  };
-
-  const handleDrop = async (e: React.DragEvent, stage: DealStage) => {
-    e.preventDefault();
-    if (draggedDeal && draggedDeal.stage !== stage) {
-      const response = await put<Deal>(`/deals/${draggedDeal.id}`, { stage });
-      if (response.success) {
-        fetchData();
-      }
+    if (draggedDeal && draggedDeal.pipelineStageId !== stageId) {
+      const response = await put<Deal>(`/deals/${draggedDeal.id}`, { pipelineStageId: stageId });
+      if (response.success) fetchData();
     }
     setDraggedDeal(null);
   };
@@ -183,7 +165,7 @@ export function DealsPage() {
       leadId: '',
       title: '',
       value: 0,
-      stage: 'new',
+      pipelineStageId: defaultStageId,
       expectedCloseDate: '',
       notes: '',
     });
@@ -197,23 +179,18 @@ export function DealsPage() {
       leadId: deal.leadId,
       title: deal.title,
       value: deal.value,
-      stage: deal.stage,
+      pipelineStageId: deal.pipelineStageId,
       expectedCloseDate: deal.expectedCloseDate
-        ? new Date(deal.expectedCloseDate).toISOString().split('T')[0]
+        ? new Date(deal.expectedCloseDate).toISOString().split('T')[0] ?? ''
         : '',
       notes: '',
     });
-    setFormErrors({});
-    setFormError('');
     setIsModalOpen(true);
   };
 
   const handleDelete = async () => {
-    if (!deletingDeal) {
-      return;
-    }
-
-    const response = await del<void>(`/deals/${deletingDeal.id}`);
+    if (!deletingDeal) return;
+    const response = await del(`/deals/${deletingDeal.id}`);
     if (response.success) {
       fetchData();
       setIsDeleteModalOpen(false);
@@ -221,16 +198,14 @@ export function DealsPage() {
     }
   };
 
-  const getDealsByStage = (stage: DealStage) =>
-    deals.filter((d) => d.stage === stage);
+  const getDealsByStage = (stageId: string) =>
+    deals.filter((d) => d.pipelineStageId === stageId);
 
-  const getStageValue = (stage: DealStage) =>
-    getDealsByStage(stage).reduce((sum, deal) => sum + deal.value, 0);
+  const getStageValue = (stageId: string) =>
+    getDealsByStage(stageId).reduce((sum, deal) => sum + deal.value, 0);
 
-  const getLeadName = (leadId: string) => {
-    const lead = leads.find((l) => l.id === leadId);
-    return lead?.fullName || 'Unknown';
-  };
+  const getLeadName = (leadId: string) =>
+    leads.find((l) => l.id === leadId)?.fullName || 'Unknown';
 
   if (isLoading) {
     return (
@@ -246,12 +221,12 @@ export function DealsPage() {
         <div>
           <h1 className="text-2xl font-bold text-primary">Deals</h1>
           <p className="text-on-surface-variant mt-1">
-            Track your sales pipeline
+            {pipeline ? pipeline.name : 'Track your sales pipeline'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportControls entity="deals" queryParams={searchParams} />
-          <Button onClick={() => setIsModalOpen(true)}>
+          <Button onClick={() => { setFormData((f) => ({ ...f, pipelineStageId: defaultStageId })); setIsModalOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Deal
           </Button>
@@ -274,9 +249,9 @@ export function DealsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All stages</SelectItem>
-            {STAGES.map((stage) => (
+            {stages.map((stage) => (
               <SelectItem key={stage.id} value={stage.id}>
-                {stage.label}
+                {stage.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -308,7 +283,7 @@ export function DealsPage() {
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-p-4">
-        {STAGES.map((stage) => (
+        {stages.map((stage) => (
           <div
             key={stage.id}
             className="flex-shrink-0 w-[85vw] sm:w-72 snap-center"
@@ -323,7 +298,7 @@ export function DealsPage() {
                     style={{ backgroundColor: stage.color }}
                   />
                   <span className="text-sm font-medium text-primary">
-                    {stage.label}
+                    {stage.name}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -412,9 +387,7 @@ export function DealsPage() {
               <Label htmlFor="leadId">Lead</Label>
               <Select
                 value={formData.leadId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, leadId: value })
-                }
+                onValueChange={(value) => setFormData({ ...formData, leadId: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a lead" />
@@ -422,7 +395,7 @@ export function DealsPage() {
                 <SelectContent>
                   {leads.map((lead) => (
                     <SelectItem key={lead.id} value={lead.id}>
-                      {lead.fullName} - {lead.companyName}
+                      {lead.fullName} {lead.companyName ? `— ${lead.companyName}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -435,9 +408,7 @@ export function DealsPage() {
               <Input
                 id="title"
                 value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
               />
               <FieldError message={formErrors.title} />
@@ -450,9 +421,7 @@ export function DealsPage() {
                   id="value"
                   type="number"
                   value={formData.value}
-                  onChange={(e) =>
-                    setFormData({ ...formData, value: Number(e.target.value) })
-                  }
+                  onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
                   required
                 />
                 <FieldError message={formErrors.value} />
@@ -460,18 +429,16 @@ export function DealsPage() {
               <div className="space-y-2">
                 <Label htmlFor="stage">Stage</Label>
                 <Select
-                  value={formData.stage}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, stage: value as DealStage })
-                  }
+                  value={formData.pipelineStageId}
+                  onValueChange={(value) => setFormData({ ...formData, pipelineStageId: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STAGES.map((stage) => (
+                    {stages.map((stage) => (
                       <SelectItem key={stage.id} value={stage.id}>
-                        {stage.label}
+                        {stage.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -485,9 +452,7 @@ export function DealsPage() {
                 id="expectedCloseDate"
                 type="date"
                 value={formData.expectedCloseDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, expectedCloseDate: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, expectedCloseDate: e.target.value })}
               />
               <FieldError message={formErrors.expectedCloseDate} />
             </div>
@@ -497,9 +462,7 @@ export function DealsPage() {
               <Textarea
                 id="notes"
                 value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               />
             </div>
 

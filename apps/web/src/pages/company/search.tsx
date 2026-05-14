@@ -89,7 +89,7 @@ export function SearchPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm font-semibold mb-2">IDR {deal.value?.toLocaleString()}</p>
-                      <div className="mt-4"><Badge variant="default">{deal.stage}</Badge></div>
+                      <div className="mt-4"><Badge variant="default">{deal.pipelineStage?.name ?? 'Unknown'}</Badge></div>
                     </CardContent>
                   </Card>
                 ))}

@@ -127,6 +127,8 @@ Implemented under `/api/admin`:
 | Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
 | Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
 
+**Last updated:** 2026-05-13 — Multi-pipeline and custom stage support shipped (P2). `DealStage` enum replaced with `Pipeline` + `PipelineStage` models. Each company gets a default "Sales Pipeline" with 6 migrated stages. Deals carry `pipelineStageId`, `isWon`, `isLost` (denormalized). `/api/pipelines` CRUD for admins. Kanban and analytics are now pipeline-aware. Entitlement gates: 1 pipeline on free/growth, unlimited on pro/custom.
+
 ---
 
 ## 5. Pricing Page Feature Audit
@@ -188,7 +190,7 @@ Priority legend:
 
 ## 7. Recommended Next Work Order
 
-1. **P2: Multi-pipeline / custom stages.** Add a `Pipeline` + `PipelineStage` model so companies can define custom deal stages beyond the fixed enum.
+1. ~~**P2: Multi-pipeline / custom stages.**~~ Done. `Pipeline` + `PipelineStage` replace the fixed `DealStage` enum. Migration creates default pipelines per company.
 2. **P2: Workflow/automation expansion.** Add richer triggers/actions after the foundation stabilizes, especially assignment, notifications, and outbound webhook actions.
 3. **P3: Performance differentiators.** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
 4. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
