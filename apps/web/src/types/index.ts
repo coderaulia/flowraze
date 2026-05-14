@@ -153,8 +153,21 @@ export interface WebhookEndpoint {
   deliveries?: WebhookDelivery[];
 }
 
-export type AutomationTriggerEvent = 'manual' | WebhookEvent;
-export type AutomationActionType = 'create_activity' | 'update_lead_status';
+export type AutomationTriggerEvent =
+  | 'manual'
+  | 'lead_created'
+  | 'lead_updated'
+  | 'deal_created'
+  | 'deal_won'
+  | 'deal_lost'
+  | 'deal_stage_changed'
+  | 'activity_created';
+export type AutomationActionType =
+  | 'create_activity'
+  | 'update_lead_status'
+  | 'assign_owner'
+  | 'send_notification'
+  | 'fire_webhook';
 export type AutomationRunStatus = 'pending' | 'running' | 'success' | 'failed';
 
 export interface AutomationRun {
@@ -181,6 +194,13 @@ export interface AutomationRule {
     activityType?: ActivityType;
     content?: string;
     status?: LeadStatus;
+    userId?: string;
+    title?: string;
+    body?: string;
+    recipientRole?: 'all' | 'admin' | 'manager';
+    url?: string;
+    method?: string;
+    secret?: string;
   };
   isActive: boolean;
   lastTriggeredAt?: Date | string | null;
@@ -188,6 +208,16 @@ export interface AutomationRule {
   updatedAt: Date | string;
   createdBy?: { id: string; name: string; email: string };
   runs?: AutomationRun[];
+}
+
+export interface Notification {
+  id: string;
+  companyId: string;
+  userId: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: Date | string;
 }
 
 export type SupportTicketType = 'bug' | 'question' | 'onboarding' | 'billing' | 'feature_request';

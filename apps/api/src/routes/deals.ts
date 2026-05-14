@@ -240,7 +240,7 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
 
     const existingDeal = await prisma.deal.findFirst({
       where: await dealScope(req, { id: req.params.id }),
-      select: { isWon: true, ownerId: true, pipelineStageId: true },
+      select: { isWon: true, isLost: true, ownerId: true, pipelineStageId: true },
     });
 
     if (!existingDeal) {
@@ -288,6 +288,21 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       });
       void dispatchAutomationEvent(req.companyId!, 'deal_won', toAutomationPayload({ deal })).catch((error) => {
         console.error('Deal won automation dispatch failed:', error);
+      });
+    }
+
+    if (!existingDeal.isLost && deal.isLost) {
+      void dispatchAutomationEvent(req.companyId!, 'deal_lost', toAutomationPayload({ deal })).catch((error) => {
+        console.error('Deal lost automation dispatch failed:', error);
+      });
+    }
+
+    if (body.pipelineStageId !== undefined && existingDeal.pipelineStageId !== deal.pipelineStageId) {
+      void dispatchAutomationEvent(req.companyId!, 'deal_stage_changed', toAutomationPayload({
+        deal,
+        previousStageId: existingDeal.pipelineStageId,
+      })).catch((error) => {
+        console.error('Deal stage changed automation dispatch failed:', error);
       });
     }
 

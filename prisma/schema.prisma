@@ -31,6 +31,7 @@ model Company {
   billingInvoices  BillingInvoice[]
   billingPayments  BillingPayment[]
   pipelines        Pipeline[]
+  notifications    Notification[]
 }
 
 model User {
@@ -64,6 +65,7 @@ model User {
   managedTeams     SalesTeam[]       @relation("TeamManager")
   teamMemberships  SalesTeamMember[]
   salesTargets     SalesTarget[]
+  notifications    Notification[]
   company          Company?          @relation(fields: [companyId], references: [id])
 }
 
@@ -316,14 +318,20 @@ model AutomationRun {
 enum AutomationTriggerEvent {
   manual
   lead_created
+  lead_updated
   deal_created
   deal_won
+  deal_lost
+  deal_stage_changed
   activity_created
 }
 
 enum AutomationActionType {
   create_activity
   update_lead_status
+  assign_owner
+  send_notification
+  fire_webhook
 }
 
 enum AutomationRunStatus {
@@ -537,4 +545,20 @@ enum TargetPeriod {
   monthly
   quarterly
   yearly
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([companyId])
 }

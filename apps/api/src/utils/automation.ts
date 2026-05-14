@@ -105,6 +105,78 @@ async function runUpdateLeadStatus(companyId: string, payload: unknown, config: 
   return { lead };
 }
 
+async function runAssignOwner(companyId: string, payload: unknown, config: JsonRecord) {
+  const leadId = findLeadId(payload);
+  if (!leadId) {
+    throw new Error('Automation payload does not include a lead');
+  }
+
+  const userId = requireActionString(config, 'userId', 'Owner user');
+
+  const [lead, user] = await Promise.all([
+    prisma.lead.findFirst({ where: { id: leadId, companyId }, select: { id: true } }),
+    prisma.user.findFirst({ where: { id: userId, companyId }, select: { id: true } }),
+  ]);
+
+  if (!lead) throw new Error('Lead was not found for this company');
+  if (!user) throw new Error('Target user was not found for this company');
+
+  const updated = await prisma.lead.update({
+    where: { id: lead.id },
+    data: { ownerId: user.id },
+    select: { id: true, ownerId: true },
+  });
+
+  return { lead: updated };
+}
+
+async function runSendNotification(companyId: string, _payload: unknown, config: JsonRecord) {
+  const title = requireActionString(config, 'title', 'Notification title');
+  const body = requireActionString(config, 'body', 'Notification body');
+
+  const recipientRole = typeof config.recipientRole === 'string' ? config.recipientRole : null;
+  const whereRole = recipientRole && ['admin', 'manager'].includes(recipientRole)
+    ? { role: recipientRole as 'admin' | 'manager' }
+    : {};
+
+  const users = await prisma.user.findMany({
+    where: { companyId, isActive: true, ...whereRole },
+    select: { id: true },
+  });
+
+  if (users.length === 0) return { notified: 0 };
+
+  await prisma.notification.createMany({
+    data: users.map((u) => ({ companyId, userId: u.id, title, body })),
+  });
+
+  return { notified: users.length };
+}
+
+async function runFireWebhook(_companyId: string, payload: unknown, config: JsonRecord) {
+  const url = requireActionString(config, 'url', 'Webhook URL');
+  const method = typeof config.method === 'string' && ['GET', 'POST', 'PUT', 'PATCH'].includes(config.method.toUpperCase())
+    ? config.method.toUpperCase()
+    : 'POST';
+
+  const body = method === 'GET' ? undefined : JSON.stringify(payload);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'User-Agent': 'FlowRaze-Automation/1.0' };
+
+  if (typeof config.secret === 'string' && config.secret.trim()) {
+    headers['X-FlowRaze-Secret'] = config.secret.trim();
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(url, { method, headers, body, signal: controller.signal });
+    return { status: response.status, ok: response.ok };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function runAction(companyId: string, actionType: AutomationActionType, payload: unknown, actionConfig: unknown) {
   const config = asRecord(actionConfig);
 
@@ -114,6 +186,18 @@ async function runAction(companyId: string, actionType: AutomationActionType, pa
 
   if (actionType === 'update_lead_status') {
     return runUpdateLeadStatus(companyId, payload, config);
+  }
+
+  if (actionType === 'assign_owner') {
+    return runAssignOwner(companyId, payload, config);
+  }
+
+  if (actionType === 'send_notification') {
+    return runSendNotification(companyId, payload, config);
+  }
+
+  if (actionType === 'fire_webhook') {
+    return runFireWebhook(companyId, payload, config);
   }
 
   throw new Error('Automation action is not supported');

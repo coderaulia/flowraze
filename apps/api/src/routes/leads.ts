@@ -321,6 +321,10 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       },
     });
 
+    void dispatchAutomationEvent(req.companyId!, 'lead_updated', toAutomationPayload({ lead })).catch((error) => {
+      console.error('Lead updated automation dispatch failed:', error);
+    });
+
     res.json({ success: true, data: lead });
   } catch (error) {
     next(error);

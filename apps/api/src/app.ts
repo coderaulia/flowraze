@@ -22,6 +22,7 @@ import subscriptionRoutes from './routes/subscription.js';
 import automationsRoutes from './routes/automations.js';
 import supportRoutes from './routes/support.js';
 import pipelinesRoutes from './routes/pipelines.js';
+import notificationsRoutes from './routes/notifications.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 export function createApp() {
@@ -64,6 +65,7 @@ export function createApp() {
   app.use('/api/automations', automationsRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/api/pipelines', pipelinesRoutes);
+  app.use('/api/notifications', notificationsRoutes);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

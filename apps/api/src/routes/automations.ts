@@ -16,10 +16,26 @@ import { queueAutomationRun, toAutomationPayload } from '../utils/automation.js'
 
 const router = Router();
 
-const TRIGGER_EVENTS = ['manual', 'lead_created', 'deal_created', 'deal_won', 'activity_created'] as const;
-const ACTION_TYPES = ['create_activity', 'update_lead_status'] as const;
+const TRIGGER_EVENTS = [
+  'manual',
+  'lead_created',
+  'lead_updated',
+  'deal_created',
+  'deal_won',
+  'deal_lost',
+  'deal_stage_changed',
+  'activity_created',
+] as const;
+const ACTION_TYPES = [
+  'create_activity',
+  'update_lead_status',
+  'assign_owner',
+  'send_notification',
+  'fire_webhook',
+] as const;
 const ACTIVITY_TYPES = ['note', 'call', 'follow_up'] as const;
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified'] as const;
+const RECIPIENT_ROLES = ['all', 'admin', 'manager'] as const;
 
 router.use(authenticate, requireAdmin(), requireCompanyMember);
 
@@ -47,10 +63,52 @@ function validateActionConfig(actionType: AutomationActionType, value: unknown):
     return { status };
   }
 
+  if (actionType === 'assign_owner') {
+    const userId = config.userId;
+    if (typeof userId !== 'string' || !userId.trim()) {
+      throw new AppError(400, 'Owner user ID is required');
+    }
+    return { userId: userId.trim() };
+  }
+
+  if (actionType === 'send_notification') {
+    const title = config.title;
+    const body = config.body;
+    if (typeof title !== 'string' || !title.trim()) {
+      throw new AppError(400, 'Notification title is required');
+    }
+    if (typeof body !== 'string' || !body.trim()) {
+      throw new AppError(400, 'Notification body is required');
+    }
+    const recipientRole = optionalEnum(RECIPIENT_ROLES, 'Recipient role')(config.recipientRole) ?? 'all';
+    return { title: title.trim(), body: body.trim(), recipientRole };
+  }
+
+  if (actionType === 'fire_webhook') {
+    const url = config.url;
+    if (typeof url !== 'string' || !url.trim()) {
+      throw new AppError(400, 'Webhook URL is required');
+    }
+    try {
+      new URL(url.trim());
+    } catch {
+      throw new AppError(400, 'Webhook URL is not valid');
+    }
+    const method = typeof config.method === 'string' ? config.method.toUpperCase() : 'POST';
+    if (!['GET', 'POST', 'PUT', 'PATCH'].includes(method)) {
+      throw new AppError(400, 'Webhook method must be GET, POST, PUT, or PATCH');
+    }
+    const secret = typeof config.secret === 'string' ? config.secret.trim() : undefined;
+    return { url: url.trim(), method, ...(secret ? { secret } : {}) };
+  }
+
   throw new AppError(400, 'Action type is invalid');
 }
 
-function buildManualPayload(body: Record<string, unknown>): Prisma.InputJsonValue {
+function buildManualPayload(actionType: AutomationActionType, body: Record<string, unknown>): Prisma.InputJsonValue {
+  if (actionType === 'send_notification' || actionType === 'fire_webhook') {
+    return toAutomationPayload({ manual: true });
+  }
   const leadId = requireString(body, 'leadId', 'Lead');
   return toAutomationPayload({ leadId, manual: true });
 }
@@ -194,7 +252,7 @@ router.post('/:id/run', async (req: AuthRequest, res, next) => {
       req.companyId!,
       'manual' as AutomationTriggerEvent,
       rule.actionType,
-      buildManualPayload(body)
+      buildManualPayload(rule.actionType, body)
     );
 
     res.status(202).json({ success: true, data: run });

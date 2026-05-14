@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -20,11 +20,141 @@ import {
   TrendingUp,
   Workflow,
   LifeBuoy,
+  Bell,
+  CheckCheck,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { COMPANY_ROUTES } from '@/lib/routes';
+import { get, put } from '@/lib/api';
+import type { Notification } from '@/types';
+
+interface NotificationsResponse {
+  notifications: Notification[];
+  unreadCount: number;
+}
+
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const fetchNotifications = useCallback(async () => {
+    const response = await get<NotificationsResponse>('/notifications');
+    if (response.success && response.data) {
+      setNotifications(response.data.notifications.slice(0, 10));
+      setUnreadCount(response.data.unreadCount);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60_000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    await put('/notifications/read-all', {});
+    setUnreadCount(0);
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  };
+
+  const handleMarkRead = async (notification: Notification) => {
+    if (notification.isRead) return;
+    await put(`/notifications/${notification.id}/read`, {});
+    setNotifications((prev) => prev.map((n) => n.id === notification.id ? { ...n, isRead: true } : n));
+    setUnreadCount((c) => Math.max(0, c - 1));
+  };
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label="Notifications"
+        className="relative rounded-lg p-2 text-slate-600 hover:bg-surface-container transition-colors"
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-error text-[10px] font-bold text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          className="absolute right-0 top-full mt-2 z-50 w-80 rounded-xl bg-white shadow-xl border border-slate-200 overflow-hidden"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-800">Notifications</h3>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+                onClick={handleMarkAllRead}
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-400">No notifications</div>
+            ) : (
+              notifications.map((notification) => (
+                <button
+                  key={notification.id}
+                  type="button"
+                  className={cn(
+                    'w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors',
+                    !notification.isRead && 'bg-primary/5'
+                  )}
+                  onClick={() => handleMarkRead(notification)}
+                >
+                  <div className="flex items-start gap-2">
+                    {!notification.isRead && (
+                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    )}
+                    <div className={cn('min-w-0', notification.isRead && 'pl-4')}>
+                      <p className="text-sm font-medium text-slate-800 truncate">{notification.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notification.body}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {new Date(notification.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Layout() {
   const navigate = useNavigate();
@@ -236,6 +366,7 @@ export function Layout() {
               )}
             </div>
             <div className="flex items-center justify-between gap-4 sm:justify-end">
+              {!superadmin && <NotificationBell />}
               <span className="text-sm font-medium text-slate-700">{user?.name}</span>
             </div>
           </div>
