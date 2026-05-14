@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flowraze — App Flows</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3350;
+    --accent: #6366f1; --accent2: #22d3ee; --green: #10b981; --red: #ef4444;
+    --text: #e2e8f0; --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+  header { padding: 28px 40px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  header .sub { font-size: 12px; color: var(--muted); background: var(--surface2); padding: 2px 10px; border-radius: 20px; }
+  .toc { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 40px; border-bottom: 1px solid var(--border); }
+  .toc a { font-size: 12px; padding: 4px 12px; border-radius: 20px; background: var(--surface2); color: var(--muted); text-decoration: none; border: 1px solid var(--border); transition: all 0.15s; }
+  .toc a:hover { color: var(--text); border-color: var(--accent); }
+  main { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 24px; padding: 32px 40px; }
+  .flow { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .flow-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; }
+  .flow-icon { font-size: 20px; min-width: 32px; text-align: center; }
+  .flow-title { font-size: 15px; font-weight: 600; }
+  .flow-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .flow-body { padding: 16px 20px; }
+  .steps { display: flex; flex-direction: column; }
+  .step { display: flex; gap: 12px; position: relative; }
+  .step:not(:last-child)::before { content: ''; position: absolute; left: 15px; top: 32px; bottom: -8px; width: 1px; background: var(--border); }
+  .step-num { width: 30px; height: 30px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--muted); flex-shrink: 0; margin-top: 2px; }
+  .step-content { padding: 0 0 18px; flex: 1; }
+  .step-label { font-size: 13px; font-weight: 600; }
+  .step-detail { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+  .tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; background: #1e2235; border: 1px solid var(--border); color: var(--muted); font-family: monospace; }
+  .tag.a { border-color: #3b3fd4; color: #818cf8; background: #1c1e3a; }
+  .tag.g { border-color: #065f46; color: #34d399; background: #052e16; }
+  .tag.y { border-color: #78350f; color: #fbbf24; background: #1c1007; }
+  .tag.r { border-color: #7f1d1d; color: #f87171; background: #1f0a0a; }
+  .tag.c { border-color: #164e63; color: #67e8f9; background: #0a2030; }
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+  .sec { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 10px 0 6px; }
+  .lc-item { margin-bottom: 10px; }
+  .ep { font-family: monospace; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .lc-label { font-size: 12px; font-weight: 600; margin-left: 6px; }
+  .lc-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  th { color: var(--muted); font-weight: 600; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  .ck { color: var(--green); } .cx { color: var(--red); } .num { color: var(--accent2); font-family: monospace; }
+  .rb { font-size: 10px; padding: 2px 9px; border-radius: 4px; font-weight: 600; display: inline-block; }
+  .rb.sa { background: #2d1a4e; color: #c084fc; border: 1px solid #6d28d9; }
+  .rb.ad { background: #1c1e3a; color: #818cf8; border: 1px solid #4338ca; }
+  .rb.mg { background: #0a2030; color: #67e8f9; border: 1px solid #0e7490; }
+  .rb.em { background: #052e16; color: #34d399; border: 1px solid #065f46; }
+  .role-row { margin-bottom: 10px; }
+  .role-access { font-size: 12px; color: var(--muted); margin-top: 4px; margin-left: 4px; }
+  footer { padding: 24px 40px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Flowraze — App Flows</h1>
+  <span class="sub">CRM / Sales Platform</span>
+</header>
+
+<nav class="toc">
+  <a href="#auth">Auth</a>
+  <a href="#onboarding">Onboarding</a>
+  <a href="#invite">Team Invite</a>
+  <a href="#subscription">Subscription</a>
+  <a href="#leads">Leads</a>
+  <a href="#deals">Deals</a>
+  <a href="#campaigns">Campaigns</a>
+  <a href="#automations">Automations</a>
+  <a href="#analytics">Analytics</a>
+  <a href="#team">Team</a>
+  <a href="#entitlements">Entitlements</a>
+  <a href="#roles">Roles</a>
+  <a href="#webhooks">Webhooks</a>
+  <a href="#admin">Admin</a>
+</nav>
+
+<main>
+
+<!-- AUTH -->
+<div class="flow" id="auth">
+  <div class="flow-header">
+    <div class="flow-icon">🔐</div>
+    <div>
+      <div class="flow-title">Auth Flow</div>
+      <div class="flow-desc">Registration, login, email verification, password reset</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Register</div>
+          <div class="step-detail">POST /api/auth/register — name, email, password (≥8 chars). Creates user, issues JWT (7d), sends verification email.</div>
+          <div class="tags"><span class="tag a">POST /auth/register</span><span class="tag">bcrypt</span><span class="tag g">JWT 7d</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Verify Email</div>
+          <div class="step-detail">Token sent via email. POST /api/auth/verify-email to confirm. Token is hashed in DB (opaque on wire).</div>
+          <div class="tags"><span class="tag a">POST /auth/verify-email</span><span class="tag">opaque token</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Login</div>
+          <div class="step-detail">POST /api/auth/login — returns JWT + user object + entitlements. Invalid credentials → 401 (no email enumeration).</div>
+          <div class="tags"><span class="tag a">POST /auth/login</span><span class="tag g">entitlements attached</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Password Reset</div>
+          <div class="step-detail">Request: POST /auth/password-reset/request (always 200 — no enumeration). Confirm: POST /auth/password-reset/confirm with token + new password. Token TTL: 30 min.</div>
+          <div class="tags"><span class="tag y">TTL 30 min</span><span class="tag g">no enumeration</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">Session Refresh</div>
+          <div class="step-detail">GET /auth/me on app load — refreshes user + entitlements from DB. Guards redirect unauthenticated users.</div>
+          <div class="tags"><span class="tag a">GET /auth/me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div class="flow" id="onboarding">
+  <div class="flow-header">
+    <div class="flow-icon">🏢</div>
+    <div>
+      <div class="flow-title">Onboarding Flow</div>
+      <div class="flow-desc">New user sets up company workspace after registration</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Register Account</div>
+          <div class="step-detail">User creates account. No companyId yet — frontend redirects to /onboarding.</div>
+          <div class="tags"><span class="tag">role: employee (default)</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Create Company</div>
+          <div class="step-detail">POST /api/onboarding/setup-company — slugifies company name (unique). Atomic tx: creates Company + BillingAccount + promotes user to admin.</div>
+          <div class="tags"><span class="tag a">POST /onboarding/setup-company</span><span class="tag g">atomic tx</span><span class="tag y">role → admin</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Trial Starts</div>
+          <div class="step-detail">BillingAccount created with trialStartedAt + trialEndsAt (+14 days). Status: trialing. Plan: free.</div>
+          <div class="tags"><span class="tag y">14-day trial</span><span class="tag">plan: free</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Dashboard</div>
+          <div class="step-detail">Redirected to /company/dashboard. Entitlements loaded from plan. Feature gates active.</div>
+          <div class="tags"><span class="tag a">GET /dashboard</span><span class="tag g">entitlements applied</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TEAM INVITE -->
+<div class="flow" id="invite">
+  <div class="flow-header">
+    <div class="flow-icon">📨</div>
+    <div>
+      <div class="flow-title">Team Invite Flow</div>
+      <div class="flow-desc">Admin invites team members; they set password via magic link</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Admin Invites User</div>
+          <div class="step-detail">POST /api/team/invite — creates User record with hashed inviteToken. Invite email sent with accept link.</div>
+          <div class="tags"><span class="tag a">POST /team/invite</span><span class="tag y">admin only</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Invited User Clicks Link</div>
+          <div class="step-detail">Navigates to /accept-invite?token=… in browser.</div>
+          <div class="tags"><span class="tag">/accept-invite</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Accept Invite</div>
+          <div class="step-detail">POST /api/auth/accept-invite — validates token expiry, sets password, marks email verified, issues JWT.</div>
+          <div class="tags"><span class="tag a">POST /auth/accept-invite</span><span class="tag g">email auto-verified</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Joined</div>
+          <div class="step-detail">User lands in /company/dashboard with companyId + assigned role.</div>
+          <div class="tags"><span class="tag g">companyId assigned</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SUBSCRIPTION -->
+<div class="flow" id="subscription">
+  <div class="flow-header">
+    <div class="flow-icon">💳</div>
+    <div>
+      <div class="flow-title">Subscription &amp; Checkout Flow</div>
+      <div class="flow-desc">Plan upgrade via Midtrans Snap, full lifecycle management</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Browse Plans</div>
+          <div class="step-detail">GET /api/checkout/plans — free / growth / pro pricing (monthly + annual). Annual shows % savings. Public endpoint.</div>
+          <div class="tags"><span class="tag a">GET /checkout/plans</span><span class="tag">public</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Create Checkout Session</div>
+          <div class="step-detail">POST /api/checkout/create (admin only). Blocks if pending payment exists (409). Returns Midtrans Snap token.</div>
+          <div class="tags"><span class="tag a">POST /checkout/create</span><span class="tag c">Midtrans Snap</span><span class="tag y">admin only</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">User Pays</div>
+          <div class="step-detail">Frontend opens Snap.js popup. User completes via cards / bank transfer / wallets.</div>
+          <div class="tags"><span class="tag c">Snap.js</span><span class="tag">client-side</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Webhook Received</div>
+          <div class="step-detail">POST /api/checkout/webhook — HMAC signature verified. processNotification() updates BillingAccount: plan, subscriptionStartedAt, renewalDate.</div>
+          <div class="tags"><span class="tag a">POST /checkout/webhook</span><span class="tag g">HMAC verified</span><span class="tag">no auth</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">Subscription Active</div>
+          <div class="step-detail">Status → active. Entitlements upgraded. Seats configurable via PUT /subscription/seats.</div>
+          <div class="tags"><span class="tag g">status: active</span><span class="tag g">plan gates lifted</span></div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="div">
+    <div class="sec">Subscription Lifecycle Actions</div>
+
+    <div class="lc-item">
+      <span class="ep">POST /subscription/cancel</span><span class="lc-label">Cancel (end-of-period)</span>
+      <div class="lc-note">Sets canceledAt. Access continues until billing period ends.</div>
+    </div>
+    <div class="lc-item">
+      <span class="ep">POST /subscription/cancel { immediate: true }</span><span class="lc-label">Cancel (immediate)</span>
+      <div class="lc-note">Cuts access immediately.</div>
+    </div>
+    <div class="lc-item">
+      <span class="ep">POST /subscription/reactivate</span><span class="lc-label">Reactivate</span>
+      <div class="lc-note">Undoes scheduled cancel before period ends.</div>
+    </div>
+    <div class="lc-item">
+      <span class="ep">POST /subscription/downgrade</span><span class="lc-label">Downgrade Plan</span>
+      <div class="lc-note">Schedules plan drop at period end. cancelReason = &quot;downgrade_to_&lt;plan&gt;&quot;.</div>
+    </div>
+    <div class="lc-item">
+      <span class="ep">Cron job</span><span class="lc-label">Renewal Processing</span>
+      <div class="lc-note">Fires on renewalDate — charges or cancels based on subscription state.</div>
+    </div>
+  </div>
+</div>
+
+<!-- LEADS -->
+<div class="flow" id="leads">
+  <div class="flow-header">
+    <div class="flow-icon">👤</div>
+    <div>
+      <div class="flow-title">Leads Flow</div>
+      <div class="flow-desc">Full lead lifecycle — create, assign, status progression, import, export</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Create / Import</div>
+          <div class="step-detail">POST /api/leads (single) or POST /api/leads/import (CSV bulk). Validates duplicates. Assigns owner. Optionally links to campaign.</div>
+          <div class="tags"><span class="tag a">POST /leads</span><span class="tag a">POST /leads/import</span><span class="tag">CSV bulk</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Status Progression</div>
+          <div class="step-detail">PATCH /api/leads/:id — statuses: new → contacted → qualified → unqualified.</div>
+          <div class="tags"><span class="tag">new</span><span class="tag c">contacted</span><span class="tag g">qualified</span><span class="tag r">unqualified</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Filter &amp; Assign</div>
+          <div class="step-detail">Filter by status, source, ownerId, campaignId, date range, full-text search. Employees see own leads only (data-scoped).</div>
+          <div class="tags"><span class="tag y">data-scoped</span><span class="tag">paginated</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Automation Trigger</div>
+          <div class="step-detail">lead_created event dispatched on create. Matching automation rules execute actions asynchronously.</div>
+          <div class="tags"><span class="tag c">lead_created</span><span class="tag">webhook dispatched</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">Export</div>
+          <div class="step-detail">GET /api/exports/leads — CSV/JSON. Feature-gated (pro+ plan). Scoped to company.</div>
+          <div class="tags"><span class="tag a">GET /exports/leads</span><span class="tag y">pro+ only</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEALS -->
+<div class="flow" id="deals">
+  <div class="flow-header">
+    <div class="flow-icon">🤝</div>
+    <div>
+      <div class="flow-title">Deals Flow</div>
+      <div class="flow-desc">Sales pipeline from new opportunity to won/lost</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Create Deal</div>
+          <div class="step-detail">POST /api/deals — links to lead, assigns owner, sets value + expected close date. Dispatches deal_created event.</div>
+          <div class="tags"><span class="tag a">POST /deals</span><span class="tag c">deal_created event</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Pipeline Stages</div>
+          <div class="step-detail">PATCH /api/deals/:id — new → qualified → proposal → negotiation → won / lost. deal_won event fires on win.</div>
+          <div class="tags"><span class="tag">new</span><span class="tag c">qualified</span><span class="tag c">proposal</span><span class="tag y">negotiation</span><span class="tag g">won</span><span class="tag r">lost</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Filter &amp; Search</div>
+          <div class="step-detail">Filter by stage, status, ownerId, value range, close date range, full-text. Data-scoped by role.</div>
+          <div class="tags"><span class="tag y">data-scoped</span><span class="tag">paginated</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Analytics Input</div>
+          <div class="step-detail">Deals feed funnel analytics (stage counts, conversion rates, revenue forecast, velocity).</div>
+          <div class="tags"><span class="tag c">→ /analytics/funnel</span><span class="tag c">→ /analytics/forecast</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CAMPAIGNS -->
+<div class="flow" id="campaigns">
+  <div class="flow-header">
+    <div class="flow-icon">📢</div>
+    <div>
+      <div class="flow-title">Campaigns Flow</div>
+      <div class="flow-desc">Marketing campaigns linked to leads — growth+ plan required</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Create Campaign</div>
+          <div class="step-detail">POST /api/campaigns (admin/manager). Name, channel, budget, start/end dates.</div>
+          <div class="tags"><span class="tag a">POST /campaigns</span><span class="tag y">admin/manager</span><span class="tag y">growth+ only</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Assign Leads</div>
+          <div class="step-detail">Leads reference campaignId. Filter leads by campaign to see pipeline performance per campaign.</div>
+          <div class="tags"><span class="tag">lead.campaignId</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Attribution Analytics</div>
+          <div class="step-detail">GET /analytics/attribution — revenue, lead count, won deals per campaign, ROI calculation.</div>
+          <div class="tags"><span class="tag a">GET /analytics/attribution</span><span class="tag y">analytics feature</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTOMATIONS -->
+<div class="flow" id="automations">
+  <div class="flow-header">
+    <div class="flow-icon">⚡</div>
+    <div>
+      <div class="flow-title">Automations Flow</div>
+      <div class="flow-desc">Event-driven rules: trigger → action. Admin-only, growth+ plan.</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Create Rule</div>
+          <div class="step-detail">POST /api/automations — triggerEvent + actionType + actionConfig. Admin only.</div>
+          <div class="tags"><span class="tag a">POST /automations</span><span class="tag y">admin only</span><span class="tag y">growth+ only</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Trigger Events</div>
+          <div class="step-detail">Any of: lead_created, deal_created, deal_won, activity_created, manual (explicit run on a specific lead).</div>
+          <div class="tags"><span class="tag c">lead_created</span><span class="tag c">deal_created</span><span class="tag g">deal_won</span><span class="tag c">activity_created</span><span class="tag">manual</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Action Types</div>
+          <div class="step-detail">create_activity — type (note/call/follow_up) + content. update_lead_status — target status.</div>
+          <div class="tags"><span class="tag g">create_activity</span><span class="tag y">update_lead_status</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Execution &amp; History</div>
+          <div class="step-detail">queueAutomationRun() called on matching event. Run recorded in AutomationRun. Last 5 runs visible per rule.</div>
+          <div class="tags"><span class="tag">AutomationRun</span><span class="tag">async queue</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="flow" id="analytics">
+  <div class="flow-header">
+    <div class="flow-icon">📊</div>
+    <div>
+      <div class="flow-title">Analytics Flow</div>
+      <div class="flow-desc">Growth analytics — funnel, attribution, forecast, velocity. analytics feature required.</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Funnel</div>
+          <div class="step-detail">GET /analytics/funnel — deal stage counts + conversion rate between each stage. Lost count shown separately.</div>
+          <div class="tags"><span class="tag a">GET /analytics/funnel</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Attribution</div>
+          <div class="step-detail">GET /analytics/attribution — revenue, lead count, won deals per campaign. ROI per campaign.</div>
+          <div class="tags"><span class="tag a">GET /analytics/attribution</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Forecast</div>
+          <div class="step-detail">GET /analytics/forecast — weighted pipeline value by stage probability. Monthly revenue projections.</div>
+          <div class="tags"><span class="tag a">GET /analytics/forecast</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Velocity</div>
+          <div class="step-detail">GET /analytics/velocity — avg days to close per stage. Deal cycle time trends over time.</div>
+          <div class="tags"><span class="tag a">GET /analytics/velocity</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TEAM -->
+<div class="flow" id="team">
+  <div class="flow-header">
+    <div class="flow-icon">👥</div>
+    <div>
+      <div class="flow-title">Team Performance Flow</div>
+      <div class="flow-desc">Per-user metrics and target tracking — teamPerformance feature required</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Performance Overview</div>
+          <div class="step-detail">GET /team/performance — per user: leadsAssigned, dealsWon, dealValue, activityCount. Filter by role + date range.</div>
+          <div class="tags"><span class="tag a">GET /team/performance</span><span class="tag y">growth+ only</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Manage Members</div>
+          <div class="step-detail">GET/POST/PATCH /team — list, invite, update role. Admin only.</div>
+          <div class="tags"><span class="tag a">POST /team/invite</span><span class="tag y">admin only</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Targets</div>
+          <div class="step-detail">GET/POST /targets — set revenue/lead/deal targets per user per period. targets feature required (growth+).</div>
+          <div class="tags"><span class="tag a">/targets</span><span class="tag y">growth+ only</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ENTITLEMENTS -->
+<div class="flow" id="entitlements">
+  <div class="flow-header">
+    <div class="flow-icon">🔑</div>
+    <div>
+      <div class="flow-title">Plan Entitlements</div>
+      <div class="flow-desc">Feature gates per billing plan tier</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <table>
+      <thead>
+        <tr><th>Feature</th><th>Free</th><th>Growth</th><th>Pro</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Seats</td><td><span class="num">3</span></td><td><span class="num">∞</span></td><td><span class="num">∞</span></td></tr>
+        <tr><td>Leads / Deals / Activities</td><td><span class="ck">✓</span></td><td><span class="ck">✓</span></td><td><span class="ck">✓</span></td></tr>
+        <tr><td>Campaigns</td><td><span class="cx">✗</span></td><td><span class="ck">✓</span></td><td><span class="ck">✓</span></td></tr>
+        <tr><td>Analytics</td><td><span class="cx">✗</span></td><td><span class="ck">✓</span></td><td><span class="ck">✓</span></td></tr>
+        <tr><td>Automations</td><td><span class="cx">✗</span></td><td><span class="ck">✓</span></td><td><span class="ck">✓</span></td></tr>
+        <tr><td>Team Performance</td><td><span class="cx">✗</span></td><td><span class="ck">✓</span></td><td><span class="ck">✓</span></td></tr>
+        <tr><td>Targets</td><td><span class="cx">✗</span></td><td><span class="ck">✓</span></td><td><span class="ck">✓</span></td></tr>
+        <tr><td>Webhooks</td><td><span class="num">0</span></td><td><span class="num">3</span></td><td><span class="num">10</span></td></tr>
+        <tr><td>API Keys</td><td><span class="num">0</span></td><td><span class="num">0</span></td><td><span class="num">5</span></td></tr>
+        <tr><td>Exports (CSV/JSON)</td><td><span class="cx">✗</span></td><td><span class="cx">✗</span></td><td><span class="ck">✓</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ROLES -->
+<div class="flow" id="roles">
+  <div class="flow-header">
+    <div class="flow-icon">🛡️</div>
+    <div>
+      <div class="flow-title">Roles &amp; Access</div>
+      <div class="flow-desc">Four roles enforced at route middleware and frontend guard level</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="role-row">
+      <span class="rb sa">Superadmin</span>
+      <div class="role-access">Platform-wide admin. Manages all companies, billing, users globally. Route: /admin/*.</div>
+    </div>
+    <div class="role-row">
+      <span class="rb ad">Admin</span>
+      <div class="role-access">Company admin. Manages team, settings, subscription, automations, users. Sees all company data.</div>
+    </div>
+    <div class="role-row">
+      <span class="rb mg">Manager</span>
+      <div class="role-access">Can manage campaigns, view team performance. Scoped to company data. Cannot manage billing.</div>
+    </div>
+    <div class="role-row">
+      <span class="rb em">Employee</span>
+      <div class="role-access">Sees own leads/deals/activities only. Read access to shared company data. No admin routes.</div>
+    </div>
+
+    <hr class="div">
+    <div class="sec">Frontend Route Guards</div>
+    <div style="font-size:12px; color: var(--muted);">
+      <div style="margin-bottom:6px;"><span class="ep">SuperadminRoute</span> — /admin/* blocked for all non-superadmin</div>
+      <div style="margin-bottom:6px;"><span class="ep">CompanyMemberRoute</span> — /company/* requires companyId + non-superadmin role</div>
+      <div style="margin-bottom:6px;"><span class="ep">AdminRoute</span> — sub-routes requiring admin role (users, settings, subscription, automations)</div>
+      <div><span class="ep">FeatureRoute</span> — checks entitlements.feature before rendering (analytics, automation, campaigns, targets, teamPerformance)</div>
+    </div>
+  </div>
+</div>
+
+<!-- WEBHOOKS -->
+<div class="flow" id="webhooks">
+  <div class="flow-header">
+    <div class="flow-icon">🔗</div>
+    <div>
+      <div class="flow-title">Webhooks Flow</div>
+      <div class="flow-desc">Outbound event delivery to external URLs — growth (3), pro (10)</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Register Endpoint</div>
+          <div class="step-detail">POST /api/webhooks — register URL + events to subscribe. HMAC secret generated per endpoint.</div>
+          <div class="tags"><span class="tag a">POST /webhooks</span><span class="tag g">HMAC secret</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Event Fired</div>
+          <div class="step-detail">dispatchWebhookEvent() called on lead/deal mutations. Payload signed with endpoint secret.</div>
+          <div class="tags"><span class="tag c">lead_created</span><span class="tag g">deal_won</span><span class="tag c">activity_created</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Delivery</div>
+          <div class="step-detail">POST to registered URL with signed payload. Recipient verifies HMAC signature to authenticate.</div>
+          <div class="tags"><span class="tag g">HMAC signed</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="flow" id="admin">
+  <div class="flow-header">
+    <div class="flow-icon">⚙️</div>
+    <div>
+      <div class="flow-title">Platform Admin (Superadmin)</div>
+      <div class="flow-desc">Superadmin-only. Full platform oversight via /admin/*</div>
+    </div>
+  </div>
+  <div class="flow-body">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Company Management</div>
+          <div class="step-detail">GET/PATCH /admin/companies — list all companies, view detail, activate/deactivate.</div>
+          <div class="tags"><span class="tag a">GET /admin/companies</span><span class="tag r">superadmin only</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Billing Oversight</div>
+          <div class="step-detail">GET /admin/billing — all billing accounts, subscription status, plan distribution.</div>
+          <div class="tags"><span class="tag a">GET /admin/billing</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">User Management</div>
+          <div class="step-detail">GET /admin/users — list all platform users. Filter by role and company.</div>
+          <div class="tags"><span class="tag a">GET /admin/users</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">API Keys &amp; Webhooks</div>
+          <div class="step-detail">Admin can view/revoke API keys and webhook subscriptions for any company.</div>
+          <div class="tags"><span class="tag a">GET /api-keys</span><span class="tag a">GET /webhooks</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer>Generated from source — Flowraze &nbsp;·&nbsp; 2026-05-13</footer>
+
+</body>
+</html>
