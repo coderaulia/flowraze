@@ -19,7 +19,7 @@ Errors follow:
 - Roles: `superadmin`, `admin`, `manager`, `employee`.
 - Superadmin routes live under `/api/admin/*` and manage platform/company metadata.
 - Company routes use the authenticated user's `companyId`; clients must not send `companyId` to choose another tenant.
-- Known hardening gap: some operational detail/export/reporting queries still need stricter company/team/owner scoping. See [missing-features.md](missing-features.md).
+- Critical tenant and role scoping is implemented for CRM reads, detail/update/delete paths, dashboards, team performance, exports, and search. Remaining edge-case hardening is tracked in [code-audit.md](code-audit.md).
 
 ## Authentication
 
@@ -104,7 +104,19 @@ Filter params: `search`, `status`, `source`, `ownerId`, `campaignId`, `createdFr
 | PUT | `/api/deals/:id` | Company member | Update deal or move stage |
 | DELETE | `/api/deals/:id` | Company member | Delete deal |
 
-Filter params: `search`, `stage`, `status`, `ownerId`, `leadId`, `minValue`, `maxValue`, `createdFrom`, `createdTo`, `expectedCloseFrom`, `expectedCloseTo`, `page`, `limit`.
+Filter params: `search`, `pipelineStageId`, `status`, `ownerId`, `leadId`, `minValue`, `maxValue`, `createdFrom`, `createdTo`, `expectedCloseFrom`, `expectedCloseTo`, `page`, `limit`.
+
+## Pipelines
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/pipelines` | Company member | List company pipelines and stages |
+| POST | `/api/pipelines` | Admin | Create pipeline within plan limits |
+| PUT | `/api/pipelines/:id` | Admin | Rename pipeline |
+| DELETE | `/api/pipelines/:id` | Admin | Delete non-default empty pipeline |
+| POST | `/api/pipelines/:id/stages` | Admin | Create pipeline stage |
+| PUT | `/api/pipelines/:id/stages/:stageId` | Admin | Update stage name/order/color/won/lost flags |
+| DELETE | `/api/pipelines/:id/stages/:stageId` | Admin | Delete unused stage |
 
 ## Campaigns
 
@@ -165,7 +177,7 @@ Target filters: `scope`, `period`, `year`, `quarter`, `month`, `teamId`, `userId
 | Method | Endpoint | Auth | Description |
 | --- | --- | --- | --- |
 | GET | `/api/exports/:entity.csv` | User | CSV export |
-| GET | `/api/exports/:entity.pdf` | User | Lightweight PDF export |
+| GET | `/api/exports/:entity.pdf` | User | Branded multi-page PDF export |
 | GET | `/api/exports/:entity?format=csv|pdf` | User | Alternate export format selector |
 
 Supported entities: `leads`, `deals`, `campaigns`, `activities`, `team-performance`.
@@ -176,6 +188,24 @@ Supported entities: `leads`, `deals`, `campaigns`, `activities`, `team-performan
 | --- | --- | --- | --- |
 | GET | `/api/billing` | Admin | Own company billing account |
 | PUT | `/api/billing` | Admin | Update own company workspace/billing fields |
+
+## Checkout And Subscription
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/checkout/config` | User | Midtrans client configuration |
+| GET | `/api/checkout/plans` | User | Available checkout plans/prices |
+| POST | `/api/checkout/create` | Admin | Create Midtrans Snap checkout session |
+| POST | `/api/checkout/webhook` | Public signed webhook | Process Midtrans payment notification |
+| GET | `/api/checkout/status/:orderId` | Admin | Check payment status |
+| GET | `/api/checkout/history` | Admin | Payment history |
+| GET | `/api/subscription` | Admin | Current subscription details |
+| POST | `/api/subscription/cancel` | Admin | Cancel subscription immediately or at period end |
+| POST | `/api/subscription/reactivate` | Admin | Reactivate scheduled cancellation |
+| POST | `/api/subscription/downgrade` | Admin | Schedule downgrade |
+| GET | `/api/subscription/invoices` | Admin | List invoices |
+| GET | `/api/subscription/payments` | Admin | List payments |
+| PUT | `/api/subscription/seats` | Admin | Update seat count |
 
 ## API Keys
 
@@ -197,6 +227,27 @@ Supported entities: `leads`, `deals`, `campaigns`, `activities`, `team-performan
 | DELETE | `/api/webhooks/:id` | Admin | Delete webhook |
 
 Webhook events currently dispatched: `lead_created`, `deal_created`, `deal_won`, `activity_created`.
+
+## Automations
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/automations` | Admin | List automation rules with recent runs |
+| POST | `/api/automations` | Admin | Create automation rule |
+| PUT | `/api/automations/:id` | Admin | Update/pause rule |
+| POST | `/api/automations/:id/run` | Admin | Queue manual run |
+| GET | `/api/automations/:id/runs` | Admin | List run history |
+| DELETE | `/api/automations/:id` | Admin | Delete rule |
+
+Triggers include manual, lead, deal, and activity events. Actions include activity creation, lead status updates, owner assignment, notifications, and webhook calls.
+
+## Support
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/support` | Company member | List own tickets; admins see company tickets |
+| POST | `/api/support` | Company member | Submit support or bug ticket |
+| PUT | `/api/support/:id` | Admin | Triage, assign, or resolve ticket |
 
 ## Pagination
 

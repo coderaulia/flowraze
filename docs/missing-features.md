@@ -1,47 +1,43 @@
 # FlowRaze Missing Features And Roadmap
 
-Last updated: 2026-05-10
+Last updated: 2026-05-14
 
-This document tracks real gaps in the current codebase. Completed items are summarized first so new work does not repeat shipped features.
+This document tracks active product gaps only. Completed historical items belong in `docs/implementation-plan.md`, `docs/code-audit.md`, or commit history.
 
 ## Current Product Coverage
 
-- **Authentication and account recovery:** Login/register, JWT sessions, email verification, password reset, invite acceptance, and SMTP-backed email delivery are implemented. A new `/auth/me` endpoint and frontend session sync ensure user data and entitlements persist across page reloads.
-- **Multi-company foundation:** Companies, company-scoped users, billing accounts, CRM records, teams, targets, API keys, and webhooks are modeled in Prisma and seeded for demo use.
-- **Role model:** `superadmin`, `admin`, `manager`, and `employee` roles are available in the database, API validation, frontend auth store, and route guards.
-- **Platform admin:** Superadmins can manage companies, platform users, company users, billing state, invoices/payments, password reset tokens, and superadmin invites from `/admin/*`.
-- **Company CRM:** Leads, deals, campaigns, activities, dashboard analytics, team performance, global search, settings, and company users have API and UI coverage.
-- **Tenant and role isolation:** Shared backend scope helpers enforce `companyId`, manager team, and employee owner visibility across core CRM reads, detail/update/delete paths, global search, dashboards, team performance, and exports.
-- **Campaign permissions:** Campaign writes are limited to admins and managers, with owner and sales-owner assignments validated inside the company.
-- **Route-level isolation tests:** Critical manager, employee, export, team-performance, lead-detail, and campaign write permission paths are covered with Express route tests.
-- **Seat enforcement:** Company user create and invite flows block new active users once the billing seat allowance is reached.
-- **Plan entitlements:** Backend plan capabilities now gate API keys, API-key authentication, webhooks, exports, campaigns, targets, and team performance.
-- **Feature-aware UI:** Frontend navigation, exports, and settings components dynamically adapt to plan entitlements. A `FeatureRoute` guard enforces plan-based access control at the router level.
-- **Billing lifecycle:** Billing accounts store trial/subscription dates, new workspaces get 14-day trial windows, paid marking sets subscription dates, and expired trials are canceled by entitlement checks.
-- **Pricing truth:** Public pricing now reflects shipped capabilities and labels native mobile, custom pipelines, forecasting, SSO, compliance programs, and provider payments as roadmap/planning items.
-- **Lead import:** Leads can be imported from CSV/XLSX-derived rows, with lowercased email duplicate checks inside the company scope.
-- **Deal pipeline:** Deals support CRUD, stage movement, closed-won timestamps, Kanban totals, edit/delete actions, and automatic project campaign creation when a deal is created.
-- **Sales targets and teams:** `/api/targets`, `/api/targets/teams`, `/api/dashboard/targets`, and the `/company/targets` page support target CRUD, sales team CRUD, member assignment, achievement KPIs, category mix, monthly breakdowns, and leaderboards.
-- **Exports:** Leads, deals, campaigns, activities, and team performance export to CSV and lightweight PDF.
-- **Webhooks:** Lead/deal/activity events create signed deliveries, retry failed deliveries with backoff, and support manual replay from Settings.
-- **Billing state:** Workspace name, plan, status, seats, renewal date, invoices, manual payment checks, and paid payment marking are persisted.
-- **Quality tooling:** Root/workspace build, lint, typecheck, and test scripts exist. Current automated coverage is utility-focused.
+- **Authentication and account recovery:** Login/register, JWT sessions, email verification, invite acceptance, password reset, `/auth/me`, SMTP delivery, and development email fallback are implemented.
+- **Multi-company SaaS foundation:** Companies, company users, billing accounts, CRM records, pipelines, teams, targets, API keys, webhooks, automations, notifications, and support tickets are tenant-scoped in Prisma.
+- **Role model:** `superadmin`, `admin`, `manager`, and `employee` exist across Prisma, API validation, frontend auth state, and route guards.
+- **Platform admin:** Superadmins manage companies, platform/company users, billing state, payment checks, reset tokens, and superadmin invites from `/admin/*`.
+- **Company CRM:** Leads, CSV/XLSX-derived lead import, deals, pipelines, campaigns, activities, dashboard analytics, global search, settings, users, teams, targets, exports, automations, and support tickets have API and UI coverage.
+- **Tenant and role isolation:** Shared data-scope helpers enforce company, manager-team, and employee-owner visibility across core CRM reads, detail/update/delete paths, dashboards, team performance, exports, and search.
+- **Billing and subscriptions:** Plan entitlements, seat limits, trials, Midtrans Snap checkout, webhook payment processing, subscription cancellation/reactivation/downgrade flows, invoices, payment history, and renewal checks are implemented.
+- **Analytics:** Funnel analytics, single-touch attribution, linear forecast, and lead velocity are implemented in `/api/analytics` and the company analytics UI.
+- **Pipeline customization:** `Pipeline` and `PipelineStage` replaced the fixed deal-stage enum. Admins can manage company pipelines/stages, and deal Kanban/analytics are pipeline-aware.
+- **Workflow automation:** Rules support manual and CRM-event triggers, retry history, and actions for activity creation, lead status updates, owner assignment, notifications, and webhook calls.
+- **Support:** Company members can submit support/bug tickets, while admins can triage, assign, and resolve tickets with SLA due dates.
+- **Exports:** Leads, deals, campaigns, activities, and team performance export to CSV and branded multi-page PDF.
 
-## Missing Or Incomplete Functionality
+## Active Missing Or Incomplete Functionality
 
 | Priority | Feature gap | Current state | Needed functionality |
 | --- | --- | --- | --- |
-| MEDIUM | Growth analytics depth | Dashboard and campaign reporting exist, but dedicated funnel analytics, attribution basics, and forecast basics are not implemented. | Add funnel endpoints/UI, single-touch campaign attribution, and a simple forecast baseline before restoring stronger Growth/Performance claims. |
-| MEDIUM | Expanded route regression coverage | Critical isolation route tests now cover manager, employee, export, campaign, API key, webhook, and trial expiry enforcement paths. | Broaden backend route tests across admin, billing, targets, and additional dashboard edge cases; add frontend smoke tests for core flows. |
-| MEDIUM | Payment provider integration | Billing supports local state, invoices, and manual payment checks only. There is no provider checkout, invoice sync, subscription webhook, or customer portal handoff. | Integrate the chosen provider, map provider customer/subscription IDs to `BillingAccount`, and sync plan/status from provider webhooks. |
-| MEDIUM | Webhook event coverage | Current event enum is `lead_created`, `deal_created`, `deal_won`, and `activity_created`. Lead/deal update/delete events are not emitted. | Decide the canonical event set, add update/delete events where useful, and expose them in the Settings webhook event picker. |
-| LOW | Rich PDF reporting | PDF export is intentionally dependency-free and basic. | Adopt a richer PDF renderer only when branded layouts, multi-page tables, charts, or report templates are required. |
-| LOW | White-label tenant layer | `Company.slug` exists, but `Tenant`, custom domain routing, tenant branding, and subdomain resolution are not implemented. | Add the white-label layer after production tenancy isolation is proven. |
-| LOW | betterauth decision | JWT auth works for the MVP. | Revisit after workspace tenancy, session policy, and production auth requirements are finalized. |
+| MEDIUM | Webhook event coverage | Webhook events are still limited to `lead_created`, `deal_created`, `deal_won`, and `activity_created`. Automations have broader trigger coverage, but customer webhooks do not. | Define the external webhook event contract and add update/delete/stage-change events where useful. |
+| MEDIUM | Billing renewal depth | Midtrans checkout/webhooks and subscription state transitions exist. Renewal checks mark past-due/canceled states, but there is no automated provider-side renewal charge or saved-payment retry flow. | Generate renewal invoices, initiate retry/payment-update flows, and reconcile provider renewal results. |
+| MEDIUM | Route and security regression depth | Critical isolation tests exist for CRM, exports, campaign permissions, API key/webhook limits, and trial expiry. | Broaden tests for admin billing/user edge cases, target team manager validation, support pagination/assignment, checkout timeouts, and security-header behavior. |
+| MEDIUM | Security and audit controls | Rate limiting and invite expiry checks exist, but sensitive operations are not recorded in an audit log and security headers are not configured. | Add an `AuditLog` model/writes for sensitive actions and add security headers middleware. |
+| MEDIUM | Advanced analytics | Funnel, single-touch attribution, linear forecast, and lead velocity are shipped. | Add multi-touch attribution, cohort analytics, predictive forecasting, and custom forecast models only if they remain in paid packaging. |
+| MEDIUM | CRM communication integrations | SMTP is used for auth/invite/reset mail only. | Add CRM email/WhatsApp inbox or messaging integrations if those claims stay on the roadmap. |
+| LOW | Custom roles and SSO | Roles are fixed and auth is email/password JWT. | Add custom permissions and SSO/SAML only after the SaaS permission model settles. |
+| LOW | White-label tenant layer | `Company.slug` exists, but custom domain routing, tenant branding, and subdomain resolution are not implemented. | Add tenant/domain/branding APIs and admin flows after production tenancy hardening. |
+| LOW | Native mobile/PWA strategy | The web app is responsive, but there is no iOS, Android, or PWA install flow. | Decide whether the product promise is responsive web, PWA, or native apps before implementation. |
+| LOW | Compliance and enterprise operations | No SOC 2/UU PDP evidence workflow, data residency setting, or enterprise compliance controls exist. | Keep compliance claims as roadmap until evidence, workflows, and operating controls are real. |
 
 ## Recently Resolved Documentation Drift
 
-- Sales target management UI and sales team management UI are implemented on `/company/targets`; they are no longer missing features.
-- Email delivery provider support is implemented through SMTP plus development fallback.
-- Webhook retry/replay is implemented.
-- API docs now use the implemented `team-performance` export entity and include target/admin/onboarding endpoints.
+- Growth analytics depth is no longer missing at the baseline level; funnel, attribution, forecast, and lead velocity are implemented.
+- Payment provider integration is no longer missing; Midtrans checkout, webhook verification, payment processing, and subscription self-service routes exist.
+- Multi-pipeline/custom deal stages are no longer missing; pipeline and stage models/routes/UI exist.
+- Workflow automation has moved beyond the foundation; assignment, notification, and webhook actions are implemented.
+- Rich PDF export is no longer a missing feature; exports now produce branded multi-page PDFs without a new runtime dependency.

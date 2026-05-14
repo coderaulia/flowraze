@@ -42,7 +42,7 @@ Managers have employee capabilities plus team responsibilities.
 
 ### CRM Work
 
-Managers can create leads, deals, and campaigns. Some backend read paths still need final team-only hardening, so production rollout should wait until the tenancy hardening items in [missing-features.md](missing-features.md) are resolved.
+Managers can create leads, deals, and campaigns. Manager views are scoped to their managed teams where team-level visibility applies.
 
 ---
 
@@ -55,7 +55,11 @@ Admins manage one company workspace.
 - **Users:** Create, invite, edit, delete, and resend invitations for company users.
 - **Settings:** Manage profile/security settings, company billing state, API keys, and webhooks.
 - **Billing:** Review and update workspace billing details.
+- **Subscription:** Upgrade through Midtrans checkout, review payments/invoices, adjust seats, cancel/reactivate, or schedule downgrades.
 - **Targets:** Create company, team, and individual targets; manage sales teams and members.
+- **Pipelines:** Manage company pipelines and custom stages from Settings.
+- **Automations:** Create CRM event rules for activity creation, lead status updates, owner assignment, notifications, and webhook calls.
+- **Support:** Review, assign, and resolve company support tickets.
 - **CRM:** Manage company leads, deals, campaigns, activities, exports, and dashboard reporting.
 
 Admins cannot access other company workspaces through company routes.
@@ -73,7 +77,7 @@ Superadmins manage the FlowRaze platform, not day-to-day company CRM operations.
 - Create and manage cross-company users.
 - Invite other superadmins.
 - Inspect and override company billing state.
-- Record manual payment checks and mark invoices paid.
+- Review payment checks, mark invoices paid, and override company billing when needed.
 
 Superadmin pages are available under `/admin/*`.
 
@@ -91,7 +95,7 @@ Superadmin pages are available under `/admin/*`.
 
 ## Exports
 
-The app can export leads, deals, campaigns, activities, and team performance as CSV or lightweight PDF. Exports accept the same filters as the corresponding list views where supported.
+The app can export leads, deals, campaigns, activities, and team performance as CSV or branded multi-page PDF. Exports accept the same filters as the corresponding list views where supported.
 
 ---
 
@@ -101,4 +105,4 @@ The app can export leads, deals, campaigns, activities, and team performance as 
 - **Invite or reset email missing:** Check SMTP configuration. In development, inspect the API console for the logged fallback email.
 - **Missing Users or Settings page:** Those pages require the Admin role.
 - **Redirected to onboarding:** Your user has no company yet; finish workspace setup.
-- **Data visibility looks too broad for manager/employee roles:** This is a known hardening item tracked in [missing-features.md](missing-features.md).
+- **Payment status does not update:** Confirm the Midtrans webhook is configured and check the checkout status from the billing/subscription pages.

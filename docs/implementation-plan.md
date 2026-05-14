@@ -1,10 +1,10 @@
 # Implementation Plan Status: Multi-Tenant SaaS Role Rework
 
-**Last updated:** 2026-05-11
+**Last updated:** 2026-05-14
 
 **Scope:** Role system, company tenancy, pricing/package promises, platform admin, billing foundation, white-label prep
 
-**Current status:** Implemented; company data isolation, role-based access, plan entitlements, subscription lifecycle (renewal, cancellation, self-service portal), and workflow automation foundations are enforced. Multi-pipeline customization and white-labeling are the remaining platform gaps.
+**Current status:** Implemented; company data isolation, role-based access, plan entitlements, Midtrans checkout, subscription lifecycle, multi-pipeline customization, baseline analytics, and workflow automation are enforced. White-labeling, compliance/enterprise controls, and deeper advanced analytics remain future platform gaps.
 
 This document is now the source-of-truth status check for the multi-tenant rework. It compares the original plan with the current codebase and separates shipped work from remaining gaps.
 
@@ -14,12 +14,12 @@ This document is now the source-of-truth status check for the multi-tenant rewor
 
 | Outcome | Current status | Notes |
 | --- | --- | --- |
-| Company-owned data isolation | Mostly done | Shared backend scope helpers now cover CRM reads, detail/update/delete paths, search, dashboard metrics, team performance, and exports. Route tests still need to lock this down. |
+| Company-owned data isolation | Done | Shared backend scope helpers cover CRM reads, detail/update/delete paths, search, dashboard metrics, team performance, and exports. Route tests cover the critical paths and can continue expanding around edge cases. |
 | Four-role model | Done | `superadmin`, `admin`, `manager`, and `employee` are in Prisma, API validation, frontend types, and seeded users. |
-| Superadmin platform control | Mostly done | `/api/admin/*` and `/admin/*` pages cover companies, users, billing, payments, and superadmin invites. |
-| Admin company control | Mostly done | Company users, settings, billing, API keys, webhooks, CRM data, teams, and targets are exposed. |
-| Manager team control | Mostly done | Managers can manage assigned teams and see team-scoped operational data. Route tests remain the next hardening step. |
-| Employee self-service | Mostly done | Employees can use company app routes and operational reads are owner-scoped. Route tests remain the next hardening step. |
+| Superadmin platform control | Done | `/api/admin/*` and `/admin/*` pages cover companies, users, billing, payments, and superadmin invites. Remaining hardening is audit logging and seat-limit semantics for platform-created company users. |
+| Admin company control | Done | Company users, settings, billing, subscription self-service, API keys, webhooks, CRM data, pipelines, teams, targets, automations, and support are exposed. |
+| Manager team control | Done | Managers can manage assigned teams and see team-scoped operational data. More edge-case tests can be added incrementally. |
+| Employee self-service | Done | Employees can use company app routes and operational reads are owner-scoped. More edge-case tests can be added incrementally. |
 | White-label readiness | Planned | `Company.slug` exists; `Tenant`, custom domains, and tenant branding APIs are not implemented. |
 
 ---
@@ -40,7 +40,7 @@ This document is now the source-of-truth status check for the multi-tenant rewor
 | Create leads/deals | No | Yes | Yes | Yes |
 | View operational data | Platform metadata only | Company | Team | Own |
 
-The code already supports much of the role surface, but the final row is the key remaining hardening item: operational reads and exports must consistently enforce company, team, and owner scope.
+The code now supports the role surface and consistently scopes operational reads and exports through company, team, and owner visibility helpers. Remaining hardening is focused on edge-case tests and audit/security controls rather than the core role contract.
 
 ---
 
@@ -97,9 +97,11 @@ Implemented under `/api/admin`:
 - Company user create and invite flows enforce active user counts against the workspace billing seat allowance.
 - A centralized plan entitlement module gates API keys, API-key authentication, webhooks, exports, campaigns, targets, and team performance according to the current pricing tiers.
 - Billing accounts now store trial/subscription lifecycle dates, new workspaces receive 14-day trial windows, paid marking sets subscription dates, and expired trials are canceled during entitlement checks.
-- Pricing copy now describes shipped capabilities and labels unsupported areas such as native apps, custom pipelines, forecasting, SSO, SOC2, and provider payments as roadmap/planning rather than current features.
+- Pricing copy now describes shipped capabilities and labels unsupported areas such as native apps, predictive/custom forecasting, SSO, SOC2, and enterprise controls as roadmap/planning rather than current features.
 - Webhook deliveries persist, sign payloads, retry with backoff, and support manual replay.
 - SMTP-backed verification, invite, and password reset email delivery exists with a development logging fallback.
+- Midtrans Snap checkout, payment webhooks, subscription cancellation/reactivation/downgrade flows, payment history, and renewal checks are implemented.
+- Multi-pipeline and custom-stage support is implemented through `Pipeline` and `PipelineStage` models, `/api/pipelines`, and pipeline-aware deal/analytics surfaces.
 
 ### Frontend
 
@@ -111,7 +113,7 @@ Implemented under `/api/admin`:
 - Company app routes live under `/company/*`, with legacy redirects from `/dashboard`, `/leads`, `/deals`, and related paths.
 - Admin-only company routes protect `/company/users` and `/company/settings`.
 - Targets page includes create/edit/delete target flows plus sales team create/edit/delete and membership management.
-- Automations page lets admins create trigger/action rules, run them manually against a lead, pause/resume rules, and inspect recent retry history.
+- Automations page lets admins create trigger/action rules, run them manually, pause/resume rules, and inspect recent retry history. Current actions include activity creation, lead status updates, owner assignment, notifications, and webhook calls.
 - Support page lets company members submit bug reports and help requests, while admins can triage, assign, and resolve tickets with SLA due dates.
 
 ---
@@ -121,13 +123,11 @@ Implemented under `/api/admin`:
 | Priority | Gap | Evidence | Needed work |
 | --- | --- | --- | --- |
 | Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
-| Medium | Payment provider integration | Billing supports local account state, invoices, manual payment checks, and Midtrans Snap checkout integration (session creation, webhook verification, payment processing). Subscription renewal automation, cancellation/downgrade flows, reactivation, and customer self-service portal are implemented. | Remaining: automated invoice generation on renewal, payment retry with updated payment methods. |
-| Medium | Workflow action coverage | Automation rules, manual triggers, job retries, and admin UI exist for creating activities and updating lead status on CRM events. | Add more triggers/actions after the event contract stabilizes, such as notifications, owner assignment, and webhook fan-out actions. |
-| Low | Rich PDF reporting | Done | PDF exports now render branded multi-page reports with summary cards, grouped distribution bars, formatted dates/currency, and paginated tables without adding a new runtime dependency. |
+| Medium | Billing renewal depth | Midtrans checkout/webhooks and subscription state transitions exist. Renewal checks mark past-due/canceled states, but there is no automated provider-side renewal charge or saved-payment retry flow. | Generate renewal invoices, initiate retry/payment-update flows, and reconcile provider renewal results. |
+| Medium | Security and audit controls | Rate limiting, invite expiry checks, support assignee checks, campaign owner checks, and automation config validation exist. Audit logging, security headers, provider timeouts, and shared email/URL validators remain open. | Work through `docs/code-audit.md` in priority order. |
+| Medium | Advanced analytics depth | Funnel, single-touch attribution, linear forecast, and lead velocity are implemented. | Add multi-touch attribution, cohort analytics, predictive forecasting, and custom forecast models only if they remain in paid packaging. |
 | Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
 | Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
-
-**Last updated:** 2026-05-13 — Multi-pipeline and custom stage support shipped (P2). `DealStage` enum replaced with `Pipeline` + `PipelineStage` models. Each company gets a default "Sales Pipeline" with 6 migrated stages. Deals carry `pipelineStageId`, `isWon`, `isLost` (denormalized). `/api/pipelines` CRUD for admins. Kanban and analytics are now pipeline-aware. Entitlement gates: 1 pipeline on free/growth, unlimited on pro/custom.
 
 ---
 
@@ -139,9 +139,9 @@ The public pricing page is the current packaging promise. This table maps `apps/
 | --- | --- | --- | --- | --- |
 | Up to 3 users on Starter | Starter | Done | `BillingAccount.seats` defaults to 3; `ensureSeatAvailable()` in user create and invite flows enforces the limit against `getCompanyEntitlements()`. | Done |
 | Unlimited users on paid plans | Growth+ | Done | `PLAN_ENTITLEMENTS` maps growth/pro/custom to `seats: null` (unlimited); entitlement engine resolves and enforces per-plan seat allowances. | Done |
-| Lead and contact management | All | Mostly done | Leads include contact fields and CRUD/import; there is no separate contact entity. | P2 |
-| Basic deal pipeline / full sales pipeline | All/Growth | Done for fixed stages | Deal CRUD, Kanban, stage movement, and won revenue exist. | Done |
-| One board / custom stages / multi-pipeline | Starter/Growth/Performance+ | Missing | `DealStage` is a fixed enum and there is no pipeline/stage model. | P2 |
+| Lead and contact management | All | Done for lead-centric CRM | Leads include contact fields, CRUD, search, filters, owner scoping, and CSV/XLSX-derived import. There is no separate contact entity by design today. | Done |
+| Basic deal pipeline / full sales pipeline | All/Growth | Done | Deal CRUD, Kanban, stage movement, pipeline stages, and won revenue exist. | Done |
+| One board / custom stages / multi-pipeline | Starter/Growth/Performance+ | Done | `Pipeline` and `PipelineStage` support default and custom pipelines/stages with plan limits. | Done |
 | Mobile apps | All | Missing | No iOS, Android, React Native, PWA install flow, or mobile app project exists. | P4 |
 | Revenue dashboard | Starter+ | Done | Dashboard supports revenue, conversion, leads, campaign overview, range filters, and linear forecast. | Done |
 | Forecasting: linear / predictive ML / custom models | Growth+ | Partial | Linear regression forecast exists (`/analytics/forecast` + UI panel); predictive ML and custom models are not implemented. | P3 |
@@ -150,7 +150,7 @@ The public pricing page is the current packaging promise. This table maps `apps/
 | Conversion funnel tracking | Growth+ | Done | Dedicated funnel analytics endpoint (`/analytics/funnel`) and UI panel with stage-to-stage conversion rates and drop-off. | Done |
 | Advanced analytics and cohorts | Performance+ | Missing | No cohort model, endpoint, or UI exists. | P3 |
 | WhatsApp + email integrations | Growth+ | Missing for CRM | SMTP is used for auth/invite/reset only; no Gmail/WhatsApp inbox, sync, messaging, or provider integration exists. | P3 |
-| Workflow automation / manual triggers / workflow engine | Growth+ | Partial | `AutomationRule` and `AutomationRun` support tenant-scoped triggers, retryable job runs, manual admin runs, and actions for creating activities or updating lead status. | P2 |
+| Workflow automation / manual triggers / workflow engine | Growth+ | Mostly done | `AutomationRule` and `AutomationRun` support tenant-scoped triggers, retryable job runs, manual admin runs, and actions for activities, lead status updates, owner assignment, notifications, and webhook calls. Remaining depth is more triggers, conditions, templates, and observability. | P2 |
 | API access | Performance+ | Done | API key CRUD, `X-API-Key` auth, and plan-based gating exist. `authenticate()` checks `entitlements.features.apiKeys`; `assertApiKeyLimit()` enforces per-plan key count. | Done |
 | Webhooks limited/unlimited | Growth+ | Done | Webhook CRUD, delivery signing, retry, replay, and plan-based limits exist. `assertWebhookLimit()` enforces per-plan webhook count (growth=3, pro=unlimited). | Done |
 | Custom roles and permissions | Performance+ | Missing | Roles are fixed enum values: `superadmin`, `admin`, `manager`, `employee`. | P3 |
@@ -180,21 +180,21 @@ Priority legend:
 | 2 | JWT and auth middleware update | Done | JWT/API key auth now attaches role and company context. |
 | 3 | User routes rework | Done | Company admin scoping and billing seat enforcement exist. Superadmin support remains in `/api/users` plus richer `/api/admin/users`. |
 | 4 | Superadmin admin routes | Done | More complete than the original plan, including payment and superadmin invite helpers. |
-| 5 | Company data routes rework | Mostly done | Shared data-scope helpers and critical route-level isolation tests now harden company, manager team, and employee owner visibility. Broader edge-case tests can continue incrementally. |
-| 6 | Frontend rework | Mostly done | Admin and company route families exist; target/team management UI is implemented. Remaining work is mostly permission polish and tests. |
+| 5 | Company data routes rework | Done | Shared data-scope helpers and critical route-level isolation tests now harden company, manager team, and employee owner visibility. Broader edge-case tests can continue incrementally. |
+| 6 | Frontend rework | Done | Admin and company route families exist; target/team management, pipeline settings, analytics, automations, support, checkout, and subscription UI are implemented. Remaining work is mostly polish and tests. |
 | 7 | White-label preparation | Planned | Do not implement until tenancy hardening is complete. |
 | 8 | Pricing entitlement alignment | Done | Map public pricing features to plan gates, limits, and honest in-app behavior. |
-| 9 | Advanced paid-plan features | In progress | Funnel analytics, single-touch attribution, linear forecast, lead velocity, and workflow automation foundations are shipped. Remaining: multi-touch attribution, cohorts, custom roles, SSO, integrations, and deeper automation actions. |
+| 9 | Advanced paid-plan features | In progress | Funnel analytics, single-touch attribution, linear forecast, lead velocity, multi-pipeline, and workflow automation actions are shipped. Remaining: multi-touch attribution, cohorts, custom roles, SSO, communication integrations, and enterprise controls. |
 
 ---
 
 ## 7. Recommended Next Work Order
 
-1. ~~**P2: Multi-pipeline / custom stages.**~~ Done. `Pipeline` + `PipelineStage` replace the fixed `DealStage` enum. Migration creates default pipelines per company.
-2. **P2: Workflow/automation expansion.** Add richer triggers/actions after the foundation stabilizes, especially assignment, notifications, and outbound webhook actions.
-3. **P3: Performance differentiators.** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML if they remain in paid packaging.
-4. **P4: Enterprise and white-label.** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts only after P0-P2 are stable.
-5. **P4: Mobile strategy.** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
+1. **Security hardening:** Work through `docs/code-audit.md`, starting with seat-limit semantics for superadmin-created company users, sales-team manager validation, audit logs, provider timeouts, and security headers.
+2. **Billing renewal depth:** Add automated renewal invoices, payment retry/payment-method update flows, and reconciliation for provider renewal outcomes.
+3. **Advanced paid-plan differentiation:** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML only if they remain in paid packaging.
+4. **Enterprise and white-label:** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts after the security/billing gaps are stable.
+5. **Mobile strategy:** Decide whether "mobile apps" means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
 
 ---
 
@@ -218,4 +218,9 @@ Priority legend:
 - [x] Trial start/end and expiry behavior exists
 - [x] Provider billing is integrated
 - [x] Pricing copy matches implemented product capabilities
+- [x] Multi-pipeline and custom stages are implemented
+- [x] Baseline analytics are implemented
+- [x] Workflow automation supports assignment, notification, and webhook actions
+- [ ] Security audit queue is closed
+- [ ] Billing renewal retries and provider renewal reconciliation are implemented
 - [ ] White-label tenant routing is designed and implemented

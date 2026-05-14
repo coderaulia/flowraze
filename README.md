@@ -5,16 +5,17 @@ FlowRaze is a multi-tenant CRM and operations analytics platform for growing sal
 ## Features
 
 - **Lead Management** — Track leads through their full lifecycle with status, source, and assignment.
-- **Deal Pipeline** — Visual Kanban board for moving deals through stages from prospect to close.
+- **Deal Pipeline** — Custom pipelines and stages with a visual Kanban board for moving deals from prospect to close.
 - **Campaign Tracking** — Monitor marketing campaigns and the leads they generate.
 - **Activity Logging** — Log calls, notes, and follow-ups against leads with a full audit trail.
-- **Dashboard & Analytics** — Real-time metrics for revenue, conversion rates, and pipeline health.
+- **Dashboard & Analytics** — Revenue dashboards, funnel analytics, attribution, lead velocity, and forecast baselines.
 - **Team Performance** — Per-member reporting on leads assigned, deals won, and revenue closed.
 - **Sales Targets** — Company, team, and individual target tracking with achievement dashboards.
-- **Platform Admin** — Superadmin tools for companies, users, billing, invoices, and manual payment checks.
+- **Platform Admin** — Superadmin tools for companies, users, billing, invoices, and payment checks.
 - **Global Search** — Search across leads, deals, campaigns, and activities from anywhere.
 - **Data Export** — Download filtered datasets as CSV or PDF reports.
-- **API & Webhooks** — API key authentication and outbound webhook delivery for external integrations.
+- **API & Webhooks** — API key authentication, outbound webhooks, and automation webhook actions for external integrations.
+- **Billing & Subscription** — Midtrans checkout, payment webhooks, invoices, subscription self-service, and plan entitlements.
 - **Settings & Security** — Email verification, password reset, invites, billing management, and role-based access control.
 
 ## Tech Stack
@@ -88,7 +89,7 @@ All seeded demo users use `admin123`.
 
 ## Current Caveats
 
-The multi-company foundation is implemented, but production multi-tenant rollout still needs route-level hardening for several detail/export/reporting paths and manager/employee read scopes. Track that work in [docs/missing-features.md](docs/missing-features.md).
+Core multi-company scoping, billing, pipelines, analytics, automations, and support intake are implemented. Remaining work is focused on security hardening, billing renewal depth, advanced analytics, and enterprise/white-label features. Track the active queues in [docs/code-audit.md](docs/code-audit.md) and [docs/missing-features.md](docs/missing-features.md).
 
 ## License
 

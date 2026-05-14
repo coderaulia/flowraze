@@ -48,6 +48,12 @@ SMTP_PORT=587
 SMTP_USER="smtp_user"
 SMTP_PASS="smtp_password"
 SMTP_FROM="noreply@yourdomain.com"
+
+# Required for paid self-service checkout
+MIDTRANS_SERVER_KEY="your_midtrans_server_key"
+MIDTRANS_CLIENT_KEY="your_midtrans_client_key"
+MIDTRANS_MERCHANT_ID="your_midtrans_merchant_id"
+MIDTRANS_PRODUCTION="true"
 ```
 
 **Frontend — `apps/web/.env`:**
@@ -141,4 +147,4 @@ pm2 status flowraze-api
 pm2 logs flowraze-api --lines 100
 ```
 
-Then verify login, company onboarding, admin billing, invite email delivery, and a CSV export from the browser.
+Then verify login, company onboarding, admin billing, Midtrans checkout/config, invite email delivery, and CSV/PDF exports from the browser.

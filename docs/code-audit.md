@@ -1,235 +1,110 @@
 # FlowRaze Security Audit
 
-**Date:** 2026-05-13  
-**Scope:** Full codebase — `apps/api`, `apps/web`, `prisma/schema.prisma`, `shared/types`
+**Last updated:** 2026-05-14
 
----
+**Scope:** `apps/api`, `apps/web`, `prisma/schema.prisma`, `shared/types`
 
-## Critical Issues
+This audit has been reconciled against the current codebase. Resolved false positives and completed fixes were removed from the open checklist so this file stays useful as an active security queue.
 
-### 1. ~~No Rate Limiting on Auth Endpoints~~ ✅ FIXED
-**File:** `apps/api/src/routes/auth.ts`  
-Added `express-rate-limit` (5 attempts / 15 min) to `POST /login`, `POST /password-reset/request`, `POST /password-reset/confirm`.
+## Current Status Snapshot
 
----
+- Auth rate limiting exists on login and password-reset endpoints.
+- `/api/checkout/plans` is authenticated.
+- `/api/users/lookup` exists and is tenant-scoped.
+- `/api/analytics/{funnel,attribution,forecast,lead-velocity}` exists and is authenticated/company-scoped.
+- Invite acceptance checks `inviteExpiresAt > now`.
+- Campaign create/update validates `ownerId` and `salesOwnerId` inside the company.
+- Automation create and update both validate `actionConfig`.
+- Support ticket assignment verifies the assignee is an active admin or manager in the same company.
+- `/api/dashboard/targets` applies role-aware scope checks for manager/team and employee/individual access.
 
-### 2. ~~No CSRF Protection~~ ✅ FALSE POSITIVE
-API uses Bearer token auth (`Authorization: Bearer <jwt>`), not cookies. Browsers don't automatically send Authorization headers, so CSRF does not apply. No fix needed.
+## High Priority Findings
 
----
+### 1. Superadmin Company-User Creation Can Bypass Seat Limits
 
-### 3. ~~Missing Analytics Endpoints~~ ✅ FALSE POSITIVE
-`apps/api/src/routes/analytics.ts` exists and is registered in `app.ts`. All four endpoints (`/funnel`, `/attribution`, `/forecast`, `/lead-velocity`) are implemented and protected.
+**File:** `apps/api/src/routes/admin.ts`
 
----
+**Evidence:** `POST /api/admin/users` creates a company user directly after checking the company and duplicate email. Unlike company-admin create/invite flows in `apps/api/src/routes/users.ts`, it does not call `ensureSeatAvailable()` or the entitlement engine.
 
-### 4. ~~Missing `/users/lookup` Endpoint~~ ✅ FALSE POSITIVE
-`GET /users/lookup` exists at `apps/api/src/routes/users.ts:162`, scoped to `req.companyId`.
+**Fix:** Enforce company seat limits when superadmins create or move users into a company, or require an explicit platform override path that is audited.
 
----
+### 2. Sales Team Manager IDs Are Not Validated On Team Create/Update
 
-### 5. ~~JWT Expiry Too Long~~ ✅ FIXED
-**File:** `apps/api/src/routes/auth.ts`  
-Changed from `'7d'` → `'24h'` on all three token-signing calls (login, register, accept-invite).
+**File:** `apps/api/src/routes/targets.ts`
 
----
+**Evidence:** `POST /targets/teams` and `PUT /targets/teams/:id` accept `managerId` strings and save them without first confirming the user exists, belongs to `req.companyId`, is active, and is allowed to manage a team.
 
-### 6. ~~Unprotected `/checkout/plans`~~ ✅ FIXED
-**File:** `apps/api/src/routes/checkout.ts:33`  
-Added `authenticate` middleware to `GET /checkout/plans`.
+**Fix:** Add a shared `assertTeamManagerInCompany()` check before create/update and add route tests for cross-company and inactive-manager rejection.
 
----
+### 3. No Audit Logging For Sensitive Operations
 
-### 7. ~~Authorization Missing on Billing Update~~ ✅ FALSE POSITIVE
-`PUT /billing/` calls `getBillingAccount(req.companyId!)` which fetches the record by `companyId` first, then updates by that record's `id`. Company isolation is already enforced.
+No persisted audit trail exists for user role/company changes, billing overrides, API-key creation/revocation, webhook changes, support assignment/resolution, or superadmin actions.
 
----
+**Fix:** Add an `AuditLog` model and write structured entries from sensitive admin/company routes.
 
-## High Priority Issues
+### 4. External Payment Calls Lack Request Timeouts
 
-### 8. Privilege Escalation — Seat Limit Bypass via Superadmin
-**File:** `apps/api/src/routes/users.ts:242`  
-`ensureSeatAvailable()` is skipped for superadmins. A superadmin can create unlimited users, bypassing plan seat limits.
+**File:** `apps/api/src/utils/payment-provider.ts`
 
-**Fix:** Enforce seat limits for all user creation regardless of role. Add a separate quota exemption flag if needed.
+**Evidence:** Midtrans Snap creation and transaction status fetches call `fetch()` without an abort signal. Network hangs can hold API requests open indefinitely.
 
----
+**Fix:** Wrap provider fetches with `AbortController`/`AbortSignal.timeout()` and return a clear provider-timeout error.
 
-### 9. `managerId` Not Validated in Team Creation
-**File:** `apps/api/src/routes/targets.ts:53-76`  
-`POST /targets/teams` accepts `managerId` as a string but does not verify the user exists or belongs to `req.companyId`. An attacker can assign any user ID as manager.
+## Medium Priority Findings
 
-**Fix:** Add `prisma.user.findFirstOrThrow({ where: { id: managerId, companyId: req.companyId } })` before team creation.
+### 5. Security Headers Are Not Configured
 
----
+**File:** `apps/api/src/app.ts`
 
-### 10. `actionConfig` Accepts Arbitrary JSON in Automations
-**File:** `apps/api/src/routes/automations.ts:114`  
-Update operations store unvalidated JSON in `actionConfig`. Only creation validates the config schema.
+**Evidence:** The Express app configures CORS and JSON parsing, but no `helmet` or equivalent security-header middleware.
 
-**Fix:** Apply `validateActionConfig()` on both create and update paths.
+**Fix:** Add security headers middleware and test at least the common response headers.
 
----
+### 6. Backend Email And URL Validation Is Incomplete
 
-### 11. Support Ticket Assignee Not Verified as Company Member
-**File:** `apps/api/src/routes/support.ts:162-169`  
-`assertAssignableUserInCompany()` may not await correctly in all branches and doesn't verify the assignee's role matches company membership before assignment.
+**Files:** `apps/api/src/routes/admin.ts`, `apps/api/src/routes/auth.ts`, `apps/api/src/routes/leads.ts`, `apps/api/src/routes/support.ts`
 
-**Fix:** Ensure the function is awaited on all code paths; add explicit `companyId` check.
+Backend routes still rely mostly on required string checks for emails, and support tickets accept `pageUrl` as any trimmed string.
 
----
+**Fix:** Add shared `optionalEmail`, `requiredEmail`, and `optionalUrl` request validators, then use them consistently.
 
-### 12. No Audit Logging on Sensitive Operations
-No audit trail exists for:
-- User role changes
-- Billing updates
-- API key creation/revocation
-- Webhook modifications
-- Superadmin actions
+### 7. Support Ticket List Needs Standard Pagination
 
-**Fix:** Add an `AuditLog` model to Prisma and write entries on all of the above operations.
+**File:** `apps/api/src/routes/support.ts`
 
----
+**Evidence:** `GET /support` returns at most 100 rows via hardcoded `take: 100`, unlike other list routes using `getPagination()`.
 
-### 13. Sensitive Data Exposed in Error Logs
-**File:** `apps/api/src/middleware/errorHandler.ts:20`  
-`console.error('Error:', err)` dumps full error objects which may contain PII or credentials.
+**Fix:** Use the shared pagination utilities with a max cap and return pagination metadata.
 
-**Fix:** Use structured logging (e.g., `pino`) and strip sensitive fields before logging.
+### 8. Error Logging Can Leak Sensitive Context
 
----
+**File:** `apps/api/src/middleware/errorHandler.ts`
 
-### 14. Missing Timeout on External API Calls
-**File:** `apps/api/src/routes/checkout.ts:162-168`  
-`getTransactionStatus()` has no timeout. Network hangs will block the request indefinitely.
+**Evidence:** `console.error('Error:', err)` logs full error objects.
 
-**Fix:** Add `AbortSignal.timeout(5000)` or equivalent on all external fetch calls.
+**Fix:** Replace with structured sanitized logging that strips request bodies, secrets, tokens, credentials, and provider payloads.
 
----
+## Current Public/Unauthenticated Routes
 
-## Medium Priority Issues
-
-### 15. Email Format Not Validated on Backend
-| File | Location |
-|------|----------|
-| `apps/api/src/routes/admin.ts:249` | `adminEmail` only checked as required string |
-| `apps/api/src/routes/auth.ts` | Registration email |
-| `apps/api/src/routes/leads.ts` | Lead email field |
-
-Frontend validates email but backend does not. **Fix:** Add email regex or `validator` library check server-side.
-
----
-
-### 16. Missing Pagination Enforcement
-**File:** `apps/api/src/routes/support.ts:103`  
-`take: 100` hardcoded with no client-controlled pagination. Can return large result sets.
-
-**Fix:** Use `getPagination(req.query)` consistently with a max cap (e.g., 50).
-
----
-
-### 17. Invite Token Expiry Not Checked
-**File:** `apps/api/src/routes/auth.ts` (`/accept-invite`)  
-The invite acceptance flow doesn't verify `inviteExpiresAt` is in the future.
-
-**Fix:** Add `inviteExpiresAt: { gt: new Date() }` to the Prisma `findFirst` query.
-
----
-
-### 18. Campaign Owner IDs Not Validated
-**File:** `apps/api/src/routes/campaigns.ts`  
-`ownerId` and `salesOwnerId` on campaign create/update are not verified to exist in `req.companyId`.
-
-**Fix:** Add existence checks scoped to the company before saving.
-
----
-
-### 19. Dashboard Targets Accessible to All Roles
-**File:** `apps/api/src/routes/dashboard.ts:227`  
-`GET /targets` returns team/company-wide targets without role restriction. Employees can see targets they shouldn't.
-
-**Fix:** Add `requireAdmin()` or `requireManager()` middleware, or filter results by `req.userId`.
-
----
-
-### 20. `pageUrl` in Support Tickets Not Validated
-**File:** `apps/api/src/routes/support.ts`  
-`pageUrl` field accepts any string. Should be validated as a URL.
-
-**Fix:** Add URL format validation (e.g., `new URL(pageUrl)` wrapped in try/catch).
-
----
-
-## Unprotected Routes Summary
-
-| Route | Method | Auth | Notes |
-|-------|--------|------|-------|
-| `/auth/*` | POST | No | Intentional — public registration/login |
-| `/checkout/plans` | GET | **No** | Should be authenticated |
-| `/checkout/webhook` | POST | No (sig verified) | Correct — Stripe webhook |
-| `/users/lookup` | GET | **Missing** | Endpoint doesn't exist |
-| `/admin/*` | All | Yes | Superadmin only |
-| `/support/*` | All | Yes | Auth + company member |
-| `/automations/*` | All | Yes | Admin + company member |
-| `/leads/*` | All | Yes | Auth required |
-| `/deals/*` | All | Yes | Auth required |
-| `/billing/` | PUT | Yes | **Missing companyId check** |
-
----
-
-## Missing Input Validation Summary
-
-| File | Endpoint | Issue |
-|------|----------|-------|
-| `auth.ts` | `/accept-invite` | No `inviteExpiresAt` check |
-| `campaigns.ts` | POST/PUT | `ownerId`/`salesOwnerId` not verified in company |
-| `admin.ts` | POST `/users` | No email format validation |
-| `admin.ts` | PUT `/billing/:id` | No `amount > 0` validation |
-| `support.ts` | POST | `pageUrl` not validated as URL |
-| `targets.ts` | POST `/teams` | `managerId` not verified in company |
-| `automations.ts` | PUT | `actionConfig` not schema-validated |
-
----
-
-## Security Headers
-
-**File:** `apps/api/src/app.ts`  
-No security headers configured. Add `helmet` middleware:
-
-```ts
-import helmet from 'helmet';
-app.use(helmet());
-```
-
-This sets: `X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, `X-XSS-Protection`, and a basic CSP.
-
----
+| Route | Method | Status |
+| --- | --- | --- |
+| `/api/auth/login` | POST | Public by design; rate-limited |
+| `/api/auth/register` | POST | Public by design |
+| `/api/auth/email-verification/request` | POST | Authenticated |
+| `/api/auth/verify-email` | POST | Public by design |
+| `/api/auth/password-reset/request` | POST | Public by design; rate-limited |
+| `/api/auth/password-reset/confirm` | POST | Public by design; rate-limited |
+| `/api/auth/accept-invite` | POST | Public by design; hashed expiring invite token required |
+| `/api/checkout/webhook` | POST | Public by design; Midtrans signature verified |
+| `/api/health` | GET | Public health check |
 
 ## Action Checklist
 
-### Immediate
-- [x] Rate limit `/auth/login`, `/auth/password-reset/request`, `/auth/password-reset/confirm` — **DONE**
-- [x] Analytics endpoints — already exist, false positive
-- [x] `/users/lookup` — already exists, false positive
-- [x] `PUT /billing/` companyId isolation — already enforced, false positive
-- [x] JWT expiry `7d` → `24h` — **DONE**
-- [x] `GET /checkout/plans` — added `authenticate` — **DONE**
-- [ ] Add `managerId` existence check in team creation
-- [ ] Add `helmet` middleware to `app.ts`
-
-### High
-- [ ] Reduce JWT expiry to 1h, implement refresh tokens
-- [ ] Apply `validateActionConfig()` on automation updates
-- [ ] Enforce seat limits for all users including superadmins
-- [ ] Add `inviteExpiresAt > now` check in `/accept-invite`
-- [ ] Add audit logging model and writes for sensitive operations
-- [ ] Add timeouts to all external API calls
-
-### Medium
-- [ ] Validate email format on backend (all routes)
-- [ ] Enforce pagination caps (max 50 items)
-- [ ] Add role check on `GET /dashboard/targets`
-- [ ] Validate `pageUrl` as URL in support tickets
-- [ ] Validate campaign `ownerId`/`salesOwnerId` in company
-- [ ] Fix support ticket assignee company membership check
-- [ ] Replace `console.error` with structured logger
+- [ ] Enforce seat limits or audited override semantics in superadmin company-user creation/moves.
+- [ ] Validate sales-team `managerId` on create and update.
+- [ ] Add audit logging for sensitive admin/company operations.
+- [ ] Add timeouts to Midtrans provider fetches.
+- [ ] Add security headers middleware.
+- [ ] Add shared backend email and URL validators.
+- [ ] Paginate support ticket list responses with shared pagination metadata.
+- [ ] Replace raw error logging with sanitized structured logging.

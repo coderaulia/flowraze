@@ -264,19 +264,19 @@ NODE_ENV=development
 - [x] Billing seat limits are enforced for company user creation and invites
 - [x] Centralized plan entitlements gate API access, webhooks, exports, campaigns, targets, and team performance
 - [x] Billing lifecycle fields and expired-trial enforcement are implemented
-- [x] Pricing page copy no longer advertises unsupported native apps, provider payments, forecasting, SSO, SOC2, or custom pipeline features as shipped
+- [x] Pricing page copy matches shipped plan entitlements and keeps unsupported native apps, predictive forecasting, SSO, SOC2, and enterprise controls as roadmap/planning
 - [x] Growth analytics depth: funnel analytics, single-touch attribution, linear forecast, and lead velocity
 - [x] Midtrans payment provider integration with Snap checkout, webhook verification, and payment processing
 - [x] Subscription lifecycle: renewal cron, cancellation/downgrade flows, reactivation, and customer self-service portal
-- [x] Workflow automation foundations with tenant-scoped rules, manual runs, retry history, and admin UI
+- [x] Workflow automation with tenant-scoped rules, manual runs, retry history, admin UI, assignment, notification, and webhook actions
 - [x] In-app support ticket intake with bug reports, SLA due dates, admin triage, assignment, and resolution tracking
+- [x] Multi-pipeline/custom deal stages
 
 ### Placeholder/Todo
-- [ ] Multi-pipeline/custom deal stages
-- [ ] Workflow automation expansion for richer triggers/actions
+- [ ] Workflow automation expansion for conditional branches, templates, and deeper observability
 - [ ] Live support chat, onboarding playbooks, and success-manager routing
 - [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
-- [ ] Payment provider integration for checkout/invoices/customer portal
+- [ ] Billing renewal retries and provider renewal reconciliation
 - [ ] White-label tenant/domain/branding layer
 - [ ] Future betterauth migration decision
 
@@ -286,9 +286,10 @@ NODE_ENV=development
 
 | Priority | Issue | Location |
 |----------|-------|----------|
-| HIGH | Provider billing integration needed for paid self-service | `apps/api/src/routes/billing.ts`, `apps/web/src/pages/company/settings.tsx` |
+| HIGH | Security audit queue remains open: platform-created user seat semantics, team-manager validation, audit logs, provider timeouts, security headers | `docs/code-audit.md`, `apps/api/src/routes/admin.ts`, `apps/api/src/routes/targets.ts`, `apps/api/src/utils/payment-provider.ts`, `apps/api/src/app.ts` |
+| HIGH | Billing renewal retries and provider renewal reconciliation needed after initial Midtrans checkout | `apps/api/src/utils/subscription.ts`, `apps/api/src/utils/payment-provider.ts`, `apps/api/src/routes/checkout.ts` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
-| LOW | PDF export is dependency-free and basic | `apps/api/src/utils/export.ts` |
+| LOW | Advanced PDF templates/charts remain future polish | `apps/api/src/utils/export.ts` |
 
 ---
 
