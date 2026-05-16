@@ -7,12 +7,14 @@ import { requireCompanyId } from '../utils/data-scope.js';
 import {
   optionalEnum,
   optionalNonEmptyString,
+  optionalUrl,
   requireAtLeastOneField,
   requireObjectBody,
   requireString,
   setIfPresent,
 } from '../utils/request.js';
 import { getQueryString } from '../utils/query.js';
+import { getPagination, getPaginationArgs, paginatedResponse } from '../utils/pagination.js';
 
 const router = Router();
 
@@ -79,6 +81,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     const companyId = requireCompanyId(req);
     const status = getQueryString(req.query.status);
     const type = getQueryString(req.query.type);
+    const pagination = getPagination(req.query);
     const where: Prisma.SupportTicketWhereInput = { companyId };
 
     if (!isSupportAdmin(req)) {
@@ -93,17 +96,20 @@ router.get('/', async (req: AuthRequest, res, next) => {
       where.type = type as Prisma.EnumSupportTicketTypeFilter['equals'];
     }
 
-    const tickets = await prisma.supportTicket.findMany({
-      where,
-      include: {
-        requester: { select: { id: true, name: true, email: true } },
-        assignedTo: { select: { id: true, name: true, email: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    const [tickets, total] = await Promise.all([
+      prisma.supportTicket.findMany({
+        where,
+        include: {
+          requester: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        ...getPaginationArgs(pagination),
+      }),
+      prisma.supportTicket.count({ where }),
+    ]);
 
-    res.json({ success: true, data: tickets });
+    res.json(paginatedResponse(tickets, pagination, total));
   } catch (error) {
     next(error);
   }
@@ -130,7 +136,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
         priority,
         subject,
         description,
-        pageUrl: optionalTrimmedString(body.pageUrl),
+        pageUrl: optionalUrl(body.pageUrl, 'Page URL'),
         browserInfo: optionalTrimmedString(body.browserInfo),
         slaDueAt: await getSlaDueAt(companyId, priority),
       },

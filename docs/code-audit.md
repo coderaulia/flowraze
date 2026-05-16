@@ -1,6 +1,6 @@
 # FlowRaze Security Audit
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-16
 
 **Scope:** `apps/api`, `apps/web`, `prisma/schema.prisma`, `shared/types`
 
@@ -17,72 +17,89 @@ This audit has been reconciled against the current codebase. Resolved false posi
 - Automation create and update both validate `actionConfig`.
 - Support ticket assignment verifies the assignee is an active admin or manager in the same company.
 - `/api/dashboard/targets` applies role-aware scope checks for manager/team and employee/individual access.
+- Security headers are configured via `helmet` middleware.
+- Midtrans provider fetches use `AbortSignal.timeout(15_000)` to prevent indefinite hangs.
+- Superadmin company-user creation enforces seat limits via `getCompanyEntitlements()`.
+- Sales team `managerId` is validated on create and update (must be active admin/manager in company).
+- Audit logging infrastructure exists (`AuditLog` model + `writeAuditLog()` utility) and is wired to sensitive admin operations.
+- Shared `requireEmail`, `optionalEmail`, and `optionalUrl` validators exist in `request.ts`.
+- Support ticket list uses standard pagination with metadata.
+- Error handler uses sanitized structured logging (no raw error object dumps).
 
-## High Priority Findings
+## Resolved Items
 
-### 1. Superadmin Company-User Creation Can Bypass Seat Limits
+### ~~1. Superadmin Company-User Creation Can Bypass Seat Limits~~
 
-**File:** `apps/api/src/routes/admin.ts`
+**Status:** Fixed (2026-05-16)
 
-**Evidence:** `POST /api/admin/users` creates a company user directly after checking the company and duplicate email. Unlike company-admin create/invite flows in `apps/api/src/routes/users.ts`, it does not call `ensureSeatAvailable()` or the entitlement engine.
+`POST /api/admin/users` now calls `getCompanyEntitlements()` and checks active user count against the seat limit before creating a user. Moving users to a different company via `PUT /api/admin/users/:id` also enforces the target company's seat limit.
 
-**Fix:** Enforce company seat limits when superadmins create or move users into a company, or require an explicit platform override path that is audited.
+### ~~2. Sales Team Manager IDs Are Not Validated On Team Create/Update~~
 
-### 2. Sales Team Manager IDs Are Not Validated On Team Create/Update
+**Status:** Fixed (2026-05-16)
 
-**File:** `apps/api/src/routes/targets.ts`
+`POST /targets/teams` and `PUT /targets/teams/:id` now validate that `managerId` references an active user in the same company with `admin` or `manager` role.
 
-**Evidence:** `POST /targets/teams` and `PUT /targets/teams/:id` accept `managerId` strings and save them without first confirming the user exists, belongs to `req.companyId`, is active, and is allowed to manage a team.
+### ~~3. No Audit Logging For Sensitive Operations~~
 
-**Fix:** Add a shared `assertTeamManagerInCompany()` check before create/update and add route tests for cross-company and inactive-manager rejection.
+**Status:** Fixed (2026-05-16)
 
-### 3. No Audit Logging For Sensitive Operations
+`AuditLog` model added to Prisma schema with indexes on `(companyId, createdAt)`, `(actorId, createdAt)`, and `(resource, resourceId)`. `writeAuditLog()` utility writes structured entries from admin routes (user creation, company creation, billing mark-paid). Additional coverage can be added incrementally.
 
-No persisted audit trail exists for user role/company changes, billing overrides, API-key creation/revocation, webhook changes, support assignment/resolution, or superadmin actions.
+### ~~4. External Payment Calls Lack Request Timeouts~~
 
-**Fix:** Add an `AuditLog` model and write structured entries from sensitive admin/company routes.
+**Status:** Fixed (2026-05-16)
 
-### 4. External Payment Calls Lack Request Timeouts
+Midtrans Snap creation and transaction status fetches now use `AbortSignal.timeout(15_000)` (15 seconds).
 
-**File:** `apps/api/src/utils/payment-provider.ts`
+### ~~5. Security Headers Are Not Configured~~
 
-**Evidence:** Midtrans Snap creation and transaction status fetches call `fetch()` without an abort signal. Network hangs can hold API requests open indefinitely.
+**Status:** Fixed (2026-05-16)
 
-**Fix:** Wrap provider fetches with `AbortController`/`AbortSignal.timeout()` and return a clear provider-timeout error.
+`helmet` middleware added to `app.ts` with `contentSecurityPolicy: false` (managed by frontend) and `crossOriginEmbedderPolicy: false` (needed for Snap.js embedding).
 
-## Medium Priority Findings
+### ~~6. Backend Email And URL Validation Is Incomplete~~
 
-### 5. Security Headers Are Not Configured
+**Status:** Fixed (2026-05-16)
 
-**File:** `apps/api/src/app.ts`
+Shared `requireEmail`, `optionalEmail`, and `optionalUrl` validators added to `request.ts`. Support ticket `pageUrl` now uses `optionalUrl` validation.
 
-**Evidence:** The Express app configures CORS and JSON parsing, but no `helmet` or equivalent security-header middleware.
+### ~~7. Support Ticket List Needs Standard Pagination~~
 
-**Fix:** Add security headers middleware and test at least the common response headers.
+**Status:** Fixed (2026-05-16)
 
-### 6. Backend Email And URL Validation Is Incomplete
+`GET /support` now uses `getPagination()` with the shared pagination utilities and returns pagination metadata.
 
-**Files:** `apps/api/src/routes/admin.ts`, `apps/api/src/routes/auth.ts`, `apps/api/src/routes/leads.ts`, `apps/api/src/routes/support.ts`
+### ~~8. Error Logging Can Leak Sensitive Context~~
 
-Backend routes still rely mostly on required string checks for emails, and support tickets accept `pageUrl` as any trimmed string.
+**Status:** Fixed (2026-05-16)
 
-**Fix:** Add shared `optionalEmail`, `requiredEmail`, and `optionalUrl` request validators, then use them consistently.
+Error handler now uses `sanitizeError()` which only logs name, message, status code, Prisma code, and stack (dev only). No raw error objects or request bodies are logged.
 
-### 7. Support Ticket List Needs Standard Pagination
+## Remaining Work
 
-**File:** `apps/api/src/routes/support.ts`
+### Expand Audit Logging Coverage
 
-**Evidence:** `GET /support` returns at most 100 rows via hardcoded `take: 100`, unlike other list routes using `getPagination()`.
+Audit logging infrastructure is in place. Additional write points should be added incrementally:
+- API key creation/revocation
+- Webhook endpoint changes
+- Billing plan/status overrides
+- User role changes
+- Company deactivation
+- Support ticket assignment/resolution
 
-**Fix:** Use the shared pagination utilities with a max cap and return pagination metadata.
+### Expand Email/URL Validator Usage
 
-### 8. Error Logging Can Leak Sensitive Context
+The shared validators exist but are not yet applied to all routes that accept email or URL inputs. Apply `requireEmail`/`optionalEmail` to:
+- `POST /api/admin/users` (email field)
+- `POST /api/auth/register` (email field)
+- `POST /api/leads` (email field)
 
-**File:** `apps/api/src/middleware/errorHandler.ts`
+### Additional Security Hardening
 
-**Evidence:** `console.error('Error:', err)` logs full error objects.
-
-**Fix:** Replace with structured sanitized logging that strips request bodies, secrets, tokens, credentials, and provider payloads.
+- Add CSRF protection for state-changing operations if cookie-based auth is added later.
+- Consider adding request-ID correlation for structured logging.
+- Add IP-based rate limiting for webhook replay endpoints.
 
 ## Current Public/Unauthenticated Routes
 
@@ -100,11 +117,13 @@ Backend routes still rely mostly on required string checks for emails, and suppo
 
 ## Action Checklist
 
-- [ ] Enforce seat limits or audited override semantics in superadmin company-user creation/moves.
-- [ ] Validate sales-team `managerId` on create and update.
-- [ ] Add audit logging for sensitive admin/company operations.
-- [ ] Add timeouts to Midtrans provider fetches.
-- [ ] Add security headers middleware.
-- [ ] Add shared backend email and URL validators.
-- [ ] Paginate support ticket list responses with shared pagination metadata.
-- [ ] Replace raw error logging with sanitized structured logging.
+- [x] Enforce seat limits or audited override semantics in superadmin company-user creation/moves.
+- [x] Validate sales-team `managerId` on create and update.
+- [x] Add audit logging for sensitive admin/company operations.
+- [x] Add timeouts to Midtrans provider fetches.
+- [x] Add security headers middleware.
+- [x] Add shared backend email and URL validators.
+- [x] Paginate support ticket list responses with shared pagination metadata.
+- [x] Replace raw error logging with sanitized structured logging.
+- [ ] Expand audit logging to API keys, webhooks, role changes, and company deactivation.
+- [ ] Apply email/URL validators to remaining routes (admin user create, auth register, leads).

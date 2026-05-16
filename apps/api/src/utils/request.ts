@@ -169,3 +169,56 @@ export function requiredDate(value: unknown): Date {
 
   return date;
 }
+
+// ─── Email & URL Validators ──────────────────────────────────────────────────
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const URL_REGEX = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+
+export function requireEmail(
+  source: Record<string, unknown>,
+  key: string,
+  label = key
+): string {
+  const value = requireString(source, key, label).toLowerCase();
+
+  if (!EMAIL_REGEX.test(value)) {
+    throw new AppError(400, `${label} must be a valid email address`);
+  }
+
+  return value;
+}
+
+export function optionalEmail(value: unknown, label = 'Email'): string | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    throw new AppError(400, `${label} must be a string`);
+  }
+
+  const trimmed = value.trim().toLowerCase();
+  if (!EMAIL_REGEX.test(trimmed)) {
+    throw new AppError(400, `${label} must be a valid email address`);
+  }
+
+  return trimmed;
+}
+
+export function optionalUrl(value: unknown, label = 'URL'): string | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    throw new AppError(400, `${label} must be a string`);
+  }
+
+  const trimmed = value.trim();
+  if (!URL_REGEX.test(trimmed)) {
+    throw new AppError(400, `${label} must be a valid URL`);
+  }
+
+  return trimmed;
+}

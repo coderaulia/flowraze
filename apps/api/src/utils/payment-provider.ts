@@ -137,6 +137,7 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
       'Authorization': authHeader(config.serverKey),
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
@@ -316,6 +317,7 @@ export async function getTransactionStatus(orderId: string) {
 
   const response = await fetch(url, {
     headers: { Authorization: authHeader(config.serverKey) },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {

@@ -562,3 +562,22 @@ model Notification {
   @@index([userId, isRead])
   @@index([companyId])
 }
+
+// ─── Audit Logging ──────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String?
+  actorId    String?
+  actorEmail String?
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([resource, resourceId])
+}

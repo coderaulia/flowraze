@@ -15,6 +15,8 @@ import {
 } from '../utils/request.js';
 import { getQueryString } from '../utils/query.js';
 import { createOpaqueToken, hashSecret } from '../utils/security.js';
+import { getCompanyEntitlements } from '../utils/entitlements.js';
+import { writeAuditLog } from '../utils/audit.js';
 
 const router = Router();
 
@@ -290,6 +292,13 @@ router.post('/companies', async (req: AuthRequest, res, next) => {
       });
     });
 
+    await writeAuditLog(req, {
+      action: 'create',
+      resource: 'company',
+      resourceId: company?.id,
+      details: { name, slug, adminEmail },
+    });
+
     res.status(201).json({ success: true, data: company });
   } catch (error) {
     next(error);
@@ -407,6 +416,18 @@ router.post('/users', async (req: AuthRequest, res, next) => {
     if (!company) throw new AppError(404, 'Company not found');
     if (existingUser) throw new AppError(409, 'Email already in use');
 
+    // Enforce seat limits even for superadmin-created users
+    const entitlements = await getCompanyEntitlements(companyId);
+    const seatLimit = entitlements.seats;
+    if (Number.isFinite(seatLimit)) {
+      const activeUsers = await prisma.user.count({
+        where: { companyId, isActive: true, role: { not: 'superadmin' } },
+      });
+      if (activeUsers >= seatLimit) {
+        throw new AppError(403, `Company seat limit reached (${seatLimit} seats on ${entitlements.plan} plan).`, 'SEAT_LIMIT_REACHED');
+      }
+    }
+
     const rawToken = createOpaqueToken();
     const user = await prisma.user.create({
       data: {
@@ -432,6 +453,14 @@ router.post('/users', async (req: AuthRequest, res, next) => {
         updatedAt: true,
         company: { select: { id: true, name: true, slug: true } },
       },
+    });
+
+    await writeAuditLog(req, {
+      action: 'create',
+      resource: 'user',
+      resourceId: user.id,
+      companyId,
+      details: { email, role, createdBy: 'superadmin' },
     });
 
     res.status(201).json({ success: true, data: { user: serializeUser(user), inviteToken: rawToken } });
@@ -462,6 +491,20 @@ router.put('/users/:id', async (req: AuthRequest, res, next) => {
     if (nextCompanyId) {
       const company = await prisma.company.findUnique({ where: { id: nextCompanyId } });
       if (!company) throw new AppError(404, 'Company not found');
+
+      // Enforce seat limits when moving user to a new company
+      if (nextCompanyId !== existing.companyId) {
+        const entitlements = await getCompanyEntitlements(nextCompanyId);
+        const seatLimit = entitlements.seats;
+        if (Number.isFinite(seatLimit)) {
+          const activeUsers = await prisma.user.count({
+            where: { companyId: nextCompanyId, isActive: true, role: { not: 'superadmin' } },
+          });
+          if (activeUsers >= seatLimit) {
+            throw new AppError(403, `Target company seat limit reached (${seatLimit} seats on ${entitlements.plan} plan).`, 'SEAT_LIMIT_REACHED');
+          }
+        }
+      }
     }
 
     const role = optionalEnum(COMPANY_USER_ROLES, 'Role')(body.role);
@@ -785,6 +828,14 @@ router.post('/billing/:companyId/mark-paid', async (req: AuthRequest, res, next)
         },
       }),
     ]);
+
+    await writeAuditLog(req, {
+      action: 'mark_paid',
+      resource: 'billing',
+      resourceId: account.id,
+      companyId,
+      details: { amount, reference },
+    });
 
     res.json({ success: true, data: await getBillingDetails(companyId) });
   } catch (error) {

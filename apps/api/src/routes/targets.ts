@@ -56,6 +56,21 @@ router.post('/teams', requireAdminOrManager(), async (req: AuthRequest, res, nex
     const body = req.body as Record<string, unknown>;
     const name = requireString(body, 'name');
     const managerId = requireString(body, 'managerId');
+
+    // Validate manager exists, belongs to company, is active, and has appropriate role
+    const manager = await prisma.user.findFirst({
+      where: {
+        id: managerId,
+        companyId: req.companyId!,
+        isActive: true,
+        role: { in: ['admin', 'manager'] },
+      },
+      select: { id: true },
+    });
+    if (!manager) {
+      throw new AppError(400, 'Manager must be an active admin or manager in this company');
+    }
+
     const existingTeam = await prisma.salesTeam.findFirst({
       where: { companyId: req.companyId!, name },
       select: { id: true },
@@ -88,7 +103,23 @@ router.put('/teams/:id', requireAdminOrManager(), async (req: AuthRequest, res, 
     }
     const updates: { name?: string; managerId?: string } = {};
     if (body.name !== undefined) updates.name = requireString(body, 'name');
-    if (body.managerId !== undefined) updates.managerId = requireString(body, 'managerId');
+    if (body.managerId !== undefined) {
+      const newManagerId = requireString(body, 'managerId');
+      // Validate new manager exists, belongs to company, is active, and has appropriate role
+      const manager = await prisma.user.findFirst({
+        where: {
+          id: newManagerId,
+          companyId: req.companyId!,
+          isActive: true,
+          role: { in: ['admin', 'manager'] },
+        },
+        select: { id: true },
+      });
+      if (!manager) {
+        throw new AppError(400, 'Manager must be an active admin or manager in this company');
+      }
+      updates.managerId = newManagerId;
+    }
     if (Object.keys(updates).length === 0) throw new AppError(400, 'No fields to update');
     const team = await prisma.salesTeam.update({ where: { id: req.params.id }, data: updates });
     res.json({ success: true, data: team });

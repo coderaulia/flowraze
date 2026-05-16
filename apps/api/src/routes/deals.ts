@@ -262,7 +262,7 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       data.isLost = newStage.isLost;
 
       const wasWon = existingDeal.isWon;
-      const nowWon = newStage.isWon;
+      const _nowWon = newStage.isWon;
       const nowClosed = newStage.isWon || newStage.isLost;
 
       if (nowClosed && !wasWon) {

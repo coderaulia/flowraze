@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import adminRoutes from './routes/admin.js';
 import authRoutes from './routes/auth.js';
 import leadsRoutes from './routes/leads.js';
@@ -30,6 +31,12 @@ export function createApp() {
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
     : ['http://localhost:5173', 'http://localhost:3000'];
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: false, // CSP managed by frontend
+    crossOriginEmbedderPolicy: false, // Allow embedding for Snap.js
+  }));
 
   app.use(cors({
     origin: (origin, callback) => {

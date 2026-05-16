@@ -442,7 +442,7 @@ export function AutomationsPage() {
                         <Badge variant={rule.isActive ? 'secondary' : 'warning'}>{rule.isActive ? 'Active' : 'Paused'}</Badge>
                       </div>
                       <p className="text-sm text-on-surface-variant">
-                        {rule.triggerEvent.replaceAll('_', ' ')} {'->'} {actionSummary(rule)}
+                        {rule.triggerEvent.replace(/_/g, ' ')} {'->'} {actionSummary(rule)}
                       </p>
                       <p className="text-xs text-on-surface-variant">
                         {rule.lastTriggeredAt ? `Last triggered ${formatDate(rule.lastTriggeredAt)}` : 'Not triggered yet'}
