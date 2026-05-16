@@ -109,6 +109,10 @@ router.post('/register', async (req, res, next) => {
     const password = requireStrongPassword(body);
     const name = requireString(body, 'name', 'Name');
 
+    if (!body.consent) {
+      throw new AppError(400, 'You must agree to the Terms of Service and Privacy Policy');
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
 
     if (existing) {
@@ -124,6 +128,8 @@ router.post('/register', async (req, res, next) => {
         password: hashedPassword,
         name,
         emailVerificationToken: hashSecret(verificationToken),
+        consentedAt: new Date(),
+        consentVersion: '2026-05-16',
       },
     });
 
