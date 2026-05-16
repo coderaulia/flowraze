@@ -94,6 +94,7 @@ Implemented under `/api/admin`:
 - Shared data-scope helpers enforce company, manager team, and employee owner visibility for core CRM reads, detail/update/delete paths, search, exports, team performance, and dashboard metrics.
 - Campaign write routes are restricted to admins and managers, and campaign owner/sales-owner assignments must stay inside the authenticated company.
 - Route-level isolation regression tests cover critical manager team visibility, employee owner visibility, exports, lead detail denial, team performance, and campaign write permissions.
+- Comprehensive test suite covers auth routes (login/register/me/inactive user), leads CRUD (create/duplicate/validation/list/delete), data-scope utilities, plan entitlements, pagination, and frontend auth store/routes — 80 tests total across backend and frontend.
 - Company user create and invite flows enforce active user counts against the workspace billing seat allowance.
 - A centralized plan entitlement module gates API keys, API-key authentication, webhooks, exports, campaigns, targets, and team performance according to the current pricing tiers.
 - Billing accounts now store trial/subscription lifecycle dates, new workspaces receive 14-day trial windows, paid marking sets subscription dates, and expired trials are canceled during entitlement checks.
@@ -214,6 +215,7 @@ Priority legend:
 - [x] Employee reads are owner-scoped
 - [x] Exports are tenant/role-scoped
 - [x] Route-level tenancy regression tests exist
+- [x] Comprehensive test suite (80 tests): auth, leads, data-scope, entitlements, pagination, auth store, routes
 - [x] Company-admin user/invite seat limits are enforced
 - [ ] Superadmin-created company-user seat semantics are enforced or explicitly audited
 - [x] Plan entitlements are centralized and enforced

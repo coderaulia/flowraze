@@ -75,7 +75,7 @@ All seeded demo users use `admin123`.
 | `npm run build` | Build all apps for production |
 | `npm run typecheck` | TypeScript check across all workspaces |
 | `npm run lint` | ESLint across all workspaces |
-| `npm test` | Run tests across all workspaces |
+| `npm test` | Run tests across all workspaces (80 tests) |
 
 ## Documentation
 

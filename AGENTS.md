@@ -316,6 +316,7 @@ MIDTRANS_IS_PRODUCTION=false
 - [x] Subscription lifecycle: renewal cron, cancellation, downgrade, reactivation, self-service portal
 - [x] SMTP-backed email delivery (verification, invite, password reset) with dev fallback
 - [x] Route-level isolation regression tests for critical permission paths
+- [x] Comprehensive test suite: auth routes, leads CRUD, data-scope, entitlements, pagination (backend); auth store, routes, form validation (frontend) — 80 tests total
 - [x] Layout shell with mobile navigation and responsive table scrolling
 - [x] Core design system implementation (Kinetic Architect)
 - [x] Marketing pages: landing, solutions, pricing, about, privacy, terms, blog, careers, help, resources
@@ -330,7 +331,7 @@ MIDTRANS_IS_PRODUCTION=false
 ### Placeholder/Todo
 - [ ] Workflow automation expansion: conditional branches, templates, deeper observability
 - [ ] Live support chat, onboarding playbooks, and success-manager routing
-- [ ] Broaden route-level isolation tests across admin, billing, API key, webhook, and target edge cases
+- [ ] Broaden route-level isolation tests across admin, billing, target, and checkout edge cases
 - [ ] Billing renewal retries and provider renewal reconciliation
 - [ ] White-label tenant/domain/branding layer
 - [ ] Multi-touch attribution and cohort analytics
@@ -348,7 +349,7 @@ MIDTRANS_IS_PRODUCTION=false
 |----------|-------|----------|
 | HIGH | Billing renewal retries and provider renewal reconciliation | `apps/api/src/utils/subscription.ts`, `apps/api/src/utils/payment-provider.ts`, `apps/api/src/routes/checkout.ts` |
 | HIGH | Public pricing/trial copy misalignment: trial plan entitlements vs. copy, stale payment-method wording, pipeline-stage packaging text | `apps/web/src/pages/marketing/pricing.tsx`, `apps/web/src/pages/marketing/help.tsx` |
-| MEDIUM | Route-level isolation tests should expand to admin, billing, API key, webhook, and target edge cases | `apps/api/src/routes/*.test.ts` |
+| MEDIUM | Route-level isolation tests should expand to admin, billing, target, and checkout edge cases | `apps/api/src/routes/*.test.ts` |
 | MEDIUM | Shared types drift: `AutomationTriggerEvent` and `AutomationActionType` in `shared/types` are narrower than the Prisma enum (missing `lead_updated`, `deal_lost`, `deal_stage_changed`, `assign_owner`, `send_notification`, `fire_webhook`) | `shared/types/index.ts` |
 | MEDIUM | Expand audit logging coverage to API keys, webhooks, role changes, company deactivation | `apps/api/src/routes/admin.ts`, `apps/api/src/routes/api-keys.ts`, `apps/api/src/routes/webhooks.ts` |
 | LOW | Advanced PDF templates/charts remain future polish | `apps/api/src/utils/export.ts` |
