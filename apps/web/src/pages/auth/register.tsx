@@ -17,6 +17,7 @@ export function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +42,10 @@ export function RegisterPage() {
       nextErrors.password = 'Password must be at least 8 characters';
     }
 
+    if (!consent) {
+      nextErrors.consent = 'You must agree to the Terms of Service and Privacy Policy';
+    }
+
     setFormErrors(nextErrors);
     setError('');
 
@@ -54,6 +59,7 @@ export function RegisterPage() {
       name: name.trim(),
       email: email.trim(),
       password,
+      consent: true,
     });
 
     if (response.success && response.data) {
@@ -139,6 +145,36 @@ export function RegisterPage() {
                 <FieldError message={formErrors.password} />
               </div>
 
+              <div className="rounded-round-eight bg-surface/40 p-4 mt-2 space-y-3">
+                <p className="text-[11.5px] text-on-surface-variant/60 leading-relaxed font-medium uppercase tracking-wide">Data Collection Notice</p>
+                <p className="text-[12px] text-on-surface-variant/70 leading-relaxed">
+                  By creating an account, we will collect and process: your name, email address, and password (hashed). 
+                  During use, we also collect usage data (IP address, browser type, pages visited) for service improvement and security.
+                  Your data is stored in Indonesia and protected under Indonesian Law No. 27 of 2022 (UU PDP).
+                </p>
+                <div className="flex items-start gap-3">
+                  <input
+                    id="consent"
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-surface-container-high text-primary focus:ring-primary/50 cursor-pointer flex-shrink-0"
+                  />
+                  <label htmlFor="consent" className="text-[12.5px] text-on-surface-variant/70 leading-relaxed cursor-pointer select-none">
+                    I have read and agree to the{' '}
+                    <Link to="/terms" target="_blank" className="text-[#1d2879] font-semibold hover:underline">
+                      Terms of Service
+                    </Link>
+                    {' '}and{' '}
+                    <Link to="/privacy" target="_blank" className="text-[#1d2879] font-semibold hover:underline">
+                      Privacy Policy
+                    </Link>
+                    . I give my explicit consent to the collection and processing of my personal data as described, in accordance with UU PDP (Law No. 27/2022), UU ITE (Law No. 11/2008 as amended), and applicable international data protection regulations including GDPR where applicable.
+                  </label>
+                </div>
+                <FieldError message={formErrors.consent} />
+              </div>
+
               <LandingButton type="submit" className="w-full h-11 text-base font-semibold mt-4 shadow-lg shadow-primary/20" disabled={isLoading}>
                 {isLoading ? 'Creating account...' : 'Get Started Free →'}
               </LandingButton>
@@ -151,10 +187,6 @@ export function RegisterPage() {
                   </Link>
                 </p>
               </div>
-
-              <p className="text-[11px] text-center text-on-surface-variant/50 px-4 mt-4 leading-relaxed">
-                By signing up, you agree to our <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>.
-              </p>
             </form>
           </CardContent>
         </Card>

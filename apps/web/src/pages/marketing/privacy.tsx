@@ -18,7 +18,7 @@ export function PrivacyPage() {
     <>
       <SEO 
         title="Privacy Policy" 
-        description="Your data privacy is our priority. Learn how FlowRaze protects your information and adheres to global standards."
+        description="Your data privacy is our priority. Learn how FlowRaze protects your information and adheres to Indonesian and international data protection standards."
       />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
@@ -31,6 +31,10 @@ export function PrivacyPage() {
         .legal-content p { font-size: 16px; color: #5a6178; line-height: 1.7; margin-bottom: 20px; }
         .legal-content ul { padding-left: 20px; margin-bottom: 24px; }
         .legal-content li { color: #5a6178; margin-bottom: 10px; line-height: 1.6; }
+        .legal-content strong { color: #0c1030; }
+        .legal-content table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 15px; }
+        .legal-content th { text-align: left; padding: 12px 16px; background: #f5f6fb; color: #0c1030; font-weight: 600; border-bottom: 2px solid #e6e8f0; }
+        .legal-content td { padding: 12px 16px; border-bottom: 1px solid #e6e8f0; color: #5a6178; }
       `}</style>
 
       <div style={{ minHeight: '100vh', background: '#fff', fontFamily: '"Inter", system-ui, sans-serif', color: '#0c1030' }}>
@@ -57,55 +61,208 @@ export function PrivacyPage() {
         <header style={{ padding: '80px 32px 48px', textAlign: 'center', background: '#f5f6fb', borderBottom: '1px solid #e6e8f0' }}>
           <div data-reveal style={{ maxWidth: 800, margin: '0 auto' }}>
             <h1 style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-0.03em', margin: 0 }}>Privacy Policy</h1>
-            <p style={{ marginTop: 16, fontSize: 16, color: '#7a809a', fontWeight: 500 }}>Effective Date: May 10, 2026</p>
+            <p style={{ marginTop: 16, fontSize: 16, color: '#7a809a', fontWeight: 500 }}>Effective Date: May 16, 2026 · Version 2026-05-16</p>
           </div>
         </header>
 
         {/* CONTENT */}
         <main style={{ padding: '80px 32px', maxWidth: 800, margin: '0 auto' }} className="legal-content">
           <div data-reveal>
-            <p>At FlowRaze, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform, including our website, CRM tools, and related services.</p>
+            <p>At FlowRaze, we are committed to protecting your privacy and ensuring the security of your Personal Data. This Privacy Policy explains how PT FlowRaze Teknologi ("FlowRaze", "we", "us", or "our") collects, uses, discloses, and safeguards your information in compliance with Indonesian Law No. 27 of 2022 on Personal Data Protection (UU PDP), the General Data Protection Regulation (GDPR) where applicable, and other relevant data protection laws.</p>
+            <p>This policy applies to all users of the FlowRaze platform, including our website, CRM tools, APIs, and related services.</p>
             
-            <h2>1. Information We Collect</h2>
+            <h2>1. Data Controller and Data Protection Officer</h2>
+            <p><strong>Data Controller:</strong> PT FlowRaze Teknologi, Jakarta, Indonesia</p>
+            <p><strong>Data Protection Officer (DPO):</strong> You may contact our DPO at <strong>dpo@flowraze.com</strong> for any questions regarding the processing of your Personal Data or to exercise your data subject rights.</p>
+            <p>For workspace CRM data (lead contacts, deal information, etc.), the Workspace owner acts as the Data Controller and FlowRaze acts as the Data Processor.</p>
+
+            <h2>2. Information We Collect</h2>
             
-            <h3>A. Personal Data</h3>
-            <p>When you register for FlowRaze, we collect:</p>
+            <h3>A. Account Data (Personal Data)</h3>
+            <p>When you register for FlowRaze, we collect the following Personal Data with your explicit consent (UU PDP Article 20(2)(a)):</p>
             <ul>
-              <li>Name and email address</li>
-              <li>Company name and industry</li>
-              <li>Payment information (processed via secure third-party providers)</li>
+              <li>Full name</li>
+              <li>Email address</li>
+              <li>Password (stored in hashed form only)</li>
+              <li>Company name (during onboarding)</li>
+              <li>Consent timestamp and version</li>
             </ul>
 
-            <h3>B. Workspace Data</h3>
-            <p>As a CRM platform, we process data you input into your workspace, including:</p>
+            <h3>B. Workspace Data (Processed on Behalf of Data Controller)</h3>
+            <p>As a CRM platform, we process data that Workspace owners input, including:</p>
             <ul>
-              <li>Lead contact information (Names, emails, phone numbers)</li>
-              <li>Deal details and sales history</li>
+              <li>Lead contact information (names, emails, phone numbers, company names)</li>
+              <li>Deal details, pipeline stages, and sales history</li>
               <li>Marketing campaign metrics and attribution data</li>
               <li>Team performance records and activity logs</li>
+              <li>Support tickets and internal communications</li>
             </ul>
+            <p>This data is processed solely on behalf of the Workspace owner (Data Controller) and in accordance with their instructions.</p>
 
-            <h3>C. Usage Data</h3>
-            <p>We automatically collect information about how you interact with our service, such as IP addresses, browser types, and page view statistics to improve platform performance.</p>
-
-            <h2>2. How We Use Your Information</h2>
-            <p>We use the collected data to:</p>
+            <h3>C. Payment Data</h3>
+            <p>Payment information is processed by Midtrans (PT Midtrans), a licensed payment service provider regulated by Bank Indonesia. We do not store full credit card numbers or bank account details. We only retain:</p>
             <ul>
-              <li>Provide and maintain the FlowRaze platform</li>
-              <li>Process transactions and manage billing</li>
-              <li>Provide customer support and troubleshooting</li>
-              <li>Analyze platform usage to improve features</li>
-              <li>Ensure data isolation between different company workspaces</li>
+              <li>Transaction references and payment status</li>
+              <li>Invoice amounts and billing history</li>
+              <li>Payment method type (for display purposes only)</li>
             </ul>
 
-            <h2>3. Data Isolation and Multi-Tenancy</h2>
-            <p>FlowRaze is a multi-tenant platform. We implement strict logical isolation to ensure that your company's data is only accessible by authorized users within your specific workspace. We do not share your CRM data with other companies or third parties for their own marketing purposes.</p>
+            <h3>D. Technical and Usage Data</h3>
+            <p>We automatically collect:</p>
+            <ul>
+              <li>IP address and approximate geolocation</li>
+              <li>Browser type, version, and operating system</li>
+              <li>Pages visited, features used, and session duration</li>
+              <li>Error logs and performance metrics</li>
+            </ul>
+            <p>This data is collected based on our legitimate interest in maintaining and improving the Platform (UU PDP Article 20(2)(f)).</p>
 
-            <h2>4. Your Rights</h2>
-            <p>Depending on your location, you may have rights regarding your personal data, including the right to access, correct, or delete your information.</p>
+            <h2>3. Legal Basis for Processing</h2>
+            <p>We process your Personal Data based on the following legal grounds, in accordance with UU PDP Article 20 and GDPR Article 6:</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Purpose</th>
+                  <th>Legal Basis</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Account creation and authentication</td>
+                  <td>Explicit consent (UU PDP Art. 20(2)(a))</td>
+                </tr>
+                <tr>
+                  <td>Providing CRM services</td>
+                  <td>Contractual necessity</td>
+                </tr>
+                <tr>
+                  <td>Processing payments</td>
+                  <td>Contractual necessity</td>
+                </tr>
+                <tr>
+                  <td>Sending transactional emails</td>
+                  <td>Contractual necessity</td>
+                </tr>
+                <tr>
+                  <td>Platform security and abuse prevention</td>
+                  <td>Legitimate interest</td>
+                </tr>
+                <tr>
+                  <td>Analytics and service improvement</td>
+                  <td>Legitimate interest</td>
+                </tr>
+                <tr>
+                  <td>Legal compliance and dispute resolution</td>
+                  <td>Legal obligation</td>
+                </tr>
+              </tbody>
+            </table>
 
-            <h2>5. Contact Us</h2>
-            <p>If you have questions about this policy, please contact us at <strong>privacy@flowraze.com</strong>.</p>
+            <h2>4. Data Isolation and Multi-Tenancy</h2>
+            <p>FlowRaze is a multi-tenant platform with strict logical data isolation:</p>
+            <ul>
+              <li>Each company Workspace is isolated at the database level using company-scoped queries</li>
+              <li>Role-based access control (admin, manager, employee) restricts data visibility within a Workspace</li>
+              <li>API authentication ensures requests are scoped to the authenticated user's company</li>
+              <li>We do not share, sell, or provide access to your CRM data to other companies or third parties for their own purposes</li>
+            </ul>
+
+            <h2>5. Data Sharing and Disclosure</h2>
+            <p>We may share your Personal Data only in the following circumstances:</p>
+            <ul>
+              <li><strong>Payment Processing:</strong> With Midtrans for payment transactions</li>
+              <li><strong>Email Delivery:</strong> With our SMTP provider for transactional emails (verification, password reset, invitations)</li>
+              <li><strong>Legal Requirements:</strong> When required by Indonesian law, court order, or government regulation (UU PDP Article 25)</li>
+              <li><strong>Business Transfer:</strong> In connection with a merger, acquisition, or sale of assets, with prior notice to you</li>
+              <li><strong>With Your Consent:</strong> For any other purpose with your explicit consent</li>
+            </ul>
+            <p>We do not sell your Personal Data to third parties. We do not use your CRM data for advertising or profiling purposes.</p>
+
+            <h2>6. Cross-Border Data Transfer</h2>
+            <p>In accordance with UU PDP Article 56 and Government Regulation on cross-border data transfer:</p>
+            <ul>
+              <li>Your data is primarily stored and processed in Indonesia</li>
+              <li>If data transfer to another country is necessary (e.g., for infrastructure or service providers), we ensure the receiving country provides an equivalent level of data protection, or we implement appropriate safeguards such as Standard Contractual Clauses</li>
+              <li>We will notify you before any cross-border transfer of your Personal Data and obtain your consent where required</li>
+            </ul>
+            <p>For users in the EEA, transfers outside the EEA are conducted in compliance with GDPR Chapter V requirements.</p>
+
+            <h2>7. Data Retention</h2>
+            <p>We retain your Personal Data only for as long as necessary to fulfill the purposes described in this policy:</p>
+            <ul>
+              <li><strong>Active accounts:</strong> Data is retained for the duration of your account</li>
+              <li><strong>After account deletion:</strong> Personal Data is permanently deleted within 30 days</li>
+              <li><strong>Billing records:</strong> Retained for 5 years as required by Indonesian tax law (UU No. 28 of 2007)</li>
+              <li><strong>Audit logs:</strong> Retained for 3 years for security and compliance purposes</li>
+              <li><strong>Backup data:</strong> Removed from backups within 90 days of deletion</li>
+            </ul>
+            <p>Upon expiration of the retention period, data is securely deleted or anonymized in accordance with UU PDP Article 47.</p>
+
+            <h2>8. Your Rights as a Data Subject</h2>
+            <p>Under UU PDP (Articles 5-12) and GDPR (Articles 15-22), you have the following rights:</p>
+            <ul>
+              <li><strong>Right to Information (UU PDP Art. 5):</strong> Know what data we collect, how it is used, and who it is shared with</li>
+              <li><strong>Right of Access (UU PDP Art. 6):</strong> Request a copy of your Personal Data in a structured, machine-readable format</li>
+              <li><strong>Right to Correction (UU PDP Art. 7):</strong> Request correction of inaccurate or incomplete data</li>
+              <li><strong>Right to Deletion (UU PDP Art. 8):</strong> Request deletion of your Personal Data when it is no longer necessary or when you withdraw consent</li>
+              <li><strong>Right to Withdraw Consent (UU PDP Art. 9):</strong> Withdraw your consent at any time without affecting the lawfulness of prior processing</li>
+              <li><strong>Right to Object (UU PDP Art. 10):</strong> Object to processing based on legitimate interest</li>
+              <li><strong>Right to Restrict Processing (UU PDP Art. 11):</strong> Request restriction of processing in certain circumstances</li>
+              <li><strong>Right to Data Portability (UU PDP Art. 12):</strong> Receive your data in a portable format and transfer it to another service</li>
+              <li><strong>Right to Lodge a Complaint:</strong> File a complaint with the Indonesian Personal Data Protection Authority or relevant supervisory authority</li>
+            </ul>
+            <p>To exercise any of these rights, contact us at <strong>dpo@flowraze.com</strong>. We will respond within 3x24 hours of receiving your request (UU PDP Article 13) and fulfill valid requests within 30 days.</p>
+
+            <h2>9. Data Security Measures</h2>
+            <p>We implement technical and organizational measures appropriate to the risk, including:</p>
+            <ul>
+              <li>TLS/HTTPS encryption for all data in transit</li>
+              <li>Bcrypt password hashing with salt</li>
+              <li>JWT-based authentication with token expiration</li>
+              <li>Multi-tenant data isolation at the application and database level</li>
+              <li>Rate limiting and brute-force protection</li>
+              <li>Security headers (HSTS, X-Content-Type-Options, X-Frame-Options)</li>
+              <li>Regular security assessments and code reviews</li>
+              <li>Access logging and audit trails for sensitive operations</li>
+            </ul>
+
+            <h2>10. Data Breach Notification</h2>
+            <p>In the event of a Personal Data breach (UU PDP Article 46):</p>
+            <ul>
+              <li>We will notify affected data subjects within 3x24 hours of becoming aware of the breach</li>
+              <li>We will notify the Indonesian Personal Data Protection Authority as required by law</li>
+              <li>The notification will include: the nature of the breach, data affected, potential consequences, and remedial measures taken</li>
+              <li>We maintain an internal breach register documenting all incidents</li>
+            </ul>
+
+            <h2>11. Children's Privacy</h2>
+            <p>FlowRaze is not intended for use by individuals under 17 years of age. We do not knowingly collect Personal Data from children. If we become aware that we have collected data from a child without parental consent, we will take steps to delete that information promptly.</p>
+
+            <h2>12. Cookies and Tracking</h2>
+            <p>FlowRaze uses essential cookies for authentication and session management. We do not use third-party advertising cookies or cross-site tracking. Technical cookies used include:</p>
+            <ul>
+              <li><strong>Authentication token:</strong> Stored in localStorage for session persistence</li>
+              <li><strong>Preference settings:</strong> UI preferences stored locally in your browser</li>
+            </ul>
+            <p>No data is shared with advertising networks or social media platforms through our cookies.</p>
+
+            <h2>13. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy from time to time. When we make material changes:</p>
+            <ul>
+              <li>We will update the "Effective Date" and version number at the top of this page</li>
+              <li>We will notify you via email and/or an in-app notification</li>
+              <li>Where required by law, we will obtain your renewed consent before applying changes that affect the legal basis of processing</li>
+            </ul>
+
+            <h2>14. Contact Us</h2>
+            <p>If you have questions about this Privacy Policy or wish to exercise your data subject rights:</p>
+            <ul>
+              <li><strong>Data Protection Officer:</strong> dpo@flowraze.com</li>
+              <li><strong>General Privacy Inquiries:</strong> privacy@flowraze.com</li>
+              <li><strong>Legal Department:</strong> legal@flowraze.com</li>
+              <li><strong>Address:</strong> PT FlowRaze Teknologi, Jakarta, Indonesia</li>
+            </ul>
+            <p>You also have the right to lodge a complaint with the Indonesian Personal Data Protection Authority or, for EEA residents, your local data protection supervisory authority.</p>
           </div>
         </main>
 
