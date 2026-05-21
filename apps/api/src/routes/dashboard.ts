@@ -89,7 +89,6 @@ router.get('/', async (req: AuthRequest, res, next) => {
       totalLeads,
       totalDeals,
       wonDeals,
-      allLeads,
       totalCampaigns,
       activeCampaigns,
       campaignCost,
@@ -101,10 +100,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
       prisma.deal.findMany({
         where: wonWhere,
         select: { value: true, closedAt: true, createdAt: true },
-      }),
-      prisma.lead.findMany({
-        where: leadWhere,
-        select: { createdAt: true },
+        take: 5000,
       }),
       prisma.campaign.count({ where: campaignWhere }),
       prisma.campaign.count({ where: activeCampaignWhere }),
@@ -119,6 +115,13 @@ router.get('/', async (req: AuthRequest, res, next) => {
       }),
       prisma.lead.count({ where: campaignLeadWhere }),
     ]);
+
+    // Use groupBy for leads over time instead of loading all leads
+    const leadsGrouped = await prisma.lead.groupBy({
+      by: ['createdAt'],
+      where: leadWhere,
+      _count: { id: true },
+    });
 
     const wonRevenue = wonDeals.reduce((sum, d) => sum + d.value, 0);
     const conversionRate = totalLeads > 0 ? wonDeals.length / totalLeads : 0;
@@ -179,8 +182,8 @@ router.get('/', async (req: AuthRequest, res, next) => {
     }));
 
     // --- Leads over time (grouped by createdAt month) ---
-    const leadsWindowStart = startDate ?? allLeads.reduce<Date | undefined>((earliest, lead) => {
-      if (!earliest || lead.createdAt < earliest) return lead.createdAt;
+    const leadsWindowStart = startDate ?? leadsGrouped.reduce<Date | undefined>((earliest, row) => {
+      if (!earliest || row.createdAt < earliest) return row.createdAt;
       return earliest;
     }, undefined);
 
@@ -188,11 +191,11 @@ router.get('/', async (req: AuthRequest, res, next) => {
       ? buildMonthMap(leadsWindowStart, new Date())
       : new Map<string, { month: string; value: number }>();
 
-    for (const lead of allLeads) {
-      const key = getMonthKey(lead.createdAt);
+    for (const row of leadsGrouped) {
+      const key = getMonthKey(row.createdAt);
       const current = leadsMap.get(key);
       if (current) {
-        current.value += 1;
+        current.value += row._count.id;
       }
     }
 
@@ -499,27 +502,45 @@ router.get('/targets', async (req: AuthRequest, res, next) => {
         t.userId
       );
 
-      leaderboard = await Promise.all(
-        individualTargets.map(async (t) => {
-          const userDeals = await prisma.deal.findMany({
-            where: { companyId: req.companyId!, isWon: true, ownerId: t.userId!, closedAt: { gte: periodStart, lte: periodEnd } },
-            select: { value: true },
-          });
-          const actual = userDeals.reduce((s, d) => s + d.value, 0);
-          
-          // Need user name, which is not in allTargets
-          const user = await prisma.user.findUnique({ where: { id: t.userId! }, select: { name: true } });
+      if (individualTargets.length > 0) {
+        const targetUserIds = individualTargets.map((t) => t.userId!);
 
+        // Batch-fetch all user deals and names in parallel
+        const [userDeals, userNames] = await Promise.all([
+          prisma.deal.findMany({
+            where: {
+              companyId: req.companyId!,
+              isWon: true,
+              ownerId: { in: targetUserIds },
+              closedAt: { gte: periodStart, lte: periodEnd },
+            },
+            select: { ownerId: true, value: true },
+          }),
+          prisma.user.findMany({
+            where: { id: { in: targetUserIds } },
+            select: { id: true, name: true },
+          }),
+        ]);
+
+        // Build lookup maps
+        const dealsByOwner = new Map<string, number>();
+        for (const deal of userDeals) {
+          dealsByOwner.set(deal.ownerId, (dealsByOwner.get(deal.ownerId) ?? 0) + deal.value);
+        }
+        const nameMap = new Map(userNames.map((u) => [u.id, u.name]));
+
+        leaderboard = individualTargets.map((t) => {
+          const actual = dealsByOwner.get(t.userId!) ?? 0;
           return {
             userId: t.userId!,
-            userName: user?.name ?? 'Unknown',
+            userName: nameMap.get(t.userId!) ?? 'Unknown',
             actual,
             target: t.targetValue,
             pct: t.targetValue > 0 ? (actual / t.targetValue) * 100 : 0,
           };
-        })
-      );
-      leaderboard.sort((a, b) => b.pct - a.pct);
+        });
+        leaderboard.sort((a, b) => b.pct - a.pct);
+      }
     }
 
     res.json({

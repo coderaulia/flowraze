@@ -327,6 +327,14 @@ MIDTRANS_IS_PRODUCTION=false
 - [x] Sales-team manager validation on create/update
 - [x] Shared email/URL validators in request utilities
 - [x] Support ticket pagination with standard metadata
+- [x] Race condition fixes: transactional writes for deals, leads, checkout, admin user creation, onboarding
+- [x] Graceful shutdown with Prisma disconnect and interval cleanup
+- [x] Cron job concurrency guards (webhook, automation, renewal processors)
+- [x] N+1 query elimination: batched lead imports, dashboard leaderboard, team performance
+- [x] Unbounded query limits on all list/detail endpoints (activities, deals, leads, campaigns, analytics)
+- [x] Database indexes for all hot query paths (22 new indexes across 12 models)
+- [x] Atomic retryCount increments for webhook and automation retry processors
+- [x] Subscription renewal batch processing with updateMany
 
 ### Placeholder/Todo
 - [ ] Workflow automation expansion: conditional branches, templates, deeper observability
@@ -352,7 +360,9 @@ MIDTRANS_IS_PRODUCTION=false
 | MEDIUM | Route-level isolation tests should expand to admin, billing, target, and checkout edge cases | `apps/api/src/routes/*.test.ts` |
 | MEDIUM | Shared types drift: `AutomationTriggerEvent` and `AutomationActionType` in `shared/types` are narrower than the Prisma enum (missing `lead_updated`, `deal_lost`, `deal_stage_changed`, `assign_owner`, `send_notification`, `fire_webhook`) | `shared/types/index.ts` |
 | MEDIUM | Expand audit logging coverage to API keys, webhooks, role changes, company deactivation | `apps/api/src/routes/admin.ts`, `apps/api/src/routes/api-keys.ts`, `apps/api/src/routes/webhooks.ts` |
+| MEDIUM | Run `prisma migrate dev --name add-performance-indexes` to apply new database indexes | `prisma/schema.prisma` |
 | LOW | Advanced PDF templates/charts remain future polish | `apps/api/src/utils/export.ts` |
+| LOW | Add `?connection_limit=10&pool_timeout=10` to production DATABASE_URL for connection pooling | `apps/api/.env` |
 
 ---
 

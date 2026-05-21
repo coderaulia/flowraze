@@ -204,17 +204,24 @@ async function runAction(companyId: string, actionType: AutomationActionType, pa
 }
 
 export async function processAutomationRun(runId: string) {
-  const run = await prisma.automationRun.findUnique({
-    where: { id: runId },
-    include: { rule: true },
+  // Use a transaction to atomically claim the run (prevents concurrent processing)
+  const run = await prisma.$transaction(async (tx) => {
+    const found = await tx.automationRun.findUnique({
+      where: { id: runId },
+      include: { rule: true },
+    });
+
+    if (!found || found.status === 'success' || found.status === 'running') return null;
+
+    await tx.automationRun.update({
+      where: { id: found.id },
+      data: { status: 'running', error: null },
+    });
+
+    return found;
   });
 
-  if (!run || run.status === 'success') return;
-
-  await prisma.automationRun.update({
-    where: { id: run.id },
-    data: { status: 'running', error: null },
-  });
+  if (!run) return;
 
   try {
     const result = await runAction(run.companyId, run.actionType, run.payload, run.rule.actionConfig);
@@ -235,16 +242,22 @@ export async function processAutomationRun(runId: string) {
       }),
     ]);
   } catch (error) {
-    const nextRetryCount = run.retryCount + 1;
-    const shouldRetry = nextRetryCount < MAX_RETRIES;
+    // Use atomic increment for retryCount to prevent lost updates
+    const updated = await prisma.automationRun.update({
+      where: { id: run.id },
+      data: {
+        retryCount: { increment: 1 },
+        error: error instanceof Error ? error.message : 'Automation run failed',
+      },
+      select: { retryCount: true },
+    });
 
+    const shouldRetry = updated.retryCount < MAX_RETRIES;
     await prisma.automationRun.update({
       where: { id: run.id },
       data: {
         status: shouldRetry ? 'pending' : 'failed',
-        error: error instanceof Error ? error.message : 'Automation run failed',
-        retryCount: nextRetryCount,
-        nextRetryAt: shouldRetry ? getNextRetryAt(nextRetryCount) : null,
+        nextRetryAt: shouldRetry ? getNextRetryAt(updated.retryCount) : null,
       },
     });
   }

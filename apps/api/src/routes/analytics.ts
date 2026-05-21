@@ -117,11 +117,14 @@ router.get('/attribution', async (req: AuthRequest, res, next) => {
                 value: true,
                 closedAt: true,
               },
+              take: 50,
             },
           },
+          take: 200,
         },
       },
       orderBy: { startDate: 'desc' },
+      take: 100,
     });
 
     const rows = campaigns.map((campaign) => {
@@ -315,6 +318,7 @@ router.get('/lead-velocity', async (req: AuthRequest, res, next) => {
           take: 1,
         },
       },
+      take: 5000,
     });
 
     type VelocityAccum = {

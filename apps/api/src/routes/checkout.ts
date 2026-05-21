@@ -74,29 +74,31 @@ router.post('/create', authenticate, requireAdmin(), async (req: AuthRequest, re
       throw new AppError(404, 'Company or billing account not found');
     }
 
-    // Check if there's already a pending payment
-    const pendingPayment = await prisma.billingPayment.findFirst({
-      where: {
-        billingAccountId: billingAccount.id,
-        status: 'pending',
-        method: 'midtrans',
-        createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) }, // within last 30 min
-      },
-    });
-
-    if (pendingPayment) {
-      throw new AppError(409, 'A checkout session is already pending. Please complete or wait for it to expire.', 'CHECKOUT_PENDING');
-    }
-
+    // Use a transaction to atomically check for pending payment and create session
     const seats = billingAccount.seats;
-    const result = await createCheckoutSession({
-      companyId,
-      companyName: company.name,
-      plan,
-      seats,
-      billingCycle,
-      customerEmail: user.email,
-      customerName: user.name,
+    const result = await prisma.$transaction(async (tx) => {
+      const pendingPayment = await tx.billingPayment.findFirst({
+        where: {
+          billingAccountId: billingAccount.id,
+          status: 'pending',
+          method: 'midtrans',
+          createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+        },
+      });
+
+      if (pendingPayment) {
+        throw new AppError(409, 'A checkout session is already pending. Please complete or wait for it to expire.', 'CHECKOUT_PENDING');
+      }
+
+      return createCheckoutSession({
+        companyId,
+        companyName: company.name,
+        plan,
+        seats,
+        billingCycle,
+        customerEmail: user.email,
+        customerName: user.name,
+      });
     });
 
     res.json({

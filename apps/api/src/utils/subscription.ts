@@ -37,6 +37,8 @@ export async function processSubscriptionRenewals(): Promise<{
 
   // 1. Find active subscriptions expiring within reminder window (send reminder)
   const reminderThreshold = new Date(now.getTime() + RENEWAL_REMINDER_DAYS * 24 * 60 * 60 * 1000);
+  // Only fetch accounts not updated in the last 24h (prevents duplicate reminders)
+  const reminderCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const reminderAccounts = await prisma.billingAccount.findMany({
     where: {
       status: 'active',
@@ -44,6 +46,7 @@ export async function processSubscriptionRenewals(): Promise<{
         gt: now,
         lte: reminderThreshold,
       },
+      updatedAt: { lt: reminderCutoff },
     },
     include: {
       company: {
@@ -51,10 +54,12 @@ export async function processSubscriptionRenewals(): Promise<{
           users: {
             where: { role: 'admin', isActive: true },
             select: { email: true, name: true },
+            take: 5,
           },
         },
       },
     },
+    take: 50,
   });
 
   for (const account of reminderAccounts) {
@@ -62,41 +67,30 @@ export async function processSubscriptionRenewals(): Promise<{
       ((account.subscriptionEndsAt?.getTime() ?? 0) - now.getTime()) / (24 * 60 * 60 * 1000)
     );
 
-    // Only send reminder once (check if we already sent one recently via a simple heuristic)
-    // We'll use the updatedAt field — if it was updated within the last day, skip
-    const lastUpdate = account.updatedAt.getTime();
-    if (now.getTime() - lastUpdate < 24 * 60 * 60 * 1000) {
-      continue;
-    }
-
     for (const admin of account.company.users) {
       await sendRenewalReminderEmail(admin.email, admin.name, account.plan, daysLeft);
     }
 
-    // Touch updatedAt to prevent duplicate reminders
-    await prisma.billingAccount.update({
-      where: { id: account.id },
-      data: { updatedAt: now },
-    });
-
     reminders++;
   }
 
-  // 2. Transition expired active subscriptions to past_due
-  const expiredActive = await prisma.billingAccount.findMany({
+  // Batch-update all reminder accounts' updatedAt to prevent re-processing
+  if (reminderAccounts.length > 0) {
+    await prisma.billingAccount.updateMany({
+      where: { id: { in: reminderAccounts.map((a) => a.id) } },
+      data: { updatedAt: now },
+    });
+  }
+
+  // 2. Batch-transition expired active subscriptions to past_due
+  const expiredResult = await prisma.billingAccount.updateMany({
     where: {
       status: 'active',
       subscriptionEndsAt: { lte: now },
     },
+    data: { status: 'past_due' },
   });
-
-  for (const account of expiredActive) {
-    await prisma.billingAccount.update({
-      where: { id: account.id },
-      data: { status: 'past_due' },
-    });
-    pastDue++;
-  }
+  pastDue = expiredResult.count;
 
   // 3. Cancel subscriptions that have been past_due beyond the grace period
   const graceCutoff = new Date(now.getTime() - GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
@@ -111,15 +105,18 @@ export async function processSubscriptionRenewals(): Promise<{
           users: {
             where: { role: 'admin', isActive: true },
             select: { email: true, name: true },
+            take: 5,
           },
         },
       },
     },
+    take: 50,
   });
 
-  for (const account of overdueAccounts) {
-    await prisma.billingAccount.update({
-      where: { id: account.id },
+  if (overdueAccounts.length > 0) {
+    // Batch-cancel all overdue accounts
+    await prisma.billingAccount.updateMany({
+      where: { id: { in: overdueAccounts.map((a) => a.id) } },
       data: {
         status: 'canceled',
         canceledAt: now,
@@ -127,11 +124,13 @@ export async function processSubscriptionRenewals(): Promise<{
       },
     });
 
-    for (const admin of account.company.users) {
-      await sendSubscriptionCanceledEmail(admin.email, admin.name, account.plan);
+    // Send cancellation emails
+    for (const account of overdueAccounts) {
+      for (const admin of account.company.users) {
+        await sendSubscriptionCanceledEmail(admin.email, admin.name, account.plan);
+      }
+      canceled++;
     }
-
-    canceled++;
   }
 
   return { reminders, pastDue, canceled };

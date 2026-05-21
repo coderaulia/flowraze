@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Connection pool is configured via DATABASE_URL query params:
+// ?connection_limit=10&pool_timeout=10
+// Or via PrismaClient constructor options
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -69,6 +73,8 @@ model User {
   salesTargets     SalesTarget[]
   notifications    Notification[]
   company          Company?          @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, role, isActive])
 }
 
 enum Role {
@@ -101,6 +107,9 @@ model Lead {
   activities Activity[]
 
   @@unique([companyId, email])
+  @@index([companyId, ownerId])
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
 }
 
 enum LeadStatus {
@@ -134,6 +143,10 @@ model Deal {
   pipelineStage PipelineStage @relation(fields: [pipelineStageId], references: [id])
 
   @@unique([leadId, title, ownerId])
+  @@index([companyId, ownerId])
+  @@index([companyId, isWon, closedAt])
+  @@index([companyId, pipelineStageId])
+  @@index([companyId, createdAt])
 }
 
 enum DealStatus {
@@ -193,6 +206,7 @@ model Campaign {
   leads      Lead[]
 
   @@unique([companyId, name, channel, startDate])
+  @@index([companyId, createdAt])
 }
 
 model Activity {
@@ -209,6 +223,8 @@ model Activity {
   company Company @relation(fields: [companyId], references: [id])
 
   @@unique([leadId, type, content, createdBy])
+  @@index([companyId, createdBy])
+  @@index([companyId, createdAt])
 }
 
 enum ActivityType {
@@ -248,6 +264,8 @@ model WebhookEndpoint {
   createdBy  User              @relation(fields: [createdById], references: [id])
   company    Company           @relation(fields: [companyId], references: [id])
   deliveries WebhookDelivery[]
+
+  @@index([companyId, event, isActive])
 }
 
 model WebhookDelivery {
@@ -263,13 +281,24 @@ model WebhookDelivery {
   createdAt      DateTime      @default(now())
 
   endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+  @@index([endpointId, createdAt])
 }
 
 enum WebhookEvent {
   lead_created
+  lead_updated
+  lead_deleted
   deal_created
+  deal_updated
+  deal_stage_changed
   deal_won
+  deal_lost
+  deal_deleted
   activity_created
+  activity_updated
+  activity_deleted
 }
 
 enum WebhookStatus {
@@ -296,6 +325,7 @@ model AutomationRule {
   runs      AutomationRun[]
 
   @@unique([companyId, name])
+  @@index([companyId, triggerEvent, isActive])
 }
 
 model AutomationRun {
@@ -315,6 +345,9 @@ model AutomationRun {
 
   company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   rule    AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+  @@index([companyId, ruleId])
 }
 
 enum AutomationTriggerEvent {
@@ -410,6 +443,8 @@ model BillingAccount {
   company  Company          @relation(fields: [companyId], references: [id])
   invoices BillingInvoice[]
   payments BillingPayment[]
+
+  @@index([status, subscriptionEndsAt])
 }
 
 enum PlanTier {
@@ -466,6 +501,9 @@ model BillingPayment {
   company        Company         @relation(fields: [companyId], references: [id])
   billingAccount BillingAccount  @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
   invoice        BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([billingAccountId, status])
+  @@index([companyId, createdAt])
 }
 
 enum InvoiceStatus {
@@ -535,6 +573,10 @@ model SalesTarget {
   user    User?      @relation(fields: [userId], references: [id])
   team    SalesTeam? @relation(fields: [teamId], references: [id])
   company Company    @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, scope, year])
+  @@index([companyId, userId])
+  @@index([companyId, teamId])
 }
 
 enum TargetScope {

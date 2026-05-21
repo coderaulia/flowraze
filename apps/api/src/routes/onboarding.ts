@@ -36,19 +36,21 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
     }
 
     // Generate slug
-    let slug = slugify(companyName);
-    
-    // Ensure slug uniqueness
-    let existing = await prisma.company.findUnique({ where: { slug } });
-    let counter = 1;
-    const baseSlug = slug;
-    while (existing) {
-      slug = `${baseSlug}-${counter}`;
-      existing = await prisma.company.findUnique({ where: { slug } });
-      counter++;
-    }
+    const baseSlug = slugify(companyName);
 
+    // Wrap everything in a transaction to prevent race conditions
     const result = await prisma.$transaction(async (tx) => {
+      // Find unique slug within the transaction
+      let slug = baseSlug;
+      let existing = await tx.company.findUnique({ where: { slug } });
+      let counter = 1;
+      while (existing) {
+        slug = `${baseSlug}-${counter}`;
+        existing = await tx.company.findUnique({ where: { slug } });
+        counter++;
+        if (counter > 100) throw new AppError(409, 'Unable to generate unique slug');
+      }
+
       const company = await tx.company.create({
         data: {
           name: companyName,
@@ -73,7 +75,7 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
         where: { id: user.id },
         data: {
           companyId: company.id,
-          role: 'admin', // First user is admin
+          role: 'admin',
         }
       });
 

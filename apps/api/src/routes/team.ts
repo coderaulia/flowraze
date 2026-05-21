@@ -30,10 +30,14 @@ router.get('/performance', async (req: AuthRequest, res, next) => {
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         where,
-        include: {
-          leads: {
-            where: { companyId, ...(dateFilter ? { createdAt: dateFilter } : {}) },
-            select: { id: true }
+        select: {
+          id: true,
+          name: true,
+          _count: {
+            select: {
+              leads: { where: { companyId, ...(dateFilter ? { createdAt: dateFilter } : {}) } },
+              activities: { where: { companyId, ...(dateFilter ? { createdAt: dateFilter } : {}) } },
+            },
           },
           deals: {
             where: {
@@ -41,11 +45,7 @@ router.get('/performance', async (req: AuthRequest, res, next) => {
               isWon: true,
               ...(dateFilter ? { closedAt: dateFilter } : {}),
             },
-            select: { id: true, value: true },
-          },
-          activities: {
-            where: { companyId, ...(dateFilter ? { createdAt: dateFilter } : {}) },
-            select: { id: true }
+            select: { value: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -57,10 +57,10 @@ router.get('/performance', async (req: AuthRequest, res, next) => {
     const performance = users.map((user) => ({
       userId: user.id,
       userName: user.name,
-      leadsAssigned: user.leads.length,
+      leadsAssigned: user._count.leads,
       dealsWon: user.deals.length,
       revenueClosed: user.deals.reduce((sum, d) => sum + d.value, 0),
-      activitiesLogged: user.activities.length,
+      activitiesLogged: user._count.activities,
     }));
 
     res.json(paginatedResponse(performance, pagination, total));

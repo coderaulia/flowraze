@@ -96,9 +96,14 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
     const campaign = await prisma.campaign.findFirst({
       where: await campaignScope(req, { id: req.params.id }),
       include: {
-        leads: { include: { deals: true } },
+        leads: {
+          include: { deals: { take: 5 } },
+          take: 50,
+          orderBy: { createdAt: 'desc' },
+        },
         owner: { select: { id: true, name: true, email: true } },
-        salesOwner: { select: { id: true, name: true, email: true } }
+        salesOwner: { select: { id: true, name: true, email: true } },
+        _count: { select: { leads: true } },
       },
     });
 

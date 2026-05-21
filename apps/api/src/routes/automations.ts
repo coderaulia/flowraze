@@ -127,6 +127,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
           take: 5,
         },
       },
+      take: 100,
     });
 
     res.json({ success: true, data: rules });

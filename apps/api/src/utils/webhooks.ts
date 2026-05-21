@@ -25,6 +25,9 @@ export async function processWebhookDelivery(deliveryId: string) {
     createdAt: delivery.createdAt.toISOString(),
   });
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
   try {
     const response = await fetch(endpoint.url, {
       method: 'POST',
@@ -34,6 +37,7 @@ export async function processWebhookDelivery(deliveryId: string) {
         'X-FlowRaze-Signature': signWebhookPayload(endpoint.secret, body),
       },
       body,
+      signal: controller.signal,
     });
 
     if (response.ok) {
@@ -56,18 +60,25 @@ export async function processWebhookDelivery(deliveryId: string) {
       throw new Error(`HTTP ${response.status}`);
     }
   } catch (error) {
-    const nextRetryCount = delivery.retryCount + 1;
-    const shouldRetry = nextRetryCount < MAX_RETRIES;
-    
+    // Use atomic increment for retryCount
+    const updated = await prisma.webhookDelivery.update({
+      where: { id: delivery.id },
+      data: { retryCount: { increment: 1 } },
+      select: { retryCount: true },
+    });
+
+    const shouldRetry = updated.retryCount < MAX_RETRIES;
     await prisma.webhookDelivery.update({
       where: { id: delivery.id },
       data: {
         status: shouldRetry ? 'pending' : 'failed',
         error: error instanceof Error ? error.message : 'Webhook request failed',
-        retryCount: nextRetryCount,
-        nextRetryAt: shouldRetry ? getNextRetryAt(nextRetryCount) : null,
+        responseStatus: null,
+        nextRetryAt: shouldRetry ? getNextRetryAt(updated.retryCount) : null,
       },
     });
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

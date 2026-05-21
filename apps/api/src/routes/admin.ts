@@ -106,36 +106,61 @@ async function getBillingDetails(companyId: string) {
 
 router.get('/overview', async (_req: AuthRequest, res, next) => {
   try {
-    const [totalCompanies, activeCompanies, totalUsers, activeUsers, accounts, recentCompanies] =
-      await Promise.all([
-        prisma.company.count(),
-        prisma.company.count({ where: { isActive: true } }),
-        prisma.user.count(),
-        prisma.user.count({ where: { isActive: true } }),
-        prisma.billingAccount.findMany(),
-        prisma.company.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-          include: {
-            billing: { select: { plan: true, status: true, seats: true } },
-            _count: { select: { users: true } },
-          },
-        }),
-      ]);
+    const [
+      totalCompanies,
+      activeCompanies,
+      totalUsers,
+      activeUsers,
+      planCounts,
+      statusCounts,
+      seatSum,
+      recentCompanies,
+    ] = await Promise.all([
+      prisma.company.count(),
+      prisma.company.count({ where: { isActive: true } }),
+      prisma.user.count(),
+      prisma.user.count({ where: { isActive: true } }),
+      prisma.billingAccount.groupBy({ by: ['plan'], _count: { _all: true } }),
+      prisma.billingAccount.groupBy({ by: ['status'], _count: { _all: true } }),
+      prisma.billingAccount.aggregate({ _sum: { seats: true } }),
+      prisma.company.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: {
+          billing: { select: { plan: true, status: true, seats: true } },
+          _count: { select: { users: true } },
+        },
+      }),
+    ]);
 
-    const planDistribution = accounts.reduce<Record<string, number>>((acc, account) => {
-      const plan = account.plan as string;
-      acc[plan] = (acc[plan] ?? 0) + 1;
-      return acc;
-    }, {});
-    const billingStatusDistribution = accounts.reduce<Record<string, number>>((acc, account) => {
-      const status = account.status as string;
-      acc[status] = (acc[status] ?? 0) + 1;
-      return acc;
-    }, {});
-    const activeSeats = accounts.reduce((total, account) => total + account.seats, 0);
-    const estimatedMRR = accounts.reduce(
-      (total, account) => total + getMonthlyAmount(account.plan, account.seats),
+    const planDistribution: Record<string, number> = {};
+    for (const row of planCounts) {
+      planDistribution[row.plan] = row._count._all;
+    }
+
+    const billingStatusDistribution: Record<string, number> = {};
+    for (const row of statusCounts) {
+      billingStatusDistribution[row.status] = row._count._all;
+    }
+
+    const activeSeats = seatSum._sum.seats ?? 0;
+
+    // Estimate MRR using plan distribution and average seats
+    const PLAN_MONTHLY_PRICE_MAP: Record<string, number> = {
+      free: 0,
+      growth: 149_000,
+      pro: 299_000,
+      custom: 0,
+    };
+
+    // For accurate MRR, query only paid plans with their seats
+    const paidAccounts = await prisma.billingAccount.findMany({
+      where: { plan: { in: ['growth', 'pro'] } },
+      select: { plan: true, seats: true },
+    });
+
+    const estimatedMRR = paidAccounts.reduce(
+      (total, account) => total + (PLAN_MONTHLY_PRICE_MAP[account.plan] ?? 0) * account.seats,
       0
     );
 
@@ -218,26 +243,31 @@ router.get('/companies/:id/users', async (req: AuthRequest, res, next) => {
     const company = await prisma.company.findUnique({ where: { id: req.params.id } });
     if (!company) throw new AppError(404, 'Company not found');
 
-    const users = await prisma.user.findMany({
-      where: { companyId: req.params.id },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        companyId: true,
-        emailVerifiedAt: true,
-        inviteToken: true,
-        inviteExpiresAt: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        company: { select: { id: true, name: true, slug: true } },
-      },
-    });
+    const pagination = getPagination(req.query);
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where: { companyId: req.params.id },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          companyId: true,
+          emailVerifiedAt: true,
+          inviteToken: true,
+          inviteExpiresAt: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          company: { select: { id: true, name: true, slug: true } },
+        },
+        ...getPaginationArgs(pagination),
+      }),
+      prisma.user.count({ where: { companyId: req.params.id } }),
+    ]);
 
-    res.json({ success: true, data: users.map(serializeUser) });
+    res.json(paginatedResponse(users.map(serializeUser), pagination, total));
   } catch (error) {
     next(error);
   }
@@ -416,43 +446,45 @@ router.post('/users', async (req: AuthRequest, res, next) => {
     if (!company) throw new AppError(404, 'Company not found');
     if (existingUser) throw new AppError(409, 'Email already in use');
 
-    // Enforce seat limits even for superadmin-created users
-    const entitlements = await getCompanyEntitlements(companyId);
-    const seatLimit = entitlements.seats;
-    if (Number.isFinite(seatLimit)) {
-      const activeUsers = await prisma.user.count({
-        where: { companyId, isActive: true, role: { not: 'superadmin' } },
-      });
-      if (activeUsers >= seatLimit) {
-        throw new AppError(403, `Company seat limit reached (${seatLimit} seats on ${entitlements.plan} plan).`, 'SEAT_LIMIT_REACHED');
-      }
-    }
-
+    // Use a transaction to atomically check seat limit and create user
     const rawToken = createOpaqueToken();
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        password: '',
-        role,
-        companyId,
-        inviteToken: hashSecret(rawToken),
-        inviteExpiresAt: addDays(new Date(), 7),
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        companyId: true,
-        emailVerifiedAt: true,
-        inviteToken: true,
-        inviteExpiresAt: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        company: { select: { id: true, name: true, slug: true } },
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const entitlements = await getCompanyEntitlements(companyId);
+      const seatLimit = entitlements.seats;
+      if (Number.isFinite(seatLimit)) {
+        const activeUsers = await tx.user.count({
+          where: { companyId, isActive: true, role: { not: 'superadmin' } },
+        });
+        if (activeUsers >= seatLimit) {
+          throw new AppError(403, `Company seat limit reached (${seatLimit} seats on ${entitlements.plan} plan).`, 'SEAT_LIMIT_REACHED');
+        }
+      }
+
+      return tx.user.create({
+        data: {
+          email,
+          name,
+          password: '',
+          role,
+          companyId,
+          inviteToken: hashSecret(rawToken),
+          inviteExpiresAt: addDays(new Date(), 7),
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          companyId: true,
+          emailVerifiedAt: true,
+          inviteToken: true,
+          inviteExpiresAt: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          company: { select: { id: true, name: true, slug: true } },
+        },
+      });
     });
 
     await writeAuditLog(req, {
@@ -624,9 +656,10 @@ router.delete('/users/:id', async (req: AuthRequest, res, next) => {
 
 // ─── Billing (platform overview) ─────────────────────────────────────────────
 
-router.get('/billing', async (_req: AuthRequest, res, next) => {
+router.get('/billing', async (req: AuthRequest, res, next) => {
   try {
-    const [accounts, planCounts, statusCounts] = await Promise.all([
+    const pagination = getPagination(req.query);
+    const [accounts, total, planCounts, statusCounts] = await Promise.all([
       prisma.billingAccount.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
@@ -634,7 +667,9 @@ router.get('/billing', async (_req: AuthRequest, res, next) => {
           invoices: { orderBy: { createdAt: 'desc' }, take: 1 },
           payments: { orderBy: { createdAt: 'desc' }, take: 1 },
         },
+        ...getPaginationArgs(pagination),
       }),
+      prisma.billingAccount.count(),
       prisma.billingAccount.groupBy({ by: ['plan'], _count: { _all: true } }),
       prisma.billingAccount.groupBy({ by: ['status'], _count: { _all: true } }),
     ]);
@@ -643,8 +678,9 @@ router.get('/billing', async (_req: AuthRequest, res, next) => {
       success: true,
       data: {
         accounts,
-        summary: { byPlan: planCounts, byStatus: statusCounts, total: accounts.length },
+        summary: { byPlan: planCounts, byStatus: statusCounts, total },
       },
+      pagination: { page: pagination.page, limit: pagination.limit, total },
     });
   } catch (error) {
     next(error);

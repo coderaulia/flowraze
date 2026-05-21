@@ -98,16 +98,19 @@ router.get('/lookups', async (req: AuthRequest, res, next) => {
         select: { source: true },
         distinct: ['source'],
         where: await leadScope(req, { source: { not: '' } }),
+        take: 100,
       }),
       prisma.lead.findMany({
         select: { companyName: true },
         distinct: ['companyName'],
         where: await leadScope(req, { companyName: { not: null } }),
+        take: 100,
       }),
       prisma.lead.findMany({
         select: { serviceType: true },
         distinct: ['serviceType'],
         where: await leadScope(req, { serviceType: { not: null } }),
+        take: 100,
       }),
     ]);
 
@@ -152,44 +155,61 @@ router.post('/import', async (req: AuthRequest, res, next) => {
       });
       return false;
     });
+
+    // Use a transaction to batch-create leads atomically
     const created: ImportedLead[] = [];
-
-    for (const candidate of importableCandidates) {
-      try {
-        const lead = await prisma.lead.create({
-          data: candidate.data,
-          include: {
-            owner: { select: { id: true, name: true } },
+    if (importableCandidates.length > 0) {
+      // Process in batches of 50 to avoid overwhelming the DB
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < importableCandidates.length; i += BATCH_SIZE) {
+        const batch = importableCandidates.slice(i, i + BATCH_SIZE);
+        const batchResults = await prisma.$transaction(
+          async (tx) => {
+            const results: ImportedLead[] = [];
+            for (const candidate of batch) {
+              try {
+                const lead = await tx.lead.create({
+                  data: candidate.data,
+                  include: {
+                    owner: { select: { id: true, name: true } },
+                  },
+                });
+                results.push(lead);
+              } catch (error) {
+                if (error instanceof Prisma.PrismaClientKnownRequestError) {
+                  errors.push({
+                    rowNumber: candidate.rowNumber,
+                    email: candidate.email,
+                    reason: error.code === 'P2002'
+                      ? 'Lead already exists for this owner and email'
+                      : error.code === 'P2003'
+                        ? 'Campaign was not found'
+                        : 'Lead could not be imported',
+                  });
+                  continue;
+                }
+                throw error;
+              }
+            }
+            return results;
           },
-        });
-
-        created.push(lead);
-      } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-          errors.push({
-            rowNumber: candidate.rowNumber,
-            email: candidate.email,
-            reason: error.code === 'P2002'
-              ? 'Lead already exists for this owner and email'
-              : error.code === 'P2003'
-                ? 'Campaign was not found'
-                : 'Lead could not be imported',
-          });
-          continue;
-        }
-
-        throw error;
+          { timeout: 30_000 }
+        );
+        created.push(...batchResults);
       }
     }
 
-    created.forEach((lead) => {
-      void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead }), req.companyId!).catch((error) => {
-        console.error('Lead webhook dispatch failed:', error);
-      });
-      void dispatchAutomationEvent(req.companyId!, 'lead_created', toAutomationPayload({ lead })).catch((error) => {
-        console.error('Lead automation dispatch failed:', error);
-      });
-    });
+    // Dispatch events in the background (batched, not per-lead)
+    if (created.length > 0) {
+      void Promise.allSettled(
+        created.map((lead) =>
+          Promise.allSettled([
+            dispatchWebhookEvent('lead_created', toWebhookPayload({ lead }), req.companyId!),
+            dispatchAutomationEvent(req.companyId!, 'lead_created', toAutomationPayload({ lead })),
+          ])
+        )
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -213,8 +233,15 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
       include: {
         owner: { select: { id: true, name: true } },
         campaign: true,
-        activities: { include: { creator: { select: { id: true, name: true } } } },
-        deals: true,
+        activities: {
+          include: { creator: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        },
+        deals: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
       },
     });
 
@@ -240,35 +267,38 @@ router.post('/', async (req: AuthRequest, res, next) => {
       await assertCampaignInCompany(req, campaignId);
     }
 
-    const existingLead = await prisma.lead.findFirst({
-      where: {
-        companyId: req.companyId!,
-        email: { equals: email, mode: 'insensitive' },
-      },
-      select: { id: true },
-    });
+    // Wrap check + create in a transaction to prevent duplicate race
+    const lead = await prisma.$transaction(async (tx) => {
+      const existingLead = await tx.lead.findFirst({
+        where: {
+          companyId: req.companyId!,
+          email: { equals: email, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
 
-    if (existingLead) {
-      throw new AppError(409, 'Lead already exists for this company and email', 'DUPLICATE_LEAD');
-    }
+      if (existingLead) {
+        throw new AppError(409, 'Lead already exists for this company and email', 'DUPLICATE_LEAD');
+      }
 
-    const lead = await prisma.lead.create({
-      data: {
-        companyId: req.companyId!,
-        fullName,
-        email,
-        phone: optionalString(body.phone),
-        companyName: optionalString(body.companyName),
-        source,
-        serviceType: optionalString(body.serviceType),
-        campaignId,
-        status: optionalEnum(LEAD_STATUSES, 'Status')(body.status) || 'new',
-        notes: optionalString(body.notes),
-        ownerId: req.userId!,
-      },
-      include: {
-        owner: { select: { id: true, name: true } },
-      },
+      return tx.lead.create({
+        data: {
+          companyId: req.companyId!,
+          fullName,
+          email,
+          phone: optionalString(body.phone),
+          companyName: optionalString(body.companyName),
+          source,
+          serviceType: optionalString(body.serviceType),
+          campaignId,
+          status: optionalEnum(LEAD_STATUSES, 'Status')(body.status) || 'new',
+          notes: optionalString(body.notes),
+          ownerId: req.userId!,
+        },
+        include: {
+          owner: { select: { id: true, name: true } },
+        },
+      });
     });
 
     void dispatchWebhookEvent('lead_created', toWebhookPayload({ lead }), req.companyId!).catch((error) => {
@@ -321,6 +351,9 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       },
     });
 
+    void dispatchWebhookEvent('lead_updated', toWebhookPayload({ lead }), req.companyId!).catch((error) => {
+      console.error('Lead updated webhook dispatch failed:', error);
+    });
     void dispatchAutomationEvent(req.companyId!, 'lead_updated', toAutomationPayload({ lead })).catch((error) => {
       console.error('Lead updated automation dispatch failed:', error);
     });
@@ -343,6 +376,9 @@ router.delete('/:id', async (req: AuthRequest, res, next) => {
     }
 
     await prisma.lead.delete({ where: { id: existingLead.id } });
+    void dispatchWebhookEvent('lead_deleted', toWebhookPayload({ id: existingLead.id }), req.companyId!).catch((error) => {
+      console.error('Lead deleted webhook dispatch failed:', error);
+    });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);

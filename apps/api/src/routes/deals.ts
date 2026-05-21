@@ -126,7 +126,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const expectedCloseDate = optionalDate(body.expectedCloseDate) ?? undefined;
     await assertLeadVisible(req, leadId);
 
-    // Resolve pipeline stage
+    // Resolve pipeline stage (read-only, safe outside transaction)
     let pipelineStageId: string;
     let pipelineId: string;
 
@@ -140,7 +140,6 @@ router.post('/', async (req: AuthRequest, res, next) => {
       pipelineStageId = stage.id;
       pipelineId = stage.pipeline.id;
     } else {
-      // Default to first stage of default pipeline
       const pipeline = await prisma.pipeline.findFirst({
         where: { companyId: req.companyId!, isDefault: true },
         include: { stages: { orderBy: { order: 'asc' }, take: 1 } },
@@ -154,58 +153,64 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     const stageRecord = await prisma.pipelineStage.findUniqueOrThrow({ where: { id: pipelineStageId } });
 
-    const existingDeal = await prisma.deal.findFirst({
-      where: {
-        companyId: req.companyId!,
-        leadId,
-        ownerId: req.userId!,
-        title: { equals: title, mode: 'insensitive' },
-      },
-      select: { id: true },
+    // Wrap the entire create flow in a transaction to prevent orphaned records
+    const deal = await prisma.$transaction(async (tx) => {
+      const existingDeal = await tx.deal.findFirst({
+        where: {
+          companyId: req.companyId!,
+          leadId,
+          ownerId: req.userId!,
+          title: { equals: title, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+
+      if (existingDeal) {
+        throw new AppError(409, 'Deal already exists for this lead and owner', 'DUPLICATE_DEAL');
+      }
+
+      const newDeal = await tx.deal.create({
+        data: {
+          companyId: req.companyId!,
+          leadId,
+          title,
+          value,
+          pipelineId,
+          pipelineStageId,
+          isWon: stageRecord.isWon,
+          isLost: stageRecord.isLost,
+          expectedCloseDate,
+          closedAt: stageRecord.isWon || stageRecord.isLost ? new Date() : undefined,
+          ownerId: req.userId!,
+        },
+        include: {
+          lead: { select: { id: true, fullName: true, companyName: true, serviceType: true, source: true } },
+          owner: { select: { id: true, name: true } },
+          pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
+        },
+      });
+
+      const campaign = await tx.campaign.create({
+        data: {
+          companyId: req.companyId!,
+          name: `[Project] ${newDeal.title}`,
+          type: newDeal.lead.serviceType || 'Project',
+          channel: newDeal.lead.source || 'organic',
+          startDate: new Date(),
+          salesOwnerId: newDeal.ownerId,
+          cost: 0,
+        },
+      });
+
+      await tx.lead.update({
+        where: { id: newDeal.leadId },
+        data: { campaignId: campaign.id },
+      });
+
+      return newDeal;
     });
 
-    if (existingDeal) {
-      throw new AppError(409, 'Deal already exists for this lead and owner', 'DUPLICATE_DEAL');
-    }
-
-    const deal = await prisma.deal.create({
-      data: {
-        companyId: req.companyId!,
-        leadId,
-        title,
-        value,
-        pipelineId,
-        pipelineStageId,
-        isWon: stageRecord.isWon,
-        isLost: stageRecord.isLost,
-        expectedCloseDate,
-        closedAt: stageRecord.isWon || stageRecord.isLost ? new Date() : undefined,
-        ownerId: req.userId!,
-      },
-      include: {
-        lead: { select: { id: true, fullName: true, companyName: true, serviceType: true, source: true } },
-        owner: { select: { id: true, name: true } },
-        pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
-      },
-    });
-
-    const campaign = await prisma.campaign.create({
-      data: {
-        companyId: req.companyId!,
-        name: `[Project] ${deal.title}`,
-        type: deal.lead.serviceType || 'Project',
-        channel: deal.lead.source || 'organic',
-        startDate: new Date(),
-        salesOwnerId: deal.ownerId,
-        cost: 0,
-      },
-    });
-
-    await prisma.lead.update({
-      where: { id: deal.leadId },
-      data: { campaignId: campaign.id },
-    });
-
+    // Fire-and-forget events outside the transaction
     void dispatchWebhookEvent('deal_created', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
       console.error('Deal webhook dispatch failed:', error);
     });
@@ -238,51 +243,62 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     setIfPresent(data, body, 'status', (v) => (DEAL_STATUSES.includes(v as typeof DEAL_STATUSES[number]) ? v : undefined));
     requireAtLeastOneField({ ...data, pipelineStageId: body.pipelineStageId });
 
-    const existingDeal = await prisma.deal.findFirst({
-      where: await dealScope(req, { id: req.params.id }),
-      select: { isWon: true, isLost: true, ownerId: true, pipelineStageId: true },
-    });
-
-    if (!existingDeal) {
-      throw new AppError(404, 'Deal not found');
-    }
-
-    // Handle pipeline stage change
+    // Validate stage outside transaction (read-only)
+    let newStage: { id: string; isWon: boolean; isLost: boolean; pipeline: { id: string } } | null = null;
     if (body.pipelineStageId !== undefined) {
       const stageId = String(body.pipelineStageId);
-      const newStage = await prisma.pipelineStage.findFirst({
+      newStage = await prisma.pipelineStage.findFirst({
         where: { id: stageId, pipeline: { companyId: req.companyId! } },
         include: { pipeline: { select: { id: true } } },
       });
       if (!newStage) throw new AppError(400, 'Invalid pipeline stage');
-
-      data.pipelineStageId = newStage.id;
-      data.pipelineId = newStage.pipeline.id;
-      data.isWon = newStage.isWon;
-      data.isLost = newStage.isLost;
-
-      const wasWon = existingDeal.isWon;
-      const _nowWon = newStage.isWon;
-      const nowClosed = newStage.isWon || newStage.isLost;
-
-      if (nowClosed && !wasWon) {
-        data.closedAt = new Date();
-      } else if (!nowClosed && wasWon) {
-        data.closedAt = null;
-      }
     }
 
-    const deal = await prisma.deal.update({
-      where: { id: req.params.id },
-      data: data as Prisma.DealUncheckedUpdateInput,
-      include: {
-        lead: { select: { id: true, fullName: true, companyName: true } },
-        owner: { select: { id: true, name: true } },
-        pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
-      },
+    // Use a serializable transaction to prevent concurrent stage changes
+    const { deal, previousState } = await prisma.$transaction(async (tx) => {
+      const existingDeal = await tx.deal.findFirst({
+        where: { id: req.params.id, companyId: req.companyId! },
+        select: { id: true, isWon: true, isLost: true, ownerId: true, pipelineStageId: true },
+      });
+
+      if (!existingDeal) {
+        throw new AppError(404, 'Deal not found');
+      }
+
+      // Apply stage change data
+      if (newStage) {
+        data.pipelineStageId = newStage.id;
+        data.pipelineId = newStage.pipeline.id;
+        data.isWon = newStage.isWon;
+        data.isLost = newStage.isLost;
+
+        const nowClosed = newStage.isWon || newStage.isLost;
+        if (nowClosed && !existingDeal.isWon) {
+          data.closedAt = new Date();
+        } else if (!nowClosed && existingDeal.isWon) {
+          data.closedAt = null;
+        }
+      }
+
+      const updatedDeal = await tx.deal.update({
+        where: { id: existingDeal.id },
+        data: data as Prisma.DealUncheckedUpdateInput,
+        include: {
+          lead: { select: { id: true, fullName: true, companyName: true } },
+          owner: { select: { id: true, name: true } },
+          pipelineStage: { select: { id: true, name: true, color: true, isWon: true, isLost: true, order: true } },
+        },
+      });
+
+      return { deal: updatedDeal, previousState: existingDeal };
     });
 
-    if (!existingDeal.isWon && deal.isWon) {
+    // Fire-and-forget events outside the transaction
+    void dispatchWebhookEvent('deal_updated', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
+      console.error('Deal updated webhook dispatch failed:', error);
+    });
+
+    if (!previousState.isWon && deal.isWon) {
       void dispatchWebhookEvent('deal_won', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
         console.error('Deal won webhook dispatch failed:', error);
       });
@@ -291,16 +307,25 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       });
     }
 
-    if (!existingDeal.isLost && deal.isLost) {
+    if (!previousState.isLost && deal.isLost) {
+      void dispatchWebhookEvent('deal_lost', toWebhookPayload({ deal }), req.companyId!).catch((error) => {
+        console.error('Deal lost webhook dispatch failed:', error);
+      });
       void dispatchAutomationEvent(req.companyId!, 'deal_lost', toAutomationPayload({ deal })).catch((error) => {
         console.error('Deal lost automation dispatch failed:', error);
       });
     }
 
-    if (body.pipelineStageId !== undefined && existingDeal.pipelineStageId !== deal.pipelineStageId) {
+    if (body.pipelineStageId !== undefined && previousState.pipelineStageId !== deal.pipelineStageId) {
+      void dispatchWebhookEvent('deal_stage_changed', toWebhookPayload({
+        deal,
+        previousStageId: previousState.pipelineStageId,
+      }), req.companyId!).catch((error) => {
+        console.error('Deal stage changed webhook dispatch failed:', error);
+      });
       void dispatchAutomationEvent(req.companyId!, 'deal_stage_changed', toAutomationPayload({
         deal,
-        previousStageId: existingDeal.pipelineStageId,
+        previousStageId: previousState.pipelineStageId,
       })).catch((error) => {
         console.error('Deal stage changed automation dispatch failed:', error);
       });
@@ -324,6 +349,9 @@ router.delete('/:id', async (req: AuthRequest, res, next) => {
     }
 
     await prisma.deal.delete({ where: { id: existingDeal.id } });
+    void dispatchWebhookEvent('deal_deleted', toWebhookPayload({ id: existingDeal.id }), req.companyId!).catch((error) => {
+      console.error('Deal deleted webhook dispatch failed:', error);
+    });
     res.json({ success: true, data: null });
   } catch (error) {
     next(error);
