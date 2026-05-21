@@ -82,7 +82,19 @@ export interface ApiKey {
   revokedAt?: Date | string | null;
 }
 
-export type WebhookEvent = 'lead_created' | 'deal_created' | 'deal_won' | 'activity_created';
+export type WebhookEvent =
+  | 'lead_created'
+  | 'lead_updated'
+  | 'lead_deleted'
+  | 'deal_created'
+  | 'deal_updated'
+  | 'deal_stage_changed'
+  | 'deal_won'
+  | 'deal_lost'
+  | 'deal_deleted'
+  | 'activity_created'
+  | 'activity_updated'
+  | 'activity_deleted';
 export type WebhookStatus = 'pending' | 'success' | 'failed';
 
 export interface WebhookDelivery {

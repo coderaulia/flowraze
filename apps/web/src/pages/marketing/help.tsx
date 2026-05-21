@@ -120,7 +120,7 @@ const FAQS = [
   { q: 'Is my data stored securely?', a: 'All data is encrypted at rest (AES-256) and in transit (TLS 1.3). We use isolated database schemas per company workspace. We never share or sell your data. ISO 27001 certification is in progress for 2026.' },
   { q: 'What happens if I exceed my plan limits?', a: 'We\'ll notify you when you approach 80% of any plan limit. If you exceed user or feature limits, affected features will be read-only until you upgrade — we never delete your data.' },
   { q: 'Can I cancel at any time?', a: 'Yes. You can cancel from Settings → Billing with one click. You\'ll retain full access until the end of your current billing period. We don\'t charge cancellation fees.' },
-  { q: 'Do you offer a free trial of paid plans?', a: 'Every new account gets a 14-day Growth trial automatically. No credit card required. After the trial, you can continue on the Free tier or upgrade.' },
+  { q: 'Do you offer a free trial of paid plans?', a: 'Every new account gets a 14-day Performance trial automatically. No credit card required. After the trial, you can continue on the Free tier or upgrade.' },
 ];
 
 export function HelpPage() {

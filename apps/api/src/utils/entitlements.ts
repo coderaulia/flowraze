@@ -94,7 +94,8 @@ export async function getCompanyEntitlements(companyId: string) {
     });
   }
 
-  const plan = billingAccount?.plan ?? 'free';
+  const isTrialing = billingAccount?.status === 'trialing';
+  const plan = isTrialing ? 'pro' : (billingAccount?.plan ?? 'free');
   const config = PLAN_ENTITLEMENTS[plan];
   const isActive = billingAccount ? ACTIVE_STATUSES.includes(billingAccount.status) : true;
 

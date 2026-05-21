@@ -593,7 +593,7 @@ export function SolutionsPage() {
             </div>
             <div style={{ marginTop: 24, fontSize: 13, color: '#a8aed6', display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
               <span>✓ Free for up to 3 users</span>
-              <span>✓ 14-day Pro trial</span>
+              <span>✓ 14-day Performance trial</span>
               <span>✓ Cancel anytime</span>
             </div>
           </div>

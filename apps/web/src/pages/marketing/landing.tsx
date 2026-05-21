@@ -550,7 +550,7 @@ export function LandingPage() {
           </div>
           <div className="lp-final-meta">
             <span>✓ Free for up to 3 users</span>
-            <span>✓ 14-day Pro trial</span>
+            <span>✓ 14-day Performance trial</span>
             <span>✓ Cancel anytime</span>
           </div>
         </div>
