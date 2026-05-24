@@ -2,19 +2,19 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PLAN_ENTITLEMENTS } from './entitlements.js';
 
-test('free plan has correct feature restrictions', () => {
-  const free = PLAN_ENTITLEMENTS.free;
+test('starter plan exposes the paid core CRM package', () => {
+  const starter = PLAN_ENTITLEMENTS.starter;
 
-  assert.equal(free.seats, 3);
-  assert.equal(free.analytics, false);
-  assert.equal(free.apiKeys, 0);
-  assert.equal(free.automation, false);
-  assert.equal(free.campaigns, false);
-  assert.equal(free.exports, false);
-  assert.equal(free.pipelines, 1);
-  assert.equal(free.targets, false);
-  assert.equal(free.teamPerformance, false);
-  assert.equal(free.webhooks, 0);
+  assert.equal(starter.seats, 5);
+  assert.equal(starter.analytics, false);
+  assert.equal(starter.apiKeys, 0);
+  assert.equal(starter.automation, false);
+  assert.equal(starter.campaigns, false);
+  assert.equal(starter.exports, true);
+  assert.equal(starter.pipelines, 1);
+  assert.equal(starter.targets, false);
+  assert.equal(starter.teamPerformance, false);
+  assert.equal(starter.webhooks, 0);
 });
 
 test('growth plan enables campaigns and team performance', () => {
@@ -26,23 +26,10 @@ test('growth plan enables campaigns and team performance', () => {
   assert.equal(growth.teamPerformance, true);
   assert.equal(growth.webhooks, 3);
   assert.equal(growth.apiKeys, 0);
-  assert.equal(growth.exports, false);
-  assert.equal(growth.targets, false);
-});
-
-test('pro plan enables all features with higher limits', () => {
-  const pro = PLAN_ENTITLEMENTS.pro;
-
-  assert.equal(pro.seats, null);
-  assert.equal(pro.analytics, true);
-  assert.equal(pro.apiKeys, 5);
-  assert.equal(pro.automation, true);
-  assert.equal(pro.campaigns, true);
-  assert.equal(pro.exports, true);
-  assert.equal(pro.targets, true);
-  assert.equal(pro.teamPerformance, true);
-  assert.equal(pro.pipelines, Number.POSITIVE_INFINITY);
-  assert.equal(pro.webhooks, Number.POSITIVE_INFINITY);
+  assert.equal(growth.exports, true);
+  assert.equal(growth.targets, true);
+  assert.equal(growth.automation, false);
+  assert.equal(growth.pipelines, 3);
 });
 
 test('custom plan has unlimited everything', () => {
@@ -61,7 +48,7 @@ test('custom plan has unlimited everything', () => {
 });
 
 test('plan tiers are progressively more permissive', () => {
-  const tiers = ['free', 'growth', 'pro', 'custom'] as const;
+  const tiers = ['starter', 'growth', 'custom'] as const;
   const featureCount = tiers.map((tier) => {
     const config = PLAN_ENTITLEMENTS[tier];
     return [

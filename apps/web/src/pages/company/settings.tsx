@@ -15,10 +15,8 @@ import { COMPANY_ROUTES } from '@/lib/routes';
 import type {
   ApiKey,
   BillingAccount,
-  BillingStatus,
   Pipeline,
   PipelineStage,
-  PlanTier,
   User,
   WebhookEndpoint,
   WebhookEvent,
@@ -28,23 +26,17 @@ type Message = { type: 'success' | 'error' | 'info'; text: string };
 
 const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
   { value: 'lead_created', label: 'Lead created' },
+  { value: 'lead_updated', label: 'Lead updated' },
+  { value: 'lead_deleted', label: 'Lead deleted' },
   { value: 'deal_created', label: 'Deal created' },
+  { value: 'deal_updated', label: 'Deal updated' },
+  { value: 'deal_stage_changed', label: 'Deal stage changed' },
   { value: 'deal_won', label: 'Deal won' },
+  { value: 'deal_lost', label: 'Deal lost' },
+  { value: 'deal_deleted', label: 'Deal deleted' },
   { value: 'activity_created', label: 'Activity created' },
-];
-
-const PLAN_OPTIONS: { value: PlanTier; label: string }[] = [
-  { value: 'free', label: 'Free' },
-  { value: 'growth', label: 'Growth' },
-  { value: 'pro', label: 'Performance' },
-  { value: 'custom', label: 'Custom' },
-];
-
-const BILLING_STATUSES: { value: BillingStatus; label: string }[] = [
-  { value: 'trialing', label: 'Trialing' },
-  { value: 'active', label: 'Active' },
-  { value: 'past_due', label: 'Past due' },
-  { value: 'canceled', label: 'Canceled' },
+  { value: 'activity_updated', label: 'Activity updated' },
+  { value: 'activity_deleted', label: 'Activity deleted' },
 ];
 
 function AlertMessage({ message }: { message: Message }) {
@@ -59,11 +51,6 @@ function AlertMessage({ message }: { message: Message }) {
       {message.text}
     </div>
   );
-}
-
-function toDateInputValue(value: Date | string | null | undefined) {
-  if (!value) return '';
-  return new Date(value).toISOString().split('T')[0] ?? '';
 }
 
 export function SettingsPage() {
@@ -97,11 +84,6 @@ export function SettingsPage() {
   const [billingMessage, setBillingMessage] = useState<Message | null>(null);
   const [billingForm, setBillingForm] = useState({
     workspaceName: '',
-    plan: 'free' as PlanTier,
-    status: 'trialing' as BillingStatus,
-    seats: '3',
-    renewalDate: '',
-    externalCustomer: '',
   });
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -116,11 +98,6 @@ export function SettingsPage() {
       setBilling(account);
       setBillingForm({
         workspaceName: account.workspaceName,
-        plan: account.plan,
-        status: account.status,
-        seats: String(account.seats),
-        renewalDate: toDateInputValue(account.renewalDate),
-        externalCustomer: account.externalCustomer || '',
       });
     }
 
@@ -331,10 +308,7 @@ export function SettingsPage() {
     event.preventDefault();
     setBillingMessage(null);
     const response = await put<BillingAccount>('/billing', {
-      ...billingForm,
-      seats: Number(billingForm.seats),
-      renewalDate: billingForm.renewalDate || null,
-      externalCustomer: billingForm.externalCustomer || undefined,
+      workspaceName: billingForm.workspaceName,
     });
 
     if (response.success && response.data) {
@@ -462,8 +436,10 @@ export function SettingsPage() {
                 <p className="font-semibold text-on-surface">{billing.status}</p>
               </div>
               <div>
-                <p className="text-xs uppercase text-on-surface-variant">Seats</p>
-                <p className="font-semibold text-on-surface">{billing.seats}</p>
+                <p className="text-xs uppercase text-on-surface-variant">Users Included</p>
+                <p className="font-semibold text-on-surface">
+                  {billing.plan === 'starter' ? 'Up to 5' : 'Unlimited'}
+                </p>
               </div>
               <div>
                 <p className="text-xs uppercase text-on-surface-variant">Renewal</p>
@@ -476,7 +452,7 @@ export function SettingsPage() {
           {billing && !canManageAdminTools && billing.plan !== 'custom' && (
             <div className="flex flex-wrap gap-3">
               <Button type="button" variant="secondary" onClick={() => setCheckoutOpen(true)}>
-                {billing.plan === 'free' || billing.status === 'canceled' ? 'Upgrade Plan' : 'Change Plan'}
+                {billing.status === 'canceled' ? 'Subscribe Again' : 'Change Plan'}
               </Button>
               <Button
                 type="button"
@@ -489,61 +465,14 @@ export function SettingsPage() {
           )}
           {canManageAdminTools && (
             <form onSubmit={handleSaveBilling} className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 md:max-w-md">
                 <Input
                   value={billingForm.workspaceName}
                   onChange={(event) => setBillingForm({ ...billingForm, workspaceName: event.target.value })}
                   placeholder="Workspace name"
                 />
-                <Select
-                  value={billingForm.plan}
-                  onValueChange={(value) => setBillingForm({ ...billingForm, plan: value as PlanTier })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLAN_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={billingForm.status}
-                  onValueChange={(value) => setBillingForm({ ...billingForm, status: value as BillingStatus })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BILLING_STATUSES.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  min="1"
-                  type="number"
-                  value={billingForm.seats}
-                  onChange={(event) => setBillingForm({ ...billingForm, seats: event.target.value })}
-                  placeholder="Seats"
-                />
-                <Input
-                  type="date"
-                  value={billingForm.renewalDate}
-                  onChange={(event) => setBillingForm({ ...billingForm, renewalDate: event.target.value })}
-                />
-                <Input
-                  value={billingForm.externalCustomer}
-                  onChange={(event) => setBillingForm({ ...billingForm, externalCustomer: event.target.value })}
-                  placeholder="External customer id"
-                />
               </div>
-              <Button type="submit">Save Billing</Button>
+              <Button type="submit">Save Workspace Name</Button>
             </form>
           )}
         </CardContent>

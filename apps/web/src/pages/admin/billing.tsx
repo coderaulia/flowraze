@@ -44,19 +44,17 @@ interface AdminBillingResponse {
   };
 }
 
-const PLAN_OPTIONS: PlanTier[] = ['free', 'growth', 'pro', 'custom'];
+const PLAN_OPTIONS: PlanTier[] = ['starter', 'growth', 'custom'];
 
 const PLAN_MONTHLY_PRICE: Record<PlanTier, number> = {
-  free: 0,
-  growth: 149_000,
-  pro: 299_000,
+  starter: 300_000,
+  growth: 800_000,
   custom: 0,
 };
 
 const PLAN_COLORS: Record<PlanTier, string> = {
-  free: 'bg-gray-100 text-gray-700',
+  starter: 'bg-gray-100 text-gray-700',
   growth: 'bg-blue-50 text-blue-700',
-  pro: 'bg-purple-50 text-purple-700',
   custom: 'bg-orange-50 text-orange-700',
 };
 
@@ -66,13 +64,13 @@ function getPlanDistribution(accounts: AdminBillingAccount[]) {
       acc[account.plan] += 1;
       return acc;
     },
-    { free: 0, growth: 0, pro: 0, custom: 0 }
+    { starter: 0, growth: 0, custom: 0 }
   );
 }
 
 function getEstimatedMRR(accounts: AdminBillingAccount[]) {
   return accounts.reduce((total, account) => {
-    return total + PLAN_MONTHLY_PRICE[account.plan] * account.seats;
+    return account.status === 'active' ? total + PLAN_MONTHLY_PRICE[account.plan] : total;
   }, 0);
 }
 
@@ -90,7 +88,7 @@ export function AdminBillingPage() {
   const [error, setError] = useState('');
 
   const [editingAccount, setEditingAccount] = useState<AdminBillingAccount | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<PlanTier>('free');
+  const [selectedPlan, setSelectedPlan] = useState<PlanTier>('starter');
   const [overrideError, setOverrideError] = useState('');
   const [actionError, setActionError] = useState('');
 

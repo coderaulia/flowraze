@@ -25,7 +25,7 @@ export function LandingHeader() {
         </div>
         <div className="lp-nav-cta">
           <Link to="/login">Log In</Link>
-          <Link to="/register" className="lp-btn lp-btn-primary">Get Started Free</Link>
+          <Link to="/register" className="lp-btn lp-btn-primary">Start Trial</Link>
         </div>
       </div>
     </nav>

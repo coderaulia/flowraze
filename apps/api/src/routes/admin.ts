@@ -20,22 +20,21 @@ import { writeAuditLog } from '../utils/audit.js';
 
 const router = Router();
 
-const PLAN_TIERS = ['free', 'growth', 'pro', 'custom'] as const;
+const PLAN_TIERS = ['starter', 'growth', 'custom'] as const;
 const BILLING_STATUSES = ['trialing', 'active', 'past_due', 'canceled'] as const;
 const USER_ROLES = ['superadmin', 'admin', 'manager', 'employee'] as const;
 const COMPANY_USER_ROLES = ['admin', 'manager', 'employee'] as const;
 const PLAN_MONTHLY_PRICE = {
-  free: 0,
-  growth: 149_000,
-  pro: 299_000,
+  starter: 300_000,
+  growth: 800_000,
   custom: 0,
 } as const;
 
 router.use(authenticate);
 router.use(requireSuperadmin());
 
-function getMonthlyAmount(plan: keyof typeof PLAN_MONTHLY_PRICE, seats: number) {
-  return PLAN_MONTHLY_PRICE[plan] * seats;
+function getMonthlyAmount(plan: keyof typeof PLAN_MONTHLY_PRICE) {
+  return PLAN_MONTHLY_PRICE[plan];
 }
 
 function addDays(date: Date, days: number) {
@@ -82,7 +81,7 @@ async function ensureOpenInvoice(account: {
       companyId: account.companyId,
       billingAccountId: account.id,
       invoiceNumber: `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now()}`,
-      amount: getMonthlyAmount(account.plan, account.seats),
+      amount: getMonthlyAmount(account.plan),
       dueDate: addDays(new Date(), 7),
     },
   });
@@ -145,22 +144,21 @@ router.get('/overview', async (_req: AuthRequest, res, next) => {
 
     const activeSeats = seatSum._sum.seats ?? 0;
 
-    // Estimate MRR using plan distribution and average seats
+    // Estimate MRR using flat per-workspace pricing.
     const PLAN_MONTHLY_PRICE_MAP: Record<string, number> = {
-      free: 0,
-      growth: 149_000,
-      pro: 299_000,
+      starter: 300_000,
+      growth: 800_000,
       custom: 0,
     };
 
-    // For accurate MRR, query only paid plans with their seats
+    // Custom plans remain excluded because their amount is negotiated.
     const paidAccounts = await prisma.billingAccount.findMany({
-      where: { plan: { in: ['growth', 'pro'] } },
-      select: { plan: true, seats: true },
+      where: { plan: { in: ['starter', 'growth'] }, status: 'active' },
+      select: { plan: true },
     });
 
     const estimatedMRR = paidAccounts.reduce(
-      (total, account) => total + (PLAN_MONTHLY_PRICE_MAP[account.plan] ?? 0) * account.seats,
+      (total, account) => total + (PLAN_MONTHLY_PRICE_MAP[account.plan] ?? 0),
       0
     );
 
@@ -300,6 +298,9 @@ router.post('/companies', async (req: AuthRequest, res, next) => {
       await tx.billingAccount.create({
         data: {
           companyId: newCompany.id,
+          plan: 'growth',
+          status: 'trialing',
+          seats: 5,
           trialStartedAt,
           trialEndsAt: addDays(trialStartedAt, 14),
         },

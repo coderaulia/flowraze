@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Search, Upload } from 'lucide-react';
+import { MessageCircle, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,7 @@ import { FieldError } from '@/components/ui/field-error';
 import { get, post, put, del } from '@/lib/api';
 import { hasFormErrors, isValidEmail, type FormErrors } from '@/lib/form-validation';
 import { parseLeadImportFile, type LeadImportRow } from '@/lib/lead-import';
+import { createWhatsAppChatUrl } from '@/lib/whatsapp';
 import type { Lead } from '@/types';
 
 const PAGE_LIMIT = 10;
@@ -57,6 +58,28 @@ type LeadImportResult = {
   totalRows: number;
   errors: { rowNumber: number; email?: string; reason: string }[];
 };
+
+function WhatsAppLeadAction({ lead }: { lead: Lead }) {
+  const chatUrl = createWhatsAppChatUrl(lead.phone || '');
+
+  if (!chatUrl) {
+    return null;
+  }
+
+  return (
+    <Button asChild variant="secondary" size="sm">
+      <a
+        href={chatUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Chat with ${lead.fullName} on WhatsApp`}
+      >
+        <MessageCircle className="mr-2 h-4 w-4" />
+        WhatsApp
+      </a>
+    </Button>
+  );
+}
 
 function validateLeadForm(data: LeadFormData): FormErrors {
   const errors: FormErrors = {};
@@ -465,9 +488,11 @@ export function LeadsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <WhatsAppLeadAction lead={lead} />
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Edit ${lead.fullName}`}
                         onClick={() => openEditModal(lead)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -475,6 +500,7 @@ export function LeadsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${lead.fullName}`}
                         onClick={() => {
                           setDeletingId(lead.id);
                           setIsDeleteModalOpen(true);
@@ -546,6 +572,7 @@ export function LeadsPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value })
                   }
+                  placeholder="e.g., 0812 3456 7890"
                 />
               </div>
               <div className="space-y-2">

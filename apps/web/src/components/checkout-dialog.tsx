@@ -16,7 +16,6 @@ interface CheckoutResult {
   orderId: string;
   amount: number;
   plan: string;
-  seats: number;
   billingCycle: string;
 }
 
@@ -112,15 +111,11 @@ export function CheckoutDialog({ billing, open, onClose, onSuccess }: CheckoutDi
     loadPlans();
   }, [open]);
 
-  const seats = billing?.seats ?? 3;
-
   const getAmount = useCallback(() => {
     const plan = plans.find((p) => p.id === selectedPlan);
     if (!plan) return 0;
-    const pricePerSeat = billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice;
-    const months = billingCycle === 'annual' ? 12 : 1;
-    return pricePerSeat * seats * months;
-  }, [plans, selectedPlan, billingCycle, seats]);
+    return billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice;
+  }, [plans, selectedPlan, billingCycle]);
 
   const handleCheckout = async () => {
     setIsLoading(true);
@@ -191,7 +186,6 @@ export function CheckoutDialog({ billing, open, onClose, onSuccess }: CheckoutDi
         {billing && (
           <div className="rounded-lg bg-surface-container-low p-3 text-sm text-on-surface-variant">
             Current: <span className="font-medium text-on-surface capitalize">{billing.plan}</span>
-            {' · '}{billing.seats} seats
             {' · '}<span className="capitalize">{billing.status}</span>
           </div>
         )}
@@ -214,7 +208,7 @@ export function CheckoutDialog({ billing, open, onClose, onSuccess }: CheckoutDi
               >
                 <div className="font-semibold">{plan.name}</div>
                 <div className="text-sm mt-1 opacity-80">
-                  {formatRupiah(plan.monthlyPrice)}/user/mo
+                  {formatRupiah(plan.monthlyPrice)}/workspace/mo
                 </div>
               </button>
             ))}
@@ -246,7 +240,7 @@ export function CheckoutDialog({ billing, open, onClose, onSuccess }: CheckoutDi
               }`}
             >
               Annual
-              <span className="ml-1 text-xs text-secondary">Save 20%</span>
+              <span className="ml-1 text-xs text-secondary">Annual discount</span>
             </button>
           </div>
         </div>
@@ -254,7 +248,7 @@ export function CheckoutDialog({ billing, open, onClose, onSuccess }: CheckoutDi
         {/* Summary */}
         <div className="rounded-lg bg-surface-container-high p-4 space-y-2">
           <div className="flex justify-between text-sm text-on-surface-variant">
-            <span>{seats} seat{seats > 1 ? 's' : ''} × {billingCycle === 'annual' ? '12 months' : '1 month'}</span>
+            <span>One workspace · {billingCycle === 'annual' ? 'annual upfront' : 'monthly'}</span>
             <span className="capitalize">{selectedPlan}</span>
           </div>
           <div className="flex justify-between text-lg font-semibold text-on-surface">
@@ -263,7 +257,7 @@ export function CheckoutDialog({ billing, open, onClose, onSuccess }: CheckoutDi
           </div>
           {billingCycle === 'annual' && (
             <div className="text-xs text-secondary">
-              You save {formatRupiah(getAmount() * 0.25)} compared to monthly billing
+              Discount included compared to paying monthly for 12 months
             </div>
           )}
         </div>

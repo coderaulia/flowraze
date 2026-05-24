@@ -147,7 +147,7 @@ export interface CancelSubscriptionParams {
 /**
  * Cancels a subscription. By default, cancellation takes effect at the end of
  * the current billing period (subscriptionEndsAt). If immediate=true, it
- * cancels right away and downgrades to free.
+ * cancels right away and locks paid access until the customer subscribes again.
  */
 export async function cancelSubscription(params: CancelSubscriptionParams) {
   const { companyId, reason, immediate } = params;
@@ -165,20 +165,14 @@ export async function cancelSubscription(params: CancelSubscriptionParams) {
     throw new Error('Subscription is already canceled');
   }
 
-  if (account.plan === 'free') {
-    throw new Error('Cannot cancel a free plan');
-  }
-
   if (immediate) {
-    // Immediate cancellation: downgrade to free right now
+    // Immediate cancellation: preserve plan history but stop entitled access.
     await prisma.billingAccount.update({
       where: { id: account.id },
       data: {
         status: 'canceled',
         canceledAt: now,
         cancelReason: reason || 'customer_request',
-        plan: 'free',
-        seats: 3,
       },
     });
   } else {
@@ -215,7 +209,7 @@ export async function reactivateSubscription(companyId: string) {
     throw new Error('Subscription is not scheduled for cancellation');
   }
 
-  if (account.status === 'canceled' && account.plan === 'free') {
+  if (account.status === 'canceled') {
     throw new Error('Subscription has already been fully canceled. Please upgrade again.');
   }
 
@@ -236,7 +230,7 @@ export async function reactivateSubscription(companyId: string) {
 
 export interface DowngradeParams {
   companyId: string;
-  targetPlan: 'free' | 'growth';
+  targetPlan: 'starter' | 'growth';
 }
 
 /**
@@ -254,7 +248,7 @@ export async function scheduleDowngrade(params: DowngradeParams) {
     throw new Error('Billing account not found');
   }
 
-  const planOrder = ['free', 'growth', 'pro', 'custom'];
+  const planOrder = ['starter', 'growth', 'custom'];
   const currentIndex = planOrder.indexOf(account.plan);
   const targetIndex = planOrder.indexOf(targetPlan);
 
@@ -262,13 +256,7 @@ export async function scheduleDowngrade(params: DowngradeParams) {
     throw new Error('Target plan must be lower than current plan');
   }
 
-  // For downgrade to free, treat as cancellation
-  if (targetPlan === 'free') {
-    return cancelSubscription({ companyId, reason: 'downgrade_to_free' });
-  }
-
-  // For downgrade to growth (from pro), schedule the change at period end
-  // We store the intent in cancelReason field as a simple approach
+  // Store the scheduled lower tier until period-end renewal reconciliation.
   await prisma.billingAccount.update({
     where: { id: account.id },
     data: {
@@ -306,7 +294,7 @@ async function sendSubscriptionCanceledEmail(email: string, name: string, plan: 
     <h2>Subscription Canceled</h2>
     <p>Hi ${name},</p>
     <p>Your FlowRaze <strong>${planLabel}</strong> subscription has been canceled due to a failed payment renewal.</p>
-    <p>Your workspace has been downgraded to the Free plan. You can upgrade again at any time from your billing settings.</p>
+    <p>Your workspace no longer has paid access. You can subscribe again at any time from your billing settings.</p>
     <p>If this was a mistake, please update your payment method and resubscribe.</p>
     <br/>
     <p>— The FlowRaze Team</p>

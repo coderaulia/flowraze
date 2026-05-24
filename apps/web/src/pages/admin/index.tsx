@@ -121,7 +121,7 @@ export function AdminDashboardPage() {
           <div className="rounded-xl bg-white border border-gray-200 p-5">
             <h2 className="font-semibold text-primary">Plan Distribution</h2>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {['free', 'growth', 'pro', 'custom'].map((plan) => (
+              {['starter', 'growth', 'custom'].map((plan) => (
                 <div key={plan} className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xs uppercase text-on-surface-variant">{plan}</p>
                   <p className="mt-1 text-xl font-semibold text-primary">

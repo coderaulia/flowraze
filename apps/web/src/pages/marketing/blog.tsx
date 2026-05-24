@@ -268,10 +268,10 @@ export function BlogPage() {
               Ready to stop reading and{' '}
               <span className="lp-serif">start growing?</span>
             </h2>
-            <p style={{ fontSize: 18, color: '#cdd1eb', maxWidth: 540, margin: '18px auto 36px' }}>Put these frameworks into action with FlowRaze. Free for up to 3 users. No card required.</p>
+            <p style={{ fontSize: 18, color: '#cdd1eb', maxWidth: 540, margin: '18px auto 36px' }}>Put these frameworks into action with FlowRaze. Start with a 14-day Growth trial. No card required.</p>
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
               <Link to="/register">
-                <LandingButton variant="primary" style={{ background: '#fff', color: N }}>Get Started Free →</LandingButton>
+                <LandingButton variant="primary" style={{ background: '#fff', color: N }}>Start 14-Day Trial →</LandingButton>
               </Link>
               <Link to="/help">
                 <LandingButton variant="ghost" style={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>Explore Help Center</LandingButton>

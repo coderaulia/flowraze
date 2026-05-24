@@ -45,7 +45,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
     // Calculate next renewal amount
     const pricing = PLAN_PRICES[account.plan];
     const nextAmount = pricing
-      ? calculateAmount(account.plan, account.seats, account.billingCycle)
+      ? calculateAmount(account.plan, account.billingCycle)
       : 0;
 
     const isCanceling = !!account.canceledAt && account.status !== 'canceled';
@@ -138,13 +138,13 @@ router.post('/downgrade', async (req: AuthRequest, res, next) => {
     const body = requireObjectBody(req.body);
     const targetPlan = body.targetPlan as string;
 
-    if (!targetPlan || !['free', 'growth'].includes(targetPlan)) {
-      throw new AppError(400, 'Target plan must be "free" or "growth"');
+    if (!targetPlan || !['starter', 'growth'].includes(targetPlan)) {
+      throw new AppError(400, 'Target plan must be "starter" or "growth"');
     }
 
     const result = await scheduleDowngrade({
       companyId,
-      targetPlan: targetPlan as 'free' | 'growth',
+      targetPlan: targetPlan as 'starter' | 'growth',
     });
 
     res.json({ success: true, data: result });
@@ -235,8 +235,8 @@ router.put('/seats', async (req: AuthRequest, res, next) => {
       throw new AppError(404, 'Billing account not found');
     }
 
-    if (account.plan === 'free' && seats > 3) {
-      throw new AppError(400, 'Free plan is limited to 3 seats. Upgrade to add more.');
+    if (account.plan === 'starter' && seats > 5) {
+      throw new AppError(400, 'Starter plan is limited to 5 users. Upgrade to add more.');
     }
 
     const updated = await prisma.billingAccount.update({

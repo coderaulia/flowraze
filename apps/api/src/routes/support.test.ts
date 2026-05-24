@@ -55,7 +55,7 @@ test('support ticket creation is scoped to requester company', async () => {
   });
   mockPrisma('billingAccount', 'findUnique', (args) => {
     assert.equal((args as { where?: { companyId?: string } }).where?.companyId, user.companyId);
-    return { plan: 'pro', status: 'active' };
+    return { plan: 'custom', status: 'active' };
   });
   mockPrisma('supportTicket', 'create', (args) => {
     const data = (args as { data?: { companyId?: string; requesterId?: string; type?: string; slaDueAt?: Date } }).data;

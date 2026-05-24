@@ -5,8 +5,8 @@ import { LandingHeader, LandingFooter, LandingButton, Eyebrow } from '@/componen
 import '@/components/landing/landing.css';
 
 const PRICES = {
-  growth: { monthly: '149k', annual: '119k' },
-  performance: { monthly: '299k', annual: '239k' },
+  starter: { monthly: '300k', annual: '3jt' },
+  growth: { monthly: '800k', annual: '8jt' },
 };
 
 type FaqItem = { q: string; a: React.ReactNode };
@@ -14,11 +14,11 @@ type FaqItem = { q: string; a: React.ReactNode };
 const FAQ_ITEMS: FaqItem[] = [
   {
     q: 'Can I start for free without a credit card?',
-    a: <><strong>Yes.</strong> The Starter plan is free forever for up to 3 users. Our 14-day Performance trial also requires no card — we only ask for payment when you're ready to commit.</>,
+    a: <><strong>Yes.</strong> Every workspace starts with a 14-day Growth trial without a card. After the trial, choose Starter or Growth to keep using paid features.</>,
   },
   {
-    q: 'How does per-user pricing work?',
-    a: <>Growth and Performance plans are billed based on the number of <strong>active seats</strong> in your team. You can add or remove users at any time, and your invoice adjusts proportionally on the next cycle.</>,
+    q: 'Why is pricing per workspace?',
+    a: <>Starter covers up to five users and Growth includes unlimited users at one flat workspace price. Add your sales team without a per-seat invoice surprise.</>,
   },
   {
     q: 'Can I upgrade or downgrade later?',
@@ -26,7 +26,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: <>FlowRaze currently supports manual invoice and payment tracking while checkout, customer portal, and provider-synced payment methods are being integrated.</>,
+    a: <>Checkout is powered by Midtrans Snap, including Indonesian bank transfer and Virtual Account payment options made available by Midtrans.</>,
   },
   {
     q: 'Is my data secure?',
@@ -34,7 +34,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'Do you offer discounts for startups or non-profits?',
-    a: <>Yes — we offer 50% off Growth and Performance plans for early-stage startups (under 18 months old) and registered non-profits. Reach out to our team and we'll get you set up.</>,
+    a: <>Contact our team for annual billing or an eligible design-partner arrangement while FlowRaze is in its early customer program.</>,
   },
 ];
 
@@ -63,14 +63,14 @@ export function PricingPage() {
     return () => io.disconnect();
   }, []);
 
+  const sAmt = PRICES.starter[billing];
   const gAmt = PRICES.growth[billing];
-  const pAmt = PRICES.performance[billing];
 
   return (
     <>
       <SEO 
         title="Transparent Plans for Every Team" 
-        description="FlowRaze pricing is simple and scales with you. No hidden fees, no seat traps. Start for free today."
+        description="Flat workspace pricing for WhatsApp-first sales teams. Start with a 14-day Growth trial."
       />
       <style>{`
         [data-reveal]{opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
@@ -99,7 +99,7 @@ export function PricingPage() {
         .save-pill{font-size:10px;font-weight:700;background:#e6f7ee;color:#1aa86b;padding:3px 8px;border-radius:999px;letter-spacing:.04em}
 
         .pr-plans{padding:48px 32px 96px;background:#fff}
-        .pr-plans-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:1240px;margin:0 auto}
+        .pr-plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1080px;margin:0 auto}
         .pr-plan{position:relative;background:#fff;border:1px solid #e6e8f0;border-radius:18px;padding:32px 28px;display:flex;flex-direction:column;gap:18px;transition:transform .3s,box-shadow .3s,border-color .25s}
         .pr-plan:hover{transform:translateY(-4px);box-shadow:0 30px 60px -28px rgba(20,26,77,.18);border-color:#d0d6ee}
         .pr-plan.popular{background:#1d2879;border-color:#1d2879;color:#fff;box-shadow:0 30px 60px -25px rgba(20,26,77,.5),0 12px 28px -16px rgba(20,26,77,.35)}
@@ -138,7 +138,7 @@ export function PricingPage() {
         .pr-compare-head{text-align:center;margin-bottom:48px}
         .pr-compare-head h2{margin-top:18px;font-size:clamp(32px,4vw,48px);line-height:1.08;letter-spacing:-.03em;color:#0c1030}
         .pr-ctab{max-width:1100px;margin:0 auto;background:#fff;border:1px solid #e6e8f0;border-radius:18px;overflow:hidden;box-shadow:0 18px 40px -22px rgba(20,26,77,.12)}
-        .pr-crow{display:grid;grid-template-columns:2fr repeat(4,1fr);align-items:center;border-bottom:1px solid #e6e8f0}
+        .pr-crow{display:grid;grid-template-columns:2fr repeat(3,1fr);align-items:center;border-bottom:1px solid #e6e8f0}
         .pr-crow:last-child{border-bottom:none}
         .pr-crow.section-h{background:#f5f6fb}
         .pr-ccell{padding:18px 22px;font-size:14px;color:#3a4060;text-align:center;font-weight:500}
@@ -220,7 +220,7 @@ export function PricingPage() {
                 Built to <span className="pr-accent pr-serif">grow with you.</span>
               </h1>
               <p className="pr-lead" data-reveal="up">
-                Start free. Scale as your business grows. No hidden fees. No setup tax. No surprises on the invoice.
+                Add your whole team for one workspace price. Start with a 14-day Growth trial, then choose the plan that fits.
               </p>
               <div className="billing-toggle" data-reveal="up">
                 <button
@@ -233,7 +233,7 @@ export function PricingPage() {
                   className={billing === 'annual' ? 'on' : ''}
                   onClick={() => setBilling('annual')}
                 >
-                  Annual <span className="save-pill">SAVE 20%</span>
+                  Annual <span className="save-pill">SAVE ~17%</span>
                 </button>
               </div>
             </div>
@@ -246,16 +246,18 @@ export function PricingPage() {
               <div className="pr-plan">
                 <div>
                   <div className="pr-plan-name">Starter</div>
-                  <div className="pr-plan-tagline">Perfect for solo founders or small teams getting their first system off spreadsheets.</div>
+                  <div className="pr-plan-tagline">For small service teams taking leads from WhatsApp into a clear pipeline.</div>
                 </div>
                 <div className="pr-plan-price">
-                  <span className="amt">Rp 0</span>
-                  <span className="per">/ forever</span>
+                  <span className="pre">Rp</span>
+                  <span className="amt">{sAmt}</span>
+                  <span className="per">/ workspace / {billing === 'annual' ? 'yr' : 'mo'}</span>
                 </div>
-                <Link to="/login"><button className="pr-plan-cta">Start Free</button></Link>
+                <Link to="/login"><button className="pr-plan-cta">Start 14-Day Trial</button></Link>
                 <hr className="pr-plan-divider" />
                 <ul className="pr-plan-feats">
-                  <li>Up to 3 users</li>
+                  <li>Up to 5 users</li>
+                  <li>Direct WhatsApp chat links from leads</li>
                   <li>Lead &amp; contact management</li>
                   <li>Basic deal pipeline (1 board)</li>
                   <li>Responsive web app access</li>
@@ -268,71 +270,44 @@ export function PricingPage() {
                 <div className="pr-plan-badge">Most Popular</div>
                 <div>
                   <div className="pr-plan-name">Growth</div>
-                  <div className="pr-plan-tagline">For growing teams that want clarity, automation, and real revenue insight.</div>
+                  <div className="pr-plan-tagline">For growing sales teams that need shared visibility and analytics.</div>
                 </div>
                 <div className="pr-plan-price">
                   <span className="pre">Rp</span>
                   <span className="amt">{gAmt}</span>
-                  <span className="per">/ user / mo</span>
-                  {billing === 'annual' && <span className="strike">Rp 149k</span>}
+                  <span className="per">/ workspace / {billing === 'annual' ? 'yr' : 'mo'}</span>
                 </div>
                 <Link to="/login"><button className="pr-plan-cta">Start 14-Day Trial</button></Link>
                 <hr className="pr-plan-divider" />
                 <ul className="pr-plan-feats">
                   <li className="head-row">Everything in Starter, plus:</li>
-                  <li>Seat-based team expansion</li>
-                  <li>Full sales pipeline tracking with fixed stages</li>
+                  <li>Unlimited users</li>
+                  <li>Multiple pipelines and custom stages</li>
                   <li>Revenue dashboard with date ranges</li>
                   <li>Team performance tracking</li>
                   <li>Campaign and project tracking</li>
-                  <li>Priority support (chat + email)</li>
+                  <li>Sales targets and CSV/PDF exports</li>
                 </ul>
               </div>
 
-              {/* Performance */}
+              {/* Custom */}
               <div className="pr-plan featured-cta">
                 <div>
-                  <div className="pr-plan-name">Performance</div>
-                  <div className="pr-plan-tagline">For teams serious about scaling — with attribution, automation, and APIs.</div>
+                  <div className="pr-plan-name">Custom</div>
+                  <div className="pr-plan-tagline">For organizations that need integrations, automation, and tailored support.</div>
                 </div>
                 <div className="pr-plan-price">
-                  <span className="pre">Rp</span>
-                  <span className="amt">{pAmt}</span>
-                  <span className="per">/ user / mo</span>
-                  {billing === 'annual' && <span className="strike">Rp 299k</span>}
+                  <span className="amt">Contact</span>
                 </div>
-                <Link to="/login"><button className="pr-plan-cta">Upgrade to Performance</button></Link>
+                <Link to="/login"><button className="pr-plan-cta">Talk to Sales</button></Link>
                 <hr className="pr-plan-divider" />
                 <ul className="pr-plan-feats">
                   <li className="head-row">Everything in Growth, plus:</li>
                   <li>API access for integrations</li>
                   <li>Unlimited webhook endpoints</li>
-                  <li>CSV/PDF exports for core CRM views</li>
-                  <li>Sales targets and team management</li>
-                  <li>Billing lifecycle controls</li>
-                  <li>Priority implementation support</li>
-                </ul>
-              </div>
-
-              {/* Enterprise */}
-              <div className="pr-plan">
-                <div>
-                  <div className="pr-plan-name">Enterprise</div>
-                  <div className="pr-plan-tagline">For organizations that need full control, security, and white-glove support.</div>
-                </div>
-                <div className="pr-plan-price">
-                  <span className="amt">Custom</span>
-                </div>
-                <Link to="/login"><button className="pr-plan-cta">Talk to Sales</button></Link>
-                <hr className="pr-plan-divider" />
-                <ul className="pr-plan-feats">
-                  <li className="head-row">Everything in Performance, plus:</li>
+                  <li>Workflow automation</li>
                   <li>Custom integration planning</li>
-                  <li>Dedicated success manager</li>
-                  <li>SLA and security review planning</li>
-                  <li>White-label and data residency roadmap</li>
                   <li>Custom contracts &amp; invoicing</li>
-                  <li>24/7 priority support</li>
                 </ul>
               </div>
             </div>
@@ -352,33 +327,20 @@ export function PricingPage() {
               <div className="pr-ctab" data-reveal="up">
                 <div className="pr-crow head-row">
                   <div className="pr-ccell">Core Features</div>
-                  <div className="pr-ccell">Starter<span className="small">Free forever</span></div>
+                  <div className="pr-ccell">Starter<span className="small">Up to 5 users</span></div>
                   <div className="pr-ccell pop">Growth<span className="small">Most popular</span></div>
-                  <div className="pr-ccell">Performance<span className="small">For scaling teams</span></div>
-                  <div className="pr-ccell">Enterprise<span className="small">Custom</span></div>
+                  <div className="pr-ccell">Custom<span className="small">Talk to sales</span></div>
                 </div>
 
-                <div className="pr-crow section-h"><div className="pr-ccell">Core platform</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">Users</div><div className="pr-ccell">Up to 3</div><div className="pr-ccell pop">Seat-based</div><div className="pr-ccell">Seat-based</div><div className="pr-ccell">Custom seats</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Leads &amp; contacts</div><div className="pr-ccell"><Ck /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
-                <div className="pr-crow"><div className="pr-ccell">Deal pipeline</div><div className="pr-ccell">Fixed stages</div><div className="pr-ccell pop">Fixed stages</div><div className="pr-ccell">Fixed stages</div><div className="pr-ccell">Roadmap</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Mobile access</div><div className="pr-ccell">Responsive web</div><div className="pr-ccell pop">Responsive web</div><div className="pr-ccell">Responsive web</div><div className="pr-ccell">Roadmap</div></div>
-
-                <div className="pr-crow section-h"><div className="pr-ccell">Insights &amp; analytics</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">Revenue dashboard</div><div className="pr-ccell">Basic</div><div className="pr-ccell pop">Range controls</div><div className="pr-ccell">Range controls</div><div className="pr-ccell">Custom review</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Campaign tracking</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
-                <div className="pr-crow"><div className="pr-ccell">Conversion reporting</div><div className="pr-ccell">Stage counts</div><div className="pr-ccell pop">Stage counts</div><div className="pr-ccell">Stage counts</div><div className="pr-ccell">Roadmap</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Forecasting</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Roadmap</div><div className="pr-ccell">Roadmap</div></div>
-
-                <div className="pr-crow section-h"><div className="pr-ccell">Automation &amp; integrations</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">Workflow automation</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Basic rules</div><div className="pr-ccell">Basic rules</div><div className="pr-ccell">Custom planning</div></div>
-                <div className="pr-crow"><div className="pr-ccell">API access</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell"><Ck /></div><div className="pr-ccell">Enterprise API</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Webhooks</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">3 endpoints</div><div className="pr-ccell">Unlimited</div><div className="pr-ccell">Unlimited</div></div>
-
-                <div className="pr-crow section-h"><div className="pr-ccell">Security &amp; support</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /><div className="pr-ccell" /></div>
-                <div className="pr-crow"><div className="pr-ccell">SSO &amp; SAML</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Roadmap</div><div className="pr-ccell">Roadmap</div></div>
-                <div className="pr-crow"><div className="pr-ccell">Dedicated success manager</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Dash /></div><div className="pr-ccell">Implementation support</div><div className="pr-ccell"><Ck /></div></div>
-                <div className="pr-crow"><div className="pr-ccell">Support</div><div className="pr-ccell">Email</div><div className="pr-ccell pop">Chat + email</div><div className="pr-ccell">Priority</div><div className="pr-ccell">24/7 + SLA</div></div>
+                <div className="pr-crow section-h"><div className="pr-ccell">Core platform</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /></div>
+                <div className="pr-crow"><div className="pr-ccell">Users</div><div className="pr-ccell">Up to 5</div><div className="pr-ccell pop">Unlimited</div><div className="pr-ccell">Unlimited</div></div>
+                <div className="pr-crow"><div className="pr-ccell">WhatsApp chat links</div><div className="pr-ccell"><Ck /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow"><div className="pr-ccell">Leads &amp; pipeline</div><div className="pr-ccell"><Ck /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow section-h"><div className="pr-ccell">Growth tools</div><div className="pr-ccell" /><div className="pr-ccell pop" /><div className="pr-ccell" /></div>
+                <div className="pr-crow"><div className="pr-ccell">Analytics and targets</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow"><div className="pr-ccell">Campaigns and team performance</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow"><div className="pr-ccell">Exports</div><div className="pr-ccell"><Ck /></div><div className="pr-ccell pop"><Ck /></div><div className="pr-ccell"><Ck /></div></div>
+                <div className="pr-crow"><div className="pr-ccell">API, automation, webhooks</div><div className="pr-ccell"><Dash /></div><div className="pr-ccell pop">Webhooks (3)</div><div className="pr-ccell">Included</div></div>
               </div>
             </div>
           </section>
@@ -391,7 +353,7 @@ export function PricingPage() {
                 <h2 style={{ marginTop: 18 }}>
                   Try the full power of FlowRaze — <span className="pr-serif">free for 14 days.</span>
                 </h2>
-                <p>No credit card. No setup call. Just full access to every Performance feature, on us. Experience how FlowRaze transforms your operations from day one.</p>
+                <p>No credit card. Try Growth features for 14 days, then choose a paid workspace plan to continue.</p>
                 <Link to="/login">
                   <LandingButton size="lg">Start 14-Day Trial →</LandingButton>
                 </Link>
@@ -400,7 +362,7 @@ export function PricingPage() {
               <div className="pr-trial-vis">
                 <div className="pr-trial-clock">
                   <div className="pr-clock-num">14</div>
-                  <div className="pr-clock-lbl">Days Free</div>
+                  <div className="pr-clock-lbl">Trial Days</div>
                   <div className="pr-trial-dots">
                     <i /><i /><i />
                   </div>
@@ -442,7 +404,7 @@ export function PricingPage() {
               <p>No setup complexity. No learning curve. Just clarity — from day one.</p>
               <div className="pr-final-btns">
                 <Link to="/login">
-                  <LandingButton size="lg">Get Started Free →</LandingButton>
+                  <LandingButton size="lg">Start 14-Day Trial →</LandingButton>
                 </Link>
                 <LandingButton variant="ghost" size="lg">Book a Demo</LandingButton>
               </div>

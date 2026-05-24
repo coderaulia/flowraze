@@ -425,9 +425,9 @@ model BillingAccount {
   id                    String        @id @default(cuid())
   companyId             String        @unique
   workspaceName         String        @default("FlowRaze Workspace")
-  plan                  PlanTier      @default(free)
+  plan                  PlanTier      @default(growth)
   status                BillingStatus @default(trialing)
-  seats                 Int           @default(3)
+  seats                 Int           @default(5)
   billingCycle          BillingCycle  @default(monthly)
   renewalDate           DateTime?
   trialStartedAt        DateTime?
@@ -448,9 +448,8 @@ model BillingAccount {
 }
 
 enum PlanTier {
-  free
+  starter
   growth
-  pro
   custom
 }
 

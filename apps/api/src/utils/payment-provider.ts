@@ -53,17 +53,15 @@ function authHeader(serverKey: string) {
 // ─── Plan Pricing ────────────────────────────────────────────────────────────
 
 export const PLAN_PRICES: Record<string, { monthly: number; annual: number; label: string }> = {
-  growth: { monthly: 149_000, annual: 119_200, label: 'Growth' },
-  pro: { monthly: 299_000, annual: 239_200, label: 'Performance' },
+  starter: { monthly: 300_000, annual: 3_000_000, label: 'Starter' },
+  growth: { monthly: 800_000, annual: 8_000_000, label: 'Growth' },
 };
 
-export function calculateAmount(plan: string, seats: number, billingCycle: 'monthly' | 'annual') {
+export function calculateAmount(plan: string, billingCycle: 'monthly' | 'annual') {
   const pricing = PLAN_PRICES[plan];
   if (!pricing) return 0;
 
-  const pricePerSeat = billingCycle === 'annual' ? pricing.annual : pricing.monthly;
-  const months = billingCycle === 'annual' ? 12 : 1;
-  return pricePerSeat * seats * months;
+  return billingCycle === 'annual' ? pricing.annual : pricing.monthly;
 }
 
 // ─── Snap Token (Checkout) ───────────────────────────────────────────────────
@@ -72,7 +70,6 @@ export interface CreateCheckoutParams {
   companyId: string;
   companyName: string;
   plan: string;
-  seats: number;
   billingCycle: 'monthly' | 'annual';
   customerEmail: string;
   customerName: string;
@@ -86,9 +83,9 @@ export interface CheckoutResult {
 
 export async function createCheckoutSession(params: CreateCheckoutParams): Promise<CheckoutResult> {
   const config = getConfig();
-  const { companyId, companyName, plan, seats, billingCycle, customerEmail, customerName } = params;
+  const { companyId, companyName, plan, billingCycle, customerEmail, customerName } = params;
 
-  const amount = calculateAmount(plan, seats, billingCycle);
+  const amount = calculateAmount(plan, billingCycle);
   if (amount <= 0) {
     throw new Error(`Invalid plan or amount: ${plan}`);
   }
@@ -105,9 +102,9 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
     item_details: [
       {
         id: `${plan}-${billingCycle}`,
-        price: billingCycle === 'annual' ? pricing.annual * 12 : pricing.monthly,
-        quantity: seats,
-        name: `FlowRaze ${pricing.label} (${cycleLabel}) per seat`,
+        price: amount,
+        quantity: 1,
+        name: `FlowRaze ${pricing.label} (${cycleLabel}) workspace`,
       },
     ],
     customer_details: {
@@ -118,7 +115,6 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
       company_id: companyId,
       company_name: companyName,
       plan,
-      seats: String(seats),
       billing_cycle: billingCycle,
     },
     callbacks: {
@@ -156,7 +152,7 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
       status: 'pending',
       method: 'midtrans',
       reference: orderId,
-      notes: JSON.stringify({ plan, seats, billingCycle }),
+      notes: JSON.stringify({ plan, billingCycle }),
     },
   });
 
@@ -180,7 +176,6 @@ export interface MidtransNotification {
   metadata?: {
     company_id?: string;
     plan?: string;
-    seats?: string;
     billing_cycle?: string;
   };
 }
@@ -234,14 +229,14 @@ export async function processNotification(notification: MidtransNotification) {
   if (outcome === 'success') {
     // Parse metadata from payment notes
     let plan = 'growth';
-    let seats = payment.billingAccount.seats;
     let billingCycle: 'monthly' | 'annual' = 'monthly';
 
     try {
       const meta = JSON.parse(payment.notes ?? '{}');
       if (meta.plan) plan = meta.plan;
-      if (meta.seats) seats = Number(meta.seats);
-      if (meta.billing_cycle) billingCycle = meta.billing_cycle;
+      if (meta.billingCycle === 'annual' || meta.billingCycle === 'monthly') {
+        billingCycle = meta.billingCycle;
+      }
     } catch {
       // Use defaults
     }
@@ -260,9 +255,8 @@ export async function processNotification(notification: MidtransNotification) {
       prisma.billingAccount.update({
         where: { id: payment.billingAccountId },
         data: {
-          plan: plan as 'growth' | 'pro' | 'custom',
+          plan: plan as 'starter' | 'growth',
           status: 'active',
-          seats,
           billingCycle: billingCycle as 'monthly' | 'annual',
           subscriptionStartedAt: payment.billingAccount.subscriptionStartedAt ?? now,
           subscriptionEndsAt: new Date(now.getTime() + subscriptionDays * 24 * 60 * 60 * 1000),

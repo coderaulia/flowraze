@@ -45,6 +45,23 @@ function resetMocks() {
   }
 }
 
+function mockTransaction() {
+  mockPrismaClient('$transaction', (operation) => {
+    if (typeof operation === 'function') {
+      return operation({
+        lead: (prisma as unknown as { lead: unknown }).lead,
+      });
+    }
+
+    return Promise.all(operation as Array<Promise<unknown>>);
+  });
+}
+
+function mockBackgroundLeadEvents() {
+  mockPrisma('webhookEndpoint', 'findMany', () => []);
+  mockPrisma('automationRule', 'findMany', () => []);
+}
+
 function tokenFor(user: TestUser) {
   return jwt.sign({ userId: user.id, role: user.role, companyId: user.companyId }, JWT_SECRET);
 }
@@ -79,7 +96,9 @@ async function withServer(run: (baseUrl: string) => Promise<void>) {
 test('POST /api/leads creates a lead with valid data', async () => {
   resetMocks();
   mockAuthUser(admin);
-  mockPrisma('billingAccount', 'findUnique', () => ({ plan: 'pro', status: 'active', seats: 10 }));
+  mockPrisma('billingAccount', 'findUnique', () => ({ plan: 'custom', status: 'active', seats: 10 }));
+  mockTransaction();
+  mockBackgroundLeadEvents();
   mockPrisma('lead', 'findFirst', () => null); // no duplicate
   mockPrisma('lead', 'create', (args) => {
     const data = (args as { data?: Record<string, unknown> }).data;
@@ -123,7 +142,8 @@ test('POST /api/leads creates a lead with valid data', async () => {
 test('POST /api/leads rejects duplicate email within company', async () => {
   resetMocks();
   mockAuthUser(admin);
-  mockPrisma('billingAccount', 'findUnique', () => ({ plan: 'pro', status: 'active', seats: 10 }));
+  mockPrisma('billingAccount', 'findUnique', () => ({ plan: 'custom', status: 'active', seats: 10 }));
+  mockTransaction();
   mockPrisma('lead', 'findFirst', () => ({ id: 'existing-lead' })); // duplicate found
 
   await withServer(async (baseUrl) => {
@@ -151,7 +171,7 @@ test('POST /api/leads rejects duplicate email within company', async () => {
 test('POST /api/leads rejects missing required fields', async () => {
   resetMocks();
   mockAuthUser(admin);
-  mockPrisma('billingAccount', 'findUnique', () => ({ plan: 'pro', status: 'active', seats: 10 }));
+  mockPrisma('billingAccount', 'findUnique', () => ({ plan: 'custom', status: 'active', seats: 10 }));
 
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/leads`, {
@@ -174,7 +194,7 @@ test('POST /api/leads rejects missing required fields', async () => {
 test('GET /api/leads returns paginated leads scoped to company', async () => {
   resetMocks();
   mockAuthUser(admin);
-  mockPrismaClient('$transaction', (queries) => Promise.all(queries as Array<Promise<unknown>>));
+  mockTransaction();
   mockPrisma('lead', 'findMany', (args) => {
     const where = (args as { where?: { companyId?: string } }).where;
     assert.equal(where?.companyId, companyId);
@@ -227,6 +247,7 @@ test('GET /api/leads/:id returns 404 for non-existent lead', async () => {
 test('DELETE /api/leads/:id deletes a lead within scope', async () => {
   resetMocks();
   mockAuthUser(admin);
+  mockBackgroundLeadEvents();
   mockPrisma('lead', 'findFirst', () => ({ id: 'lead-to-delete' }));
   mockPrisma('lead', 'delete', (args) => {
     const where = (args as { where?: { id?: string } }).where;

@@ -123,7 +123,12 @@ export interface WebhookEndpoint {
 }
 
 export type AutomationTriggerEvent = 'manual' | WebhookEvent;
-export type AutomationActionType = 'create_activity' | 'update_lead_status';
+export type AutomationActionType =
+  | 'create_activity'
+  | 'update_lead_status'
+  | 'assign_owner'
+  | 'send_notification'
+  | 'fire_webhook';
 export type AutomationRunStatus = 'pending' | 'running' | 'success' | 'failed';
 
 export interface AutomationRun {
@@ -150,6 +155,13 @@ export interface AutomationRule {
     activityType?: ActivityType;
     content?: string;
     status?: Lead['status'];
+    userId?: string;
+    title?: string;
+    body?: string;
+    recipientRole?: 'all' | 'admin' | 'manager';
+    url?: string;
+    method?: string;
+    secret?: string;
   };
   isActive: boolean;
   lastTriggeredAt?: Date | string | null;
@@ -182,7 +194,7 @@ export interface SupportTicket {
   assignedTo?: { id: string; name: string; email: string } | null;
 }
 
-export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
+export type PlanTier = 'starter' | 'growth' | 'custom';
 export type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
 export type InvoiceStatus = 'open' | 'paid' | 'void' | 'overdue';
 export type PaymentStatus = 'pending' | 'paid' | 'rejected' | 'expired';

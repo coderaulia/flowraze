@@ -18,7 +18,7 @@ const CATEGORIES = [
       'Creating your FlowRaze account',
       'Setting up your company workspace',
       'Inviting team members and setting roles',
-      'Connecting Gmail and WhatsApp Business',
+      'Opening WhatsApp chats from lead records',
       'Importing your leads from a spreadsheet',
       'Your first pipeline: a step-by-step guide',
       'Understanding the dashboard overview',
@@ -89,8 +89,8 @@ const CATEGORIES = [
       'Changing your email or password',
       'Managing your subscription plan',
       'Understanding your invoice and billing cycle',
-      'Upgrading from Free to Growth',
-      'Adding and removing team seats',
+      'Choosing Starter or Growth after your trial',
+      'Understanding flat workspace pricing',
       'Generating API keys',
       'Setting up webhooks',
       'Cancelling your subscription',
@@ -120,7 +120,7 @@ const FAQS = [
   { q: 'Is my data stored securely?', a: 'All data is encrypted at rest (AES-256) and in transit (TLS 1.3). We use isolated database schemas per company workspace. We never share or sell your data. ISO 27001 certification is in progress for 2026.' },
   { q: 'What happens if I exceed my plan limits?', a: 'We\'ll notify you when you approach 80% of any plan limit. If you exceed user or feature limits, affected features will be read-only until you upgrade — we never delete your data.' },
   { q: 'Can I cancel at any time?', a: 'Yes. You can cancel from Settings → Billing with one click. You\'ll retain full access until the end of your current billing period. We don\'t charge cancellation fees.' },
-  { q: 'Do you offer a free trial of paid plans?', a: 'Every new account gets a 14-day Performance trial automatically. No credit card required. After the trial, you can continue on the Free tier or upgrade.' },
+  { q: 'Do you offer a free trial of paid plans?', a: 'Every new account gets a 14-day Growth trial automatically. No credit card is required. After the trial, choose Starter or Growth to keep using paid features.' },
 ];
 
 export function HelpPage() {
@@ -320,10 +320,10 @@ export function HelpPage() {
               Everything you need to{' '}
               <span className="lp-serif">get going fast.</span>
             </h2>
-            <p style={{ fontSize: 18, color: '#cdd1eb', maxWidth: 520, margin: '18px auto 36px' }}>Free onboarding. Live support. Extensive documentation. We're invested in your success from day one.</p>
+            <p style={{ fontSize: 18, color: '#cdd1eb', maxWidth: 520, margin: '18px auto 36px' }}>Guided onboarding. Live support. Extensive documentation. We're invested in your success from day one.</p>
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
               <Link to="/register">
-                <LandingButton variant="primary" style={{ background: '#fff', color: N }}>Start for Free →</LandingButton>
+                <LandingButton variant="primary" style={{ background: '#fff', color: N }}>Start 14-Day Trial →</LandingButton>
               </Link>
               <Link to="/about">
                 <LandingButton variant="ghost" style={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>Learn About Us</LandingButton>

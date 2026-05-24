@@ -586,14 +586,14 @@ export function SolutionsPage() {
             <h2 style={{ marginTop: 18, color: '#fff', fontSize: 56, letterSpacing: '-0.03em', fontWeight: 700 }}>
               Start operating with <span style={{ fontFamily: '"Instrument Serif", serif', fontStyle: 'italic', fontWeight: 400 }}>clarity.</span>
             </h2>
-            <p style={{ fontSize: 18, color: '#cdd1eb', maxWidth: 600, margin: '0 auto 40px' }}>Move from chaotic growth to predictable scaling. Free for up to 3 users. No card required.</p>
+            <p style={{ fontSize: 18, color: '#cdd1eb', maxWidth: 600, margin: '0 auto 40px' }}>Move from chaotic growth to predictable scaling. Start with a 14-day Growth trial. No card required.</p>
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '14px 22px', borderRadius: 12, fontWeight: 600, fontSize: 15, background: '#fff', color: N, textDecoration: 'none', boxShadow: '0 2px 4px rgba(20,26,77,.25)' }}>Get Started Free →</Link>
+              <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '14px 22px', borderRadius: 12, fontWeight: 600, fontSize: 15, background: '#fff', color: N, textDecoration: 'none', boxShadow: '0 2px 4px rgba(20,26,77,.25)' }}>Start 14-Day Trial →</Link>
               <Link to="/login" className="sol-btn-ghost-inv" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '14px 22px', borderRadius: 12, fontWeight: 600, fontSize: 15, textDecoration: 'none' }}>Book a Demo</Link>
             </div>
             <div style={{ marginTop: 24, fontSize: 13, color: '#a8aed6', display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
-              <span>✓ Free for up to 3 users</span>
-              <span>✓ 14-day Performance trial</span>
+              <span>✓ Flat workspace pricing</span>
+              <span>✓ 14-day Growth trial</span>
               <span>✓ Cancel anytime</span>
             </div>
           </div>

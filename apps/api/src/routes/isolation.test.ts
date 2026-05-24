@@ -190,7 +190,7 @@ async function verifyEmployeeLeadDetailScope() {
 
 async function verifyEmployeeLeadExportScope() {
   mockAuthUsers();
-  mockPlan('pro'); // exports require pro+
+  mockPlan('starter'); // exports are available on all paid plans.
   mockPrisma('lead', 'findMany', (args) => {
     const where = (args as { where?: { companyId?: string; ownerId?: string } }).where;
     assert.equal(where?.companyId, companyId);
@@ -226,8 +226,8 @@ async function verifyManagerTeamPerformanceScope() {
     assert.equal(where?.companyId, companyId);
     assert.deepEqual(where?.id?.in?.sort(), [employee.id, manager.id].sort());
     return [
-      { id: manager.id, name: 'Manager', leads: [], deals: [], activities: [] },
-      { id: employee.id, name: 'Employee', leads: [{ id: 'lead-a' }], deals: [], activities: [] },
+      { id: manager.id, name: 'Manager', _count: { leads: 0, activities: 0 }, deals: [] },
+      { id: employee.id, name: 'Employee', _count: { leads: 1, activities: 0 }, deals: [] },
     ];
   });
   mockPrisma('user', 'count', (args) => {
@@ -266,13 +266,13 @@ function mockFullSeats() {
   mockPrisma('billingAccount', 'findUnique', (args) => {
     const where = (args as { where?: { companyId?: string } }).where;
     assert.equal(where?.companyId, companyId);
-    return { plan: 'free', status: 'active', seats: 3 };
+    return { plan: 'starter', status: 'active', seats: 5 };
   });
   mockPrisma('user', 'count', (args) => {
     const where = (args as { where?: { companyId?: string; isActive?: boolean } }).where;
     assert.equal(where?.companyId, companyId);
     assert.equal(where?.isActive, true);
-    return 3;
+    return 5;
   });
 }
 
@@ -317,9 +317,9 @@ async function verifySeatLimitBlocksInvite() {
   });
 }
 
-async function verifyFreePlanBlocksApiKeys() {
+async function verifyStarterPlanBlocksApiKeys() {
   mockAuthUsers();
-  mockPlan('free');
+  mockPlan('starter');
 
   await withServer(async (baseUrl) => {
     const response = await apiFetch(baseUrl, admin, '/api/api-keys', {
@@ -391,7 +391,7 @@ test('production readiness route regressions', async () => {
     resetMocks();
     await verifySeatLimitBlocksInvite();
     resetMocks();
-    await verifyFreePlanBlocksApiKeys();
+    await verifyStarterPlanBlocksApiKeys();
     resetMocks();
     await verifyGrowthWebhookLimit();
     resetMocks();
@@ -449,9 +449,9 @@ async function verifyEmployeeDeniedBillingRead() {
   });
 }
 
-async function verifyFreePlanBlocksTargets() {
+async function verifyStarterPlanBlocksTargets() {
   mockAuthUsers();
-  mockPlan('free');
+  mockPlan('starter');
 
   await withServer(async (baseUrl) => {
     const response = await apiFetch(
@@ -466,25 +466,12 @@ async function verifyFreePlanBlocksTargets() {
   });
 }
 
-async function verifyFreePlanBlocksAnalytics() {
+async function verifyStarterPlanBlocksAnalytics() {
   mockAuthUsers();
-  mockPlan('free');
+  mockPlan('starter');
 
   await withServer(async (baseUrl) => {
     const response = await apiFetch(baseUrl, admin, '/api/analytics/funnel?range=30d');
-    const body = await response.json() as { code?: string };
-
-    assert.equal(response.status, 403);
-    assert.equal(body.code, 'FEATURE_NOT_AVAILABLE');
-  });
-}
-
-async function verifyGrowthPlanBlocksExports() {
-  mockAuthUsers();
-  mockPlan('growth');
-
-  await withServer(async (baseUrl) => {
-    const response = await apiFetch(baseUrl, admin, '/api/exports/leads.csv');
     const body = await response.json() as { code?: string };
 
     assert.equal(response.status, 403);
@@ -538,11 +525,9 @@ test('broadened route isolation matrix', async () => {
     resetMocks();
     await verifyEmployeeDeniedBillingRead();
     resetMocks();
-    await verifyFreePlanBlocksTargets();
+    await verifyStarterPlanBlocksTargets();
     resetMocks();
-    await verifyFreePlanBlocksAnalytics();
-    resetMocks();
-    await verifyGrowthPlanBlocksExports();
+    await verifyStarterPlanBlocksAnalytics();
     resetMocks();
     await verifyOutsiderDeniedLeadList();
   } finally {
@@ -550,4 +535,3 @@ test('broadened route isolation matrix', async () => {
     console.error = originalConsoleError;
   }
 });
-

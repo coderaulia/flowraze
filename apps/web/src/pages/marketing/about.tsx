@@ -182,7 +182,7 @@ export function AboutPage() {
                 <LandingButton variant="primary" style={{ background: '#fff', color: N }}>See Open Roles →</LandingButton>
               </Link>
               <Link to="/login">
-                <LandingButton variant="ghost" style={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>Start for Free</LandingButton>
+                <LandingButton variant="ghost" style={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>Start 14-Day Trial</LandingButton>
               </Link>
             </div>
           </div>

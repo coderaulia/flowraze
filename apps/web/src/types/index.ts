@@ -125,7 +125,19 @@ export interface ApiKey {
   createdBy?: { id: string; name: string; email: string };
 }
 
-export type WebhookEvent = 'lead_created' | 'deal_created' | 'deal_won' | 'activity_created';
+export type WebhookEvent =
+  | 'lead_created'
+  | 'lead_updated'
+  | 'lead_deleted'
+  | 'deal_created'
+  | 'deal_updated'
+  | 'deal_stage_changed'
+  | 'deal_won'
+  | 'deal_lost'
+  | 'deal_deleted'
+  | 'activity_created'
+  | 'activity_updated'
+  | 'activity_deleted';
 export type WebhookStatus = 'pending' | 'success' | 'failed';
 
 export interface WebhookDelivery {
@@ -244,7 +256,7 @@ export interface SupportTicket {
   assignedTo?: { id: string; name: string; email: string } | null;
 }
 
-export type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
+export type PlanTier = 'starter' | 'growth' | 'custom';
 export type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
 export type BillingCycle = 'monthly' | 'annual';
 export type InvoiceStatus = 'open' | 'paid' | 'void' | 'overdue';

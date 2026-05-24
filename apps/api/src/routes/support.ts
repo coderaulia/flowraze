@@ -44,11 +44,10 @@ async function getSlaDueAt(companyId: string, priority: (typeof TICKET_PRIORITIE
     where: { companyId },
     select: { plan: true, status: true },
   });
-  const plan = billing?.status === 'active' || billing?.status === 'trialing' ? billing.plan : 'free';
+  const plan = billing?.status === 'active' || billing?.status === 'trialing' ? billing.plan : 'starter';
   const planHours = {
-    free: 72,
+    starter: 72,
     growth: 48,
-    pro: 24,
     custom: 8,
   } as const;
   const priorityMultiplier = {

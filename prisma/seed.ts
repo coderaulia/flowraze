@@ -9,12 +9,24 @@ const prisma = new PrismaClient();
 const SEED_ID_PREFIX = 'seed-';
 
 type Role = 'superadmin' | 'admin' | 'manager' | 'employee';
-type PlanTier = 'free' | 'growth' | 'pro' | 'custom';
+type PlanTier = 'starter' | 'growth' | 'custom';
 type BillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
 type LeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified';
 type DealStage = 'new' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
 type ActivityType = 'note' | 'call' | 'follow_up';
-type WebhookEvent = 'lead_created' | 'deal_created' | 'deal_won' | 'activity_created';
+type WebhookEvent =
+  | 'lead_created'
+  | 'lead_updated'
+  | 'lead_deleted'
+  | 'deal_created'
+  | 'deal_updated'
+  | 'deal_stage_changed'
+  | 'deal_won'
+  | 'deal_lost'
+  | 'deal_deleted'
+  | 'activity_created'
+  | 'activity_updated'
+  | 'activity_deleted';
 
 type SeedUser = {
   key: string;
@@ -604,12 +616,12 @@ async function main() {
       isActive: true,
       billing: {
         id: 'seed-billing-nusantara-retail',
-        workspaceName: 'Nusantara Retail Free Workspace',
-        plan: 'free',
+        workspaceName: 'Nusantara Retail Starter Workspace',
+        plan: 'starter',
         status: 'active',
         seats: 3,
         renewalDate: null,
-        externalCustomer: 'cus_demo_free_retail',
+        externalCustomer: 'cus_demo_starter_retail',
       },
       users: [
         { key: 'admin', email: 'admin@nusantara-retail.demo', name: 'Dewi Lestari', role: 'admin' },
@@ -652,12 +664,12 @@ async function main() {
       isActive: true,
       billing: {
         id: 'seed-billing-byteworks-cloud',
-        workspaceName: 'ByteWorks Pro Workspace',
-        plan: 'pro',
+        workspaceName: 'ByteWorks Custom Workspace',
+        plan: 'custom',
         status: 'past_due',
         seats: 18,
         renewalDate: new Date('2026-06-15T00:00:00.000Z'),
-        externalCustomer: 'cus_demo_pro_byteworks',
+        externalCustomer: 'cus_demo_custom_byteworks',
       },
       users: [
         { key: 'admin', email: 'admin@byteworks-cloud.demo', name: 'Alicia Tan', role: 'admin' },

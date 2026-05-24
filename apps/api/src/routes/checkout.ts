@@ -75,7 +75,6 @@ router.post('/create', authenticate, requireAdmin(), async (req: AuthRequest, re
     }
 
     // Use a transaction to atomically check for pending payment and create session
-    const seats = billingAccount.seats;
     const result = await prisma.$transaction(async (tx) => {
       const pendingPayment = await tx.billingPayment.findFirst({
         where: {
@@ -94,7 +93,6 @@ router.post('/create', authenticate, requireAdmin(), async (req: AuthRequest, re
         companyId,
         companyName: company.name,
         plan,
-        seats,
         billingCycle,
         customerEmail: user.email,
         customerName: user.name,
@@ -105,9 +103,8 @@ router.post('/create', authenticate, requireAdmin(), async (req: AuthRequest, re
       success: true,
       data: {
         ...result,
-        amount: calculateAmount(plan, seats, billingCycle),
+        amount: calculateAmount(plan, billingCycle),
         plan,
-        seats,
         billingCycle,
       },
     });

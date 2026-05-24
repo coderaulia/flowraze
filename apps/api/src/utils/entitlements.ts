@@ -30,13 +30,13 @@ type EntitlementConfig = {
 const ACTIVE_STATUSES: BillingStatus[] = ['active', 'trialing'];
 
 export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
-  free: {
-    seats: 3,
+  starter: {
+    seats: 5,
     analytics: false,
     apiKeys: 0,
     automation: false,
     campaigns: false,
-    exports: false,
+    exports: true,
     pipelines: 1,
     targets: false,
     teamPerformance: false,
@@ -46,25 +46,13 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
     seats: null,
     analytics: true,
     apiKeys: 0,
-    automation: true,
-    campaigns: true,
-    exports: false,
-    pipelines: 1,
-    targets: false,
-    teamPerformance: true,
-    webhooks: 3,
-  },
-  pro: {
-    seats: null,
-    analytics: true,
-    apiKeys: 5,
-    automation: true,
+    automation: false,
     campaigns: true,
     exports: true,
-    pipelines: Number.POSITIVE_INFINITY,
+    pipelines: 3,
     targets: true,
     teamPerformance: true,
-    webhooks: Number.POSITIVE_INFINITY,
+    webhooks: 3,
   },
   custom: {
     seats: null,
@@ -95,7 +83,7 @@ export async function getCompanyEntitlements(companyId: string) {
   }
 
   const isTrialing = billingAccount?.status === 'trialing';
-  const plan = isTrialing ? 'pro' : (billingAccount?.plan ?? 'free');
+  const plan: PlanTier = isTrialing ? 'growth' : (billingAccount?.plan ?? 'starter');
   const config = PLAN_ENTITLEMENTS[plan];
   const isActive = billingAccount ? ACTIVE_STATUSES.includes(billingAccount.status) : true;
 

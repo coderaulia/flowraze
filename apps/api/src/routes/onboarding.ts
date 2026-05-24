@@ -65,6 +65,9 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
         data: {
           companyId: company.id,
           workspaceName: `${companyName} Workspace`,
+          plan: 'growth',
+          status: 'trialing',
+          seats: 5,
           trialStartedAt,
           trialEndsAt: new Date(trialStartedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
         }

@@ -138,7 +138,7 @@ export function LandingPage() {
             </p>
             <div className="lp-hero-ctas" data-reveal="up">
               <LandingButton asChild size="lg">
-                <Link to="/register">Start Free — No Card Required →</Link>
+                <Link to="/register">Start 14-Day Trial - No Card Required →</Link>
               </LandingButton>
               <LandingButton variant="ghost" size="lg">▶ Watch 2-min Demo</LandingButton>
             </div>
@@ -422,11 +422,10 @@ export function LandingPage() {
             <div className="lp-step">
               <div className="lp-step-num">01</div>
               <h3>Connect your stack</h3>
-              <p>One-click integrations with Gmail, WhatsApp Business, Meta Ads, and your existing spreadsheets.</p>
+              <p>Import your spreadsheet leads and open WhatsApp chats directly from each contact while gateway integration is evaluated.</p>
               <div className="lp-step-vis">
-                <div className="lp-ssrow"><div className="av" /><div className="nm">Gmail</div><div className="tg">Connected</div></div>
-                <div className="lp-ssrow"><div className="av" style={{ background: 'linear-gradient(135deg,#a8e6c5,#36a674)' }} /><div className="nm">WhatsApp Business</div><div className="tg">Connected</div></div>
-                <div className="lp-ssrow"><div className="av" style={{ background: 'linear-gradient(135deg,#dbe1ff,#5868d6)' }} /><div className="nm">Meta Ads</div><div className="tg">Connected</div></div>
+                <div className="lp-ssrow"><div className="av" /><div className="nm">Spreadsheet leads</div><div className="tg">Imported</div></div>
+                <div className="lp-ssrow"><div className="av" style={{ background: 'linear-gradient(135deg,#a8e6c5,#36a674)' }} /><div className="nm">WhatsApp chat</div><div className="tg">One click</div></div>
               </div>
             </div>
             <div className="lp-step">
@@ -544,13 +543,13 @@ export function LandingPage() {
           <p>Set up in under 30 minutes. No credit card. No mandatory call. Just clarity.</p>
           <div className="lp-final-btns">
             <LandingButton asChild size="lg">
-              <Link to="/register">Get Started Free →</Link>
+              <Link to="/register">Start 14-Day Trial →</Link>
             </LandingButton>
             <LandingButton variant="ghost" size="lg">Talk to a Specialist</LandingButton>
           </div>
           <div className="lp-final-meta">
-            <span>✓ Free for up to 3 users</span>
-            <span>✓ 14-day Performance trial</span>
+            <span>✓ Flat workspace pricing</span>
+            <span>✓ 14-day Growth trial</span>
             <span>✓ Cancel anytime</span>
           </div>
         </div>

@@ -176,7 +176,7 @@ export function RegisterPage() {
               </div>
 
               <LandingButton type="submit" className="w-full h-11 text-base font-semibold mt-4 shadow-lg shadow-primary/20" disabled={isLoading}>
-                {isLoading ? 'Creating account...' : 'Get Started Free →'}
+                {isLoading ? 'Creating account...' : 'Start 14-Day Trial →'}
               </LandingButton>
 
               <div className="text-center mt-6 pt-4 border-t border-surface-container-high">

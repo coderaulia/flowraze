@@ -1,231 +1,552 @@
-# Implementation Plan Status: Multi-Tenant SaaS Role Rework
+# Implementation Plan: Growth Pivot
 
-**Last updated:** 2026-05-16
+**Last updated:** 2026-05-24
 
-**Scope:** Role system, company tenancy, pricing/package promises, platform admin, billing foundation, white-label prep
+**Context:** This plan replaces the previous multi-tenant rework status document. The engineering foundation is solid — multi-tenant isolation, role model, billing, pipelines, analytics, and automations are all shipped. The risk is now **positioning**, not engineering. FlowRaze is a Pipedrive clone in a WhatsApp-CRM market. This plan pivots the product toward a sellable shape for Indonesian SMB sales teams.
 
-**Current status:** Implemented with security hardening now complete. Company data isolation, role-based access, plan entitlements, Midtrans checkout, subscription lifecycle, multi-pipeline customization, baseline analytics, and workflow automation are enforced. Security headers, audit logging, provider timeouts, seat-limit enforcement, and input validation are now in place. Public plan/trial copy still needs reconciliation with entitlement behavior, while white-labeling, compliance/enterprise controls, and deeper advanced analytics remain future platform gaps.
-
-This document is now the source-of-truth status check for the multi-tenant rework. It compares the original plan with the current codebase and separates shipped work from remaining gaps.
+**Source:** `flowraze-growth-audit.md` — product growth audit and strategic direction.
 
 ---
 
-## 1. Target Outcomes
+## 1. Strategic Summary
 
-| Outcome | Current status | Notes |
+| Dimension | Current state | Target state |
 | --- | --- | --- |
-| Company-owned data isolation | Done | Shared backend scope helpers cover CRM reads, detail/update/delete paths, search, dashboard metrics, team performance, and exports. Route tests cover the critical paths and can continue expanding around edge cases. |
-| Four-role model | Done | `superadmin`, `admin`, `manager`, and `employee` are in Prisma, API validation, frontend types, and seeded users. |
-| Superadmin platform control | Done | `/api/admin/*` and `/admin/*` pages cover companies, users, billing, payments, and superadmin invites. Audit logging, seat-limit enforcement, and security headers are now implemented. |
-| Admin company control | Done | Company users, settings, billing, subscription self-service, API keys, webhooks, CRM data, pipelines, teams, targets, automations, and support are exposed. |
-| Manager team control | Done | Managers can manage assigned teams and see team-scoped operational data. More edge-case tests can be added incrementally. |
-| Employee self-service | Done | Employees can use company app routes and operational reads are owner-scoped. More edge-case tests can be added incrementally. |
-| White-label readiness | Planned | `Company.slug` exists; `Tenant`, custom domains, and tenant branding APIs are not implemented. |
+| Market position | Generic CRM (Pipedrive clone) | WhatsApp-first sales tool for B2B service teams |
+| Vertical | None (horizontal) | B2B service agencies, property agents, insurance/financial sales |
+| Pricing model | Per-seat (Rp 149k-299k/user/mo) | Flat per-workspace (Rp 300k/mo Starter, Rp 800k/mo Growth) |
+| Differentiator | None vs Qontak/HubSpot/Zoho | WhatsApp lead capture + conversation logging + flat pricing |
+| GTM | Self-serve signup + marketing pages | Manual 1-to-1 sales, design partner onboarding, no public signup yet |
+| Trial model | Free tier + 14-day trial (broken semantics) | 14-day trial only, no permanent free tier |
 
 ---
 
-## 2. Original Role Contract
+## 2. Phases
 
-| Action | Superadmin | Admin | Manager | Employee |
-| --- | :---: | :---: | :---: | :---: |
-| Manage companies | Yes | No | No | No |
-| Manage platform users/admins | Yes | No | No | No |
-| Platform billing overview | Yes | No | No | No |
-| Company billing | Platform override | Yes | No | No |
-| Manage company users | No | Yes | No | No |
-| Manage API keys and webhooks | No | Yes | No | No |
-| Company targets | No | Yes | No | No |
-| Team targets and members | No | Yes | Own team | No |
-| Create campaigns | No | Yes | Yes | No |
-| Create leads/deals | No | Yes | Yes | Yes |
-| View operational data | Platform metadata only | Company | Team | Own |
+### Phase 1: WhatsApp Lead Capture & Logging (THE differentiator)
 
-The code now supports the role surface and consistently scopes operational reads and exports through company, team, and owner visibility helpers. Remaining hardening is focused on edge-case tests and audit/security controls rather than the core role contract.
+**Goal:** Make FlowRaze the place where WhatsApp sales conversations live alongside deal data. Even minimal is enough to stop being "just another CRM."
+
+**Priority:** P0 — nothing else matters until this ships.
+
+#### 2.1.0 Current Delivery Scope: Link-Only MVP
+
+**Status:** Implemented on 2026-05-24 while the WhatsApp gateway choice is pending.
+
+- Use the existing lead phone number to open a direct `wa.me/{phone}` chat from the leads table.
+- Normalize Indonesian mobile formats such as `0812...`, `812...`, and `+62 812...` before opening WhatsApp.
+- Do not build provider account storage, tokens, inbound webhooks, conversation history, or in-app message sending until a gateway is selected.
+
+#### 2.1.1 Data Model
+
+**Deferred provider-backed design:** Add this only after a gateway is selected and conversation capture is approved:
+
+```prisma
+model WhatsAppAccount {
+  id          String   @id @default(cuid())
+  companyId   String
+  phoneNumber String
+  displayName String?
+  provider    WAProvider @default(unofficial)
+  apiToken    String?    // encrypted; for cloud API or Fonnte/Wablas token
+  webhookSecret String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  conversations Conversation[]
+
+  @@unique([companyId, phoneNumber])
+}
+
+enum WAProvider {
+  unofficial   // Fonnte, Wablas, or similar local provider
+  cloud_api    // Meta Cloud API (future)
+}
+
+model Conversation {
+  id              String   @id @default(cuid())
+  companyId       String
+  leadId          String?
+  waAccountId     String
+  remotePhone     String   // customer's WA number
+  lastMessageAt   DateTime?
+  status          ConversationStatus @default(open)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company   Company          @relation(fields: [companyId], references: [id])
+  lead      Lead?            @relation(fields: [leadId], references: [id])
+  waAccount WhatsAppAccount  @relation(fields: [waAccountId], references: [id])
+  messages  Message[]
+
+  @@unique([companyId, remotePhone, waAccountId])
+  @@index([companyId, leadId])
+  @@index([companyId, lastMessageAt])
+}
+
+enum ConversationStatus {
+  open
+  closed
+  archived
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  direction      MessageDirection
+  content        String
+  mediaUrl       String?
+  mediaType      String?     // image, video, document, audio
+  sentAt         DateTime    @default(now())
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  externalId     String?     // provider message ID for dedup
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, sentAt])
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+```
+
+Also add relation to Lead:
+```prisma
+model Lead {
+  // ... existing fields
+  whatsappPhone   String?   // normalized WA number for click-to-chat
+  conversations   Conversation[]
+}
+```
+
+#### 2.1.2 API Routes
+
+**Deferred provider-backed design:** New route file: `apps/api/src/routes/whatsapp.ts`
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/whatsapp/accounts` | List company WA accounts |
+| POST | `/api/whatsapp/accounts` | Connect a WA account (admin only) |
+| PUT | `/api/whatsapp/accounts/:id` | Update account settings |
+| DELETE | `/api/whatsapp/accounts/:id` | Disconnect account |
+| GET | `/api/whatsapp/conversations` | List conversations (filterable by lead, status) |
+| GET | `/api/whatsapp/conversations/:id` | Get conversation with messages |
+| POST | `/api/whatsapp/conversations/:id/messages` | Send a message (outbound) |
+| POST | `/api/whatsapp/conversations/:id/link` | Link conversation to a lead |
+| POST | `/api/whatsapp/webhook` | Inbound webhook from WA provider (no auth, signature verified) |
+
+New route file: `apps/api/src/routes/templates.ts`
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/templates` | List message templates |
+| POST | `/api/templates` | Create template |
+| PUT | `/api/templates/:id` | Update template |
+| DELETE | `/api/templates/:id` | Delete template |
+
+#### 2.1.3 Provider Strategy
+
+**Decision pending:** Do not implement a gateway yet. The current MVP uses direct `wa.me` links only; revisit this section after selecting Fonnte, Wablas, Meta Cloud API, or another approved provider.
+
+Candidate options after the decision include **Fonnte** or **Wablas** (Indonesian WA gateway providers, ~Rp 100–200k/mo):
+- Simple HTTP API for sending messages
+- Webhook for receiving inbound messages
+- No Meta Business verification needed (faster to market)
+- Upgrade path to Meta Cloud API later for scale/compliance
+
+Create `apps/api/src/utils/wa-provider.ts` with a provider abstraction:
+```typescript
+interface WAProvider {
+  sendMessage(phone: string, content: string, mediaUrl?: string): Promise<{ externalId: string }>;
+  verifyWebhook(headers: Record<string, string>, body: unknown): boolean;
+  parseInbound(body: unknown): InboundMessage;
+}
+```
+
+#### 2.1.4 Frontend
+
+| Component | Location | Description |
+| --- | --- | --- |
+| WA Settings | `pages/company/settings` (new tab) | Connect/manage WA accounts |
+| Conversation Panel | `pages/company/conversations.tsx` | Inbox-style conversation list |
+| Chat View | `components/chat-view.tsx` | Message thread with send box |
+| Lead WA Button | `pages/company/leads.tsx` | Implemented for link-only MVP: "WhatsApp" opens `wa.me/{normalizedPhone}` |
+| Lead WA History | Lead detail page | Conversation history tab |
+| Template Picker | Chat view | Quick-reply templates for follow-ups |
+
+#### 2.1.5 Acceptance Criteria
+
+- [ ] Admin can connect a WA number via Fonnte/Wablas token
+- [ ] Inbound WA messages create/update conversations via webhook
+- [ ] Conversations can be linked to existing leads (manual or auto-match by phone)
+- [ ] Users can send outbound messages from the app
+- [ ] Lead detail shows conversation history
+- [x] Click-to-WA button on lead rows opens `wa.me/{normalizedPhone}` without a gateway dependency
+- [ ] Message templates can be created and used for quick replies
+- [ ] All WA data is tenant-scoped (companyId)
 
 ---
 
-## 3. Done
+### Phase 2: Pricing Model Pivot (Flat Per-Workspace)
 
-### Database And Seed Data
+**Goal:** Switch from per-seat to flat-per-workspace pricing. Undercut the model, not just the price.
 
-- `Company` model exists with `slug`, `isActive`, billing, users, CRM records, teams, targets, API keys, and webhooks.
-- `Role` enum is now `superadmin | admin | manager | employee`.
-- `companyId` exists on tenant-scoped models: users, leads, deals, campaigns, activities, teams, targets, billing, API keys, and webhooks.
-- Unique constraints were moved to company scope for leads, campaigns, teams, and billing accounts.
-- Migrations backfill a default company, make tenant records non-null where required, and replace the legacy `staff` enum.
-- Seed data creates multiple demo companies with admin, manager, employee, billing, API key, webhook, campaign, lead, deal, activity, team, and target data.
+**Priority:** P1 — do alongside or immediately after Phase 1.
 
-### Auth And Middleware
+#### 2.2.1 New Pricing Structure
 
-- JWT login, registration, and invite acceptance include `companyId`.
-- `authenticate()` validates JWT/API key users against the database and attaches `userId`, `userRole`, and `companyId`.
-- Role helpers exist for `requireSuperadmin`, `requireAdmin`, `requireManager`, `requireAdminOrManager`, `requireCompanyMember`, and `companyDataScope`.
-- Public registration sends users to company onboarding; onboarding creates a company, billing account, and first admin.
-
-### Superadmin Platform Routes
-
-Implemented under `/api/admin`:
-
-- `GET /overview`
-- `GET /companies`
-- `GET /companies/:id`
-- `GET /companies/:id/users`
-- `POST /companies`
-- `PUT /companies/:id`
-- `DELETE /companies/:id`
-- `GET /users`
-- `POST /users`
-- `PUT /users/:id`
-- `POST /users/:id/resend-invite`
-- `POST /users/:id/reset-password-token`
-- `DELETE /users/:id`
-- `GET /billing`
-- `GET /billing/:companyId`
-- `PUT /billing/:companyId`
-- `POST /billing/:companyId/check-payment`
-- `POST /billing/:companyId/mark-paid`
-- `POST /users/invite-superadmin`
-
-### Company App Routes
-
-- `/api/users` supports self profile, company-scoped admin user management, invites, and resend invite.
-- `/api/leads`, `/api/deals`, `/api/campaigns`, `/api/activities`, `/api/dashboard`, `/api/search`, `/api/billing`, `/api/api-keys`, `/api/webhooks`, and `/api/targets` use company-aware data on many primary paths.
-- `/api/targets` includes sales team CRUD, team membership CRUD, target CRUD, and dashboard achievement reporting.
-- Shared data-scope helpers enforce company, manager team, and employee owner visibility for core CRM reads, detail/update/delete paths, search, exports, team performance, and dashboard metrics.
-- Campaign write routes are restricted to admins and managers, and campaign owner/sales-owner assignments must stay inside the authenticated company.
-- Route-level isolation regression tests cover critical manager team visibility, employee owner visibility, exports, lead detail denial, team performance, and campaign write permissions.
-- Comprehensive test suite covers auth routes (login/register/me/inactive user), leads CRUD (create/duplicate/validation/list/delete), data-scope utilities, plan entitlements, pagination, and frontend auth store/routes — 80 tests total across backend and frontend.
-- Company user create and invite flows enforce active user counts against the workspace billing seat allowance.
-- A centralized plan entitlement module gates API keys, API-key authentication, webhooks, exports, campaigns, targets, and team performance according to the current pricing tiers.
-- Billing accounts now store trial/subscription lifecycle dates, new workspaces receive 14-day trial windows, paid marking sets subscription dates, and expired trials are canceled during entitlement checks.
-- Pricing copy mostly describes shipped capabilities and labels unsupported areas such as SSO, data residency, and enterprise controls as roadmap/planning. It still needs a pass for trial semantics, payment-method wording, and pipeline/custom-stage wording.
-- Webhook deliveries persist, sign payloads, retry with backoff, and support manual replay.
-- SMTP-backed verification, invite, and password reset email delivery exists with a development logging fallback.
-- Midtrans Snap checkout, payment webhooks, subscription cancellation/reactivation/downgrade flows, payment history, and renewal checks are implemented.
-- Multi-pipeline and custom-stage support is implemented through `Pipeline` and `PipelineStage` models, `/api/pipelines`, and pipeline-aware deal/analytics surfaces.
-
-### Frontend
-
-- `UserRole`, `Company`, billing, team, and target types are updated.
-- Auth state stores `companyId` and has role helpers.
-- Route guards exist for superadmin, admin, admin-or-manager, and company members.
-- Public marketing routes, login, register, onboarding, and invite acceptance are wired.
-- Superadmin pages exist for dashboard, companies, company detail, platform billing, and users.
-- Company app routes live under `/company/*`, with legacy redirects from `/dashboard`, `/leads`, `/deals`, and related paths.
-- Admin-only company routes protect `/company/users` and `/company/settings`.
-- Targets page includes create/edit/delete target flows plus sales team create/edit/delete and membership management.
-- Automations page lets admins create trigger/action rules, run them manually, pause/resume rules, and inspect recent retry history. Current actions include activity creation, lead status updates, owner assignment, notifications, and webhook calls.
-- Support page lets company members submit bug reports and help requests, while admins can triage, assign, and resolve tickets with SLA due dates.
-
----
-
-## 4. Missing Or Incomplete
-
-| Priority | Gap | Evidence | Needed work |
+| Tier | Price | Users | Key value |
 | --- | --- | --- | --- |
-| Medium | Webhook event coverage | Current event enum covers `lead_created`, `deal_created`, `deal_won`, and `activity_created`; update/delete events are not emitted. | Decide event contract and add update/delete events where useful. |
-| Medium | Public pricing/trial copy alignment | Pricing says "14-day Performance trial", help says "14-day Growth trial", other pages say "14-day Pro trial", but onboarding creates a `trialing` billing account on the default `free` plan. Pricing FAQ payment-method copy also still says provider checkout is being integrated even though Midtrans checkout exists. | Choose the actual trial entitlement behavior, update onboarding/entitlements or copy, and audit marketing pages for unshipped claims. |
-| Medium | Billing renewal depth | Midtrans checkout/webhooks and subscription state transitions exist. Renewal checks mark past-due/canceled states, but there is no automated provider-side renewal charge or saved-payment retry flow. | Generate renewal invoices, initiate retry/payment-update flows, and reconcile provider renewal results. |
-| Medium | Security and audit controls | Done | Rate limiting, invite expiry checks, support assignee checks, campaign owner checks, automation config validation, security headers (helmet), provider timeouts (AbortSignal), audit logging (AuditLog model), seat-limit enforcement for superadmin user creation, sales-team manager validation, shared email/URL validators, sanitized error logging, and paginated support tickets are all implemented. Remaining: expand audit log coverage to more routes. |
-| Medium | Advanced analytics depth | Funnel, single-touch attribution, linear forecast, and lead velocity are implemented. | Add multi-touch attribution, cohort analytics, predictive forecasting, and custom forecast models only if they remain in paid packaging. |
-| Low | White-label tenant layer | `Company.slug` exists only as prep. | Add `Tenant`, domain/subdomain resolver, branding API, SSL/domain handling, and tenant admin flows after MVP hardening. |
-| Low | Future auth architecture | JWT auth is working. | Revisit betterauth only after tenancy and session requirements settle. |
+| Starter | Rp 300k/mo (Rp 3jt/yr) | Up to 5 users | Leads, deals, WA capture, basic dashboard |
+| Growth | Rp 800k/mo (Rp 8jt/yr) | Unlimited users | + Campaigns, team performance, targets, analytics |
+| Custom | Contact sales | Unlimited | + API, automations, webhooks, white-label |
+
+Annual pricing = ~17% discount (round to clean numbers in IDR).
+
+#### 2.2.2 Backend Changes
+
+1. **Update `PlanTier` enum:**
+   - Remove `free` tier (no permanent free plan)
+   - Rename: `starter` (was free), `growth` (stays), `custom` (absorbs pro)
+   - Implemented: canceled or expired accounts remain on their selected tier with inactive subscription status; there is no hidden free plan
+
+2. **Update `PLAN_ENTITLEMENTS`:**
+   ```typescript
+   const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
+     starter: {
+       seats: 5,
+       analytics: false,
+       apiKeys: 0,
+       automation: false,
+       campaigns: false,
+       exports: true,
+       pipelines: 1,
+       targets: false,
+       teamPerformance: false,
+       webhooks: 0,
+     },
+     growth: {
+       seats: null, // unlimited
+       analytics: true,
+       apiKeys: 0,
+       automation: false,
+       campaigns: true,
+       exports: true,
+       pipelines: 3,
+       targets: true,
+       teamPerformance: true,
+       webhooks: 3,
+     },
+     custom: {
+       seats: null,
+       analytics: true,
+       apiKeys: Infinity,
+       automation: true,
+       campaigns: true,
+       exports: true,
+       pipelines: Infinity,
+       targets: true,
+       teamPerformance: true,
+       webhooks: Infinity,
+     },
+   };
+   ```
+   - The link-only `wa.me` action uses an existing lead phone number and requires no provider entitlement or connected-account limit.
+
+3. **Update `BillingAccount` defaults:**
+   - New workspaces start with 14-day trial on `growth` entitlements
+   - After trial: must pick Starter or Growth (no free fallback)
+   - Remove seat-count billing math from checkout; replace with flat amount lookup
+
+4. **Update `calculateAmount()` in `payment-provider.ts`:**
+   ```typescript
+   const PLAN_PRICES = {
+     starter: { monthly: 300_000, annual: 3_000_000, label: 'Starter' },
+     growth:  { monthly: 800_000, annual: 8_000_000, label: 'Growth' },
+   };
+   // No more seats * price calculation
+   ```
+
+5. **Payment methods:** Keep Midtrans Snap (supports its configured VA/bank transfer methods). Annual billing = one payment upfront.
+
+#### 2.2.3 Frontend Changes
+
+1. **Rewrite `pricing.tsx`:**
+   - Two plans + custom (not four)
+   - Flat pricing, no "/user/mo"
+   - "Add your whole team, one price" messaging
+   - Annual toggle shows yearly total with discount
+   - Remove "Starter free forever" — replace with "14-day Growth trial"
+
+2. **Update FAQ:**
+   - Remove per-seat explanation
+   - Add "Why flat pricing?" answer
+   - Fix payment method copy (VA/bank transfer are supported)
+
+3. **Update subscription/checkout pages:**
+   - Remove seat-count inputs
+   - Show flat monthly/annual price
+   - Continue to use Midtrans Snap for the payment method choices configured on the merchant account
+
+#### 2.2.4 Acceptance Criteria
+
+- [x] Pricing page shows 2 tiers + custom with flat pricing
+- [x] Checkout calculates flat amount (no seat multiplication)
+- [x] New signups get 14-day trial with Growth features
+- [x] After trial expiry: workspace is locked until payment (no free tier)
+- [x] Checkout continues through Midtrans Snap, which supplies merchant-enabled payment methods
+- [x] Annual billing option uses an upfront discounted workspace payment
 
 ---
 
-## 5. Pricing Page Feature Audit
+### Phase 3: Product Surface Simplification
 
-The public pricing page is the strongest packaging promise, but other marketing pages still contain roadmap-ish claims. This table maps `apps/web/src/pages/marketing/pricing.tsx` against the implemented product surface and calls out copy drift where it matters.
+**Goal:** Hide complexity that doesn't help close the first 3 customers. Don't delete — just don't lead with it.
 
-| Pricing promise | Plans shown | Implementation status | Evidence / gap | Priority |
-| --- | --- | --- | --- | --- |
-| Up to 3 users on Starter | Starter | Done | `BillingAccount.seats` defaults to 3; `ensureSeatAvailable()` in user create and invite flows enforces the limit against `getCompanyEntitlements()`. | Done |
-| Unlimited users on paid plans | Growth+ | Done | `PLAN_ENTITLEMENTS` maps growth/pro/custom to `seats: null` (unlimited); entitlement engine resolves and enforces per-plan seat allowances. | Done |
-| Lead and contact management | All | Done for lead-centric CRM | Leads include contact fields, CRUD, search, filters, owner scoping, and CSV/XLSX-derived import. There is no separate contact entity by design today. | Done |
-| Basic deal pipeline / full sales pipeline | All/Growth | Done | Deal CRUD, Kanban, stage movement, pipeline stages, and won revenue exist. | Done |
-| One board / custom stages / multi-pipeline | Starter/Growth/Performance+ | Implemented, copy stale | `Pipeline` and `PipelineStage` support default and custom pipelines/stages with plan limits, but the pricing comparison still describes deal pipelines as "Fixed stages" and does not clearly expose custom-stage/multi-pipeline packaging. | P2 copy |
-| Responsive/mobile web access | All | Done for responsive web | Pricing now says "Responsive web app access" / "Mobile access: Responsive web". No iOS, Android, React Native, or PWA install flow exists, so native mobile remains roadmap rather than a current pricing promise. | Done/P4 native |
-| Revenue dashboard | Starter+ | Done | Dashboard supports revenue, conversion, leads, campaign overview, range filters, and linear forecast. | Done |
-| Forecasting: linear / predictive ML / custom models | Pricing marks Performance/Enterprise as roadmap | Implementation ahead of pricing for linear forecast | Linear regression forecast exists (`/analytics/forecast` + UI panel) and is available through the analytics entitlement. Predictive ML and custom models are not implemented, and pricing currently labels forecasting as roadmap. | P3/copy |
-| Team performance tracking | Growth+ | Done | Team performance page/API exists with tenant/role scoping enforced via data-scope helpers and plan entitlements. | Done |
-| Campaign attribution: single-touch / multi-touch / custom | Growth+ | Partial | Single-touch attribution exists (`/analytics/attribution`) with ROAS, cost-per-lead, and conversion rate; multi-touch and custom models are not implemented. | P3 |
-| Conversion funnel tracking | Growth+ | Done | Dedicated funnel analytics endpoint (`/analytics/funnel`) and UI panel with stage-to-stage conversion rates and drop-off. | Done |
-| Advanced analytics and cohorts | Marketing/solutions copy, not current pricing table | Missing | No cohort model, endpoint, or UI exists. Keep cohort claims out of pricing until implemented. | P3 |
-| CRM WhatsApp + email integrations | Marketing/help/resources copy, not current pricing table | Missing for CRM | SMTP is used for auth/invite/reset only; no Gmail/WhatsApp inbox, sync, messaging, or provider integration exists. | P3 |
-| Workflow automation / manual triggers / workflow engine | Growth+ | Mostly done | `AutomationRule` and `AutomationRun` support tenant-scoped triggers, retryable job runs, manual admin runs, and actions for activities, lead status updates, owner assignment, notifications, and webhook calls. Remaining depth is more triggers, conditions, templates, and observability. | P2 |
-| API access | Performance+ | Done | API key CRUD, `X-API-Key` auth, and plan-based gating exist. `authenticate()` checks `entitlements.features.apiKeys`; `assertApiKeyLimit()` enforces per-plan key count. | Done |
-| Webhooks limited/unlimited | Growth+ | Done | Webhook CRUD, delivery signing, retry, replay, and plan-based limits exist. `assertWebhookLimit()` enforces per-plan webhook count (growth=3, pro=unlimited). | Done |
-| Custom roles and permissions | Not a current pricing-table promise | Missing | Roles are fixed enum values: `superadmin`, `admin`, `manager`, `employee`. Keep custom-role packaging out of public copy until designed. | P3 |
-| SSO and SAML | Performance/Enterprise roadmap | Missing, honestly labeled roadmap | Auth is email/password JWT with invite/reset/verification flows only. Pricing labels SSO/SAML as roadmap rather than shipped. | P3 |
-| Billing plan changes from dashboard | FAQ | Done | Admin can initiate Midtrans Snap checkout from settings; plan/status updates on payment success. Customer self-service portal with subscription management, cancellation, reactivation, downgrade, and payment history is implemented. | Done |
-| Payment methods: cards, virtual accounts, wallets, bank transfer | FAQ | Implemented, copy stale | Midtrans Snap checkout exists, but the pricing FAQ still says checkout/provider-synced payment methods are being integrated. | P2 copy |
-| 14-day Performance trial | Trial/FAQ | Mismatch | Onboarding creates `trialStartedAt` + `trialEndsAt` (14 days), but the billing account keeps the default `free` plan, so entitlement checks do not grant Performance/Pro features during the trial. Public pages also disagree between Performance, Growth, and Pro trial names. | P2 |
-| SOC 2, UU PDP, data residency, SLA/security audit | FAQ/Enterprise | Missing as product controls | No compliance evidence, audit workflow, residency configuration, or SLA enforcement exists in code. | P4 |
-| Dedicated onboarding/success/support tiers | Performance/Enterprise | Partial | In-app support tickets exist with bug reports, request types, priorities, SLA due dates, admin triage, assignment, and resolution tracking. Live chat, onboarding playbooks, and dedicated success-manager routing remain future work. | P4 |
-| Custom integrations and white-label/client portal | Enterprise and landing pages | Missing | `Company.slug` exists only as prep; no `Tenant`, custom domain, branding API, or client portal exists. | P4 |
+**Priority:** P2 — can be done incrementally.
 
-Priority legend:
+#### 2.3.1 Hide from Default Navigation
 
-- **P0:** Must fix before charging for company/role-based SaaS because it affects data isolation or plan-limit correctness.
-- **P1:** Billing and entitlement truth; needed before paid self-service checkout.
-- **P2:** Core Growth/Performance product depth; strong near-term roadmap after P0/P1.
-- **P3:** Advanced Performance/Enterprise differentiation.
-- **P4:** Marketing/compliance/enterprise operations; keep out of near-term build unless sales requires it.
+Move these behind a "Power features" or settings toggle, or simply remove from sidebar until a customer asks:
+
+| Feature | Current location | Action |
+| --- | --- | --- |
+| API Keys | Settings tab | Hide from Starter plan entirely; show only on Custom |
+| Webhooks | Settings tab | Hide from Starter; limit on Growth |
+| Automations | Sidebar nav item | Hide from Starter/Growth; show only on Custom |
+| Multi-pipeline | Pipeline settings | Starter gets 1 pipeline; Growth gets 3 |
+| Advanced analytics | Sidebar nav item | Hide from Starter; show on Growth+ |
+| Superadmin platform | `/admin/*` | Keep but don't expose in marketing |
+
+#### 2.3.2 Simplify Onboarding
+
+Current onboarding creates company + billing + admin. Add:
+
+1. **Vertical selection step:** "What does your team sell?" → Agency services / Property / Insurance / Other
+2. **WA connection prompt:** "Connect your WhatsApp to start capturing leads" (skip-able)
+3. **Import existing leads:** CSV upload or manual entry of first 5 leads
+4. **Skip everything else** — no pipeline config, no team setup, no billing until trial ends
+
+#### 2.3.3 Hide Marketing Pages (Temporarily)
+
+The marketing site is premature for manual sales. Options:
+- Keep `/pricing` but update copy
+- Remove or gate `/solutions`, `/blog`, `/careers`, `/resources` behind a feature flag
+- Landing page should be a simple "Book a demo" + value prop, not a full marketing site
+
+**Recommendation:** Keep landing + pricing + login. Hide the rest until there are 5+ paying customers.
 
 ---
 
-## 6. Phase Status
+### Phase 4: Vertical Wedge — B2B Service Agency Focus
 
-| Phase | Original scope | Status | Notes |
+**Goal:** Make the product feel purpose-built for B2B service agencies (digital marketing, IT consulting, creative agencies).
+
+**Priority:** P2 — do after Phase 1 ships and first design partner is onboarded.
+
+#### 2.4.1 Lead Model Enhancements
+
+The `Lead` model already has `serviceType` — leverage it:
+
+- Pre-populate `source` dropdown with agency-relevant options: "Referral", "WhatsApp", "LinkedIn", "Website form", "Event"
+- Pre-populate `serviceType` with: "Web Development", "Digital Marketing", "SEO", "Branding", "IT Consulting", "Custom Software"
+- Add `estimatedBudget` field (optional, for proposal-stage qualification)
+- Add `projectTimeline` field (optional, "1-2 weeks", "1 month", "3+ months")
+
+#### 2.4.2 Deal → Project Mapping
+
+For agencies, a "deal" is really a "project proposal." Adjust language:
+
+- UI label: "Deals" → "Projects" (or make configurable per workspace)
+- Pipeline stages for agencies: "Inquiry" → "Discovery" → "Proposal Sent" → "Negotiation" → "Won" → "Lost"
+- Default pipeline created during onboarding based on vertical selection
+
+#### 2.4.3 Agency-Specific Dashboard Widgets
+
+- **Proposal pipeline value:** Total value of deals in proposal/negotiation stages
+- **Average deal cycle:** Days from lead creation to deal won
+- **Revenue by service type:** Breakdown by `serviceType`
+- **Client retention:** Repeat leads/deals from same company
+
+#### 2.4.4 Acceptance Criteria
+
+- [ ] Onboarding asks vertical and pre-configures pipeline stages
+- [ ] Lead form has agency-relevant source/serviceType defaults
+- [ ] Dashboard shows agency-relevant metrics
+- [ ] UI language can be "Projects" instead of "Deals" (workspace setting)
+
+---
+
+### Phase 5: Go-To-Market Execution
+
+**Goal:** Get the first 3 paying customers through manual sales.
+
+**Priority:** P1 (parallel with Phase 1 engineering).
+
+#### 2.5.1 Customer Discovery (Week 1)
+
+- Talk to 5 real sales teams in B2B service agencies
+- Don't demo — ask "show me how you track deals today"
+- Watch them open WhatsApp, spreadsheets, Notion
+- Confirm/kill the vertical wedge before more code
+
+#### 2.5.2 Design Partner (Week 2-3)
+
+- Get 1 agency to use FlowRaze for free in exchange for weekly feedback
+- Onboard their real data by hand (import leads, set up pipeline)
+- Connect their WhatsApp number
+- Weekly 30-min call: "What's working? What's missing?"
+
+#### 2.5.3 First 3 Customers (Week 4-8)
+
+- Sell 1-to-1 via WhatsApp/LinkedIn outreach to agency owners
+- Offer: "Rp 300k/month, add your whole team, I'll set everything up for you"
+- Manual onboarding for each customer
+- Only after 3 companies use it weekly → re-enable self-serve billing
+
+#### 2.5.4 Success Metrics
+
+| Metric | Target | Timeframe |
+| --- | --- | --- |
+| Design partner onboarded | 1 | Week 2 |
+| Weekly active users (design partner) | 3+ | Week 3 |
+| Paying customers | 3 | Week 8 |
+| Monthly recurring revenue | Rp 900k–2.4jt | Week 8 |
+| WhatsApp messages logged/week | 50+ per customer | Week 4+ |
+
+---
+
+## 3. What NOT To Build (Yet)
+
+These features exist in the codebase but should NOT be prioritized, marketed, or expanded until customer demand proves them:
+
+| Feature | Status | Revisit when |
+| --- | --- | --- |
+| Automations engine | Built, hide from Starter/Growth | A customer asks for it |
+| Multi-pipeline | Built, limit to Growth (3) | A customer needs >1 pipeline |
+| Advanced analytics (funnel/attribution/forecast) | Built, Growth+ only | A customer asks for attribution |
+| API keys & webhooks | Built, Custom only | A customer needs API access |
+| Superadmin platform | Built, internal use only | Managing 10+ companies |
+| Self-service Midtrans billing | Built, works | After 3 manual customers |
+| Marketing pages (blog/careers/resources) | Built, premature | After product-market fit |
+| White-label / custom domains | Not built | Enterprise customer requests it |
+| SSO / SAML | Not built | Enterprise customer requests it |
+| Native mobile app | Not built | After PMF, if mobile usage is high |
+| Multi-touch attribution | Not built | After single-touch proves useful |
+| Custom roles | Not built | After 10+ seat teams need granularity |
+
+---
+
+## 4. Customer-Facing Debt Status (Resolved 2026-05-24)
+
+| Priority | Issue | Status |
+| --- | --- | --- |
+| HIGH | Trial semantics mismatch | Resolved: new workspaces receive Growth entitlements under `trialing`; expired or canceled access does not fall back to a permanent free tier. |
+| HIGH | Pricing copy drift | Resolved: pricing and checkout use flat workspace pricing; FAQ describes Midtrans VA/bank-transfer capability. |
+| HIGH | Plan tier naming | Resolved: active product tiers are Starter, Growth, and Custom, with a database enum migration from legacy tiers. |
+| MEDIUM | Stale webhook event coverage | Resolved: customer webhook types and event selector expose `lead_updated`, `deal_stage_changed`, and `deal_lost`. |
+| MEDIUM | Database indexes for new models | Deferred by scope: no WA account/conversation/message models are created for the current `wa.me` implementation; add indexes with the selected gateway schema. |
+| LOW | Shared types drift | Resolved: shared automation action and event types are aligned to the implemented Prisma/backend surface. |
+
+---
+
+## 5. Implementation Timeline
+
+| Week | Phase | Deliverable |
+| --- | --- | --- |
+| Pending gateway decision | Phase 1 (backend) | Deferred: Prisma models, provider abstraction, webhook endpoint, conversation/message CRUD |
+| 1 | Phase 5.1 | Talk to 5 agency sales teams |
+| 1 | Phase 1 (frontend) | Delivered: lead `wa.me` button. Deferred: conversation inbox, chat view, template picker |
+| Delivered 2026-05-24 | Phase 2 (backend) | Flat pricing logic, Growth trial defaults, plan migration, and checkout changes |
+| Delivered 2026-05-24 | Phase 2 (frontend) | Flat pricing page, updated checkout/subscription UI, and consistent tier copy |
+| 3 | Phase 3 | Hide features from nav, simplify onboarding |
+| 3 | Phase 5.2 | Onboard design partner |
+| 4 | Phase 4 | Vertical customization (agency defaults, pipeline presets) |
+| 4-8 | Phase 5.3 | Manual sales, iterate based on feedback |
+
+---
+
+## 6. Success Definition
+
+FlowRaze is "sellable" when:
+
+1. **A real agency team uses it daily** to track leads and log WhatsApp conversations
+2. **3 companies pay Rp 300k+/month** without requiring constant hand-holding
+3. **WhatsApp is the entry point** — leads come in via WA, conversations are logged, follow-ups are sent from the app
+4. **The product feels purpose-built** for the vertical, not like a generic CRM with a WA plugin bolted on
+
+---
+
+## 7. Architecture Decisions
+
+| Decision | Choice | Rationale |
+| --- | --- | --- |
+| WA provider | Pending decision; `wa.me` links only for current MVP | Ships contact flow without storing credentials or committing to a provider prematurely |
+| Pricing model | Flat per-workspace | Undercuts per-seat incumbents, simpler to explain, removes friction for adding team members |
+| Free tier | Remove (14-day trial only) | Free tier trains non-payment; trial creates urgency |
+| Feature gating | Hide, don't delete | Existing code stays; just remove from nav/marketing until demand proves it |
+| Vertical | B2B service agencies first | Considered deal cycles, team-based selling, WhatsApp-heavy, budget for tools |
+| GTM | Manual sales first | Validate before scaling; learn what matters before building self-serve |
+
+---
+
+## 8. Migration Notes (From Current State)
+
+### Database Migration
+
+1. Defer `WhatsAppAccount`, `Conversation`, and `Message` models until the gateway is selected
+2. Use existing `Lead.phone` for `wa.me` links; add a dedicated normalized WA field only if gateway matching requires it
+3. Keep link-only WhatsApp available from the lead phone action without provider-specific entitlement fields
+4. Apply the included plan-tier migration mapping legacy `free` to `starter` and `pro` to `custom`
+
+### Existing Customer Data
+
+- No real customers yet → migration is safe
+- Seed data is updated to reflect the Starter, Growth, and Custom tiers
+- Demo WhatsApp conversations remain deferred until a gateway-backed conversation model is selected
+
+### Environment Variables (After Gateway Selection)
+
+```env
+# Deferred: only required after a provider is approved
+WA_PROVIDER=fonnte
+WA_API_TOKEN=your-fonnte-token
+WA_WEBHOOK_SECRET=your-webhook-verify-token
+```
+
+---
+
+## 9. Risk Register
+
+| Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- |
-| 1 | Database schema migration | Done | Completed by multi-tenant and not-null migrations. |
-| 2 | JWT and auth middleware update | Done | JWT/API key auth now attaches role and company context. |
-| 3 | User routes rework | Done | Company admin scoping and billing seat enforcement exist. Superadmin support remains in `/api/users` plus richer `/api/admin/users`. |
-| 4 | Superadmin admin routes | Done | More complete than the original plan, including payment and superadmin invite helpers. |
-| 5 | Company data routes rework | Done | Shared data-scope helpers and critical route-level isolation tests now harden company, manager team, and employee owner visibility. Broader edge-case tests can continue incrementally. |
-| 6 | Frontend rework | Done | Admin and company route families exist; target/team management, pipeline settings, analytics, automations, support, checkout, and subscription UI are implemented. Remaining work is mostly polish and tests. |
-| 7 | White-label preparation | Planned | Do not implement until tenancy hardening is complete. |
-| 8 | Pricing entitlement alignment | Mostly done | Plan gates and limits are centralized, but trial semantics and several pricing/marketing copy points need reconciliation. |
-| 9 | Advanced paid-plan features | In progress | Funnel analytics, single-touch attribution, linear forecast, lead velocity, multi-pipeline, and workflow automation actions are shipped. Remaining: multi-touch attribution, cohorts, custom roles, SSO, communication integrations, and enterprise controls. |
+| WA provider instability (unofficial API) | Medium | High | Abstract provider; have fallback to manual logging; upgrade to Cloud API when ready |
+| No agency wants to pay Rp 300k/mo | Medium | High | Validate in Week 1 discovery; adjust price or vertical if needed |
+| WhatsApp ToS enforcement on unofficial providers | Low | High | Build with Cloud API upgrade path; don't store messages that violate ToS |
+| Over-engineering WA before validating demand | Medium | Medium | Ship link-only contact first; choose provider features after design partner feedback |
+| Existing code complexity slows iteration | Low | Medium | Don't refactor what works; add new features alongside existing code |
 
 ---
 
-## 7. Recommended Next Work Order
+## 10. Previous Implementation Status (Archived)
 
-1. **Security hardening:** Work through `docs/code-audit.md`, starting with seat-limit semantics for superadmin-created company users, sales-team manager validation, audit logs, provider timeouts, and security headers.
-2. **Public packaging reconciliation:** Decide whether the 14-day trial grants Growth/Performance/Pro entitlements or is only a free-plan trial window, then update onboarding/entitlements or pricing/help/landing copy. Also clean up stale payment-method and pipeline-stage pricing text.
-3. **Billing renewal depth:** Add automated renewal invoices, payment retry/payment-method update flows, and reconciliation for provider renewal outcomes.
-4. **Advanced paid-plan differentiation:** Add multi-touch attribution, cohort analytics, custom roles/permissions, and SSO/SAML only if they remain in paid packaging.
-5. **Enterprise and white-label:** Add `Tenant`, custom domains, branding API, client portals, data residency options, SLA/support workflows, and compliance artifacts after the security/billing gaps are stable.
-6. **Mobile strategy:** Decide whether native mobile means responsive web/PWA first or native iOS/Android, then update pricing copy or create the mobile project.
+The multi-tenant rework documented in the previous version of this file is **complete**. All items marked "Done" in the old plan remain done. This new plan builds on that foundation rather than replacing it.
 
----
-
-## 8. Production Readiness Checklist
-
-- [x] Company schema foundation
-- [x] Role enum migration
-- [x] JWT/API key company context
-- [x] Superadmin platform API
-- [x] Superadmin platform UI
-- [x] Company onboarding
-- [x] Company targets and sales team management UI
-- [x] Every tenant query includes company scope
-- [x] Manager reads are team-scoped
-- [x] Employee reads are owner-scoped
-- [x] Exports are tenant/role-scoped
-- [x] Route-level tenancy regression tests exist
-- [x] Comprehensive test suite (80 tests): auth, leads, data-scope, entitlements, pagination, auth store, routes
-- [x] Company-admin user/invite seat limits are enforced
-- [ ] Superadmin-created company-user seat semantics are enforced or explicitly audited
-- [x] Plan entitlements are centralized and enforced
-- [x] Existing paid-feature gates match centralized entitlements
-- [x] Trial start/end and expiry behavior exists
-- [x] Provider billing is integrated
-- [ ] Pricing/trial copy fully matches entitlement behavior
-- [x] Multi-pipeline and custom stages are implemented
-- [x] Baseline analytics are implemented
-- [x] Workflow automation supports assignment, notification, and webhook actions
-- [ ] Security audit queue is closed (core items resolved; expand audit log coverage remaining)
-- [ ] Billing renewal retries and provider renewal reconciliation are implemented
-- [ ] White-label tenant routing is designed and implemented
+Key completed foundations this plan depends on:
+- ✅ Multi-tenant data isolation with companyId scoping
+- ✅ Four-role model (superadmin, admin, manager, employee)
+- ✅ JWT + API key authentication
+- ✅ Midtrans payment integration
+- ✅ Pipeline and deal management
+- ✅ Lead CRUD with import/export
+- ✅ Dashboard and analytics
+- ✅ Team performance and targets
+- ✅ Automation engine
+- ✅ Webhook infrastructure
+- ✅ Support ticket system
+- ✅ Comprehensive test suite (80 tests)

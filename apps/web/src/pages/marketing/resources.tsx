@@ -19,7 +19,7 @@ const RESOURCES = [
     description: 'Connect FlowRaze to the tools your team already uses.',
     icon: '🔌',
     link: '#',
-    items: ['Gmail & WhatsApp', 'Meta & Google Ads', 'Salesforce Sync', 'Zapier Flows'],
+    items: ['WhatsApp chat links', 'Lead imports', 'CSV/PDF exports', 'API and webhooks'],
     color: '#1aa86b',
     bg: '#e6f7ee'
   },
@@ -213,7 +213,7 @@ export function ResourcesPage() {
             </p>
             <div data-reveal="up" style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
               <Link to="/register">
-                <LandingButton size="lg">Get Started Free →</LandingButton>
+                <LandingButton size="lg">Start 14-Day Trial →</LandingButton>
               </Link>
               <Link to="/pricing">
                 <LandingButton variant="ghost" size="lg">View Pricing</LandingButton>

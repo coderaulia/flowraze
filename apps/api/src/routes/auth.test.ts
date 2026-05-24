@@ -64,7 +64,7 @@ test('POST /api/auth/login returns token for valid credentials', async () => {
     };
   });
   mockPrisma('billingAccount', 'findUnique', () => ({
-    plan: 'pro',
+    plan: 'custom',
     status: 'active',
     seats: 10,
   }));
@@ -151,6 +151,7 @@ test('POST /api/auth/register creates a new user', async () => {
         email: 'new@flowraze.com',
         password: 'securepass123',
         name: 'New User',
+        consent: true,
       }),
     });
 
@@ -180,6 +181,7 @@ test('POST /api/auth/register rejects duplicate email', async () => {
         email: 'taken@flowraze.com',
         password: 'securepass123',
         name: 'Duplicate',
+        consent: true,
       }),
     });
 
@@ -233,7 +235,7 @@ test('GET /api/auth/me returns current user with valid token', async () => {
     return null;
   });
   mockPrisma('billingAccount', 'findUnique', () => ({
-    plan: 'pro',
+    plan: 'custom',
     status: 'active',
     seats: 10,
   }));

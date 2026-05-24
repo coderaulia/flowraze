@@ -189,9 +189,9 @@ export function SubscriptionPage() {
                   </p>
                 </div>
                 <div className="rounded-lg bg-surface-container p-4">
-                  <p className="text-xs uppercase tracking-wider text-on-surface-variant">Seats</p>
+                  <p className="text-xs uppercase tracking-wider text-on-surface-variant">Users Included</p>
                   <p className="mt-1 text-lg font-semibold text-on-surface">
-                    {subscription.seats}
+                    {subscription.plan === 'starter' ? 'Up to 5' : 'Unlimited'}
                   </p>
                 </div>
               </div>
@@ -325,7 +325,7 @@ export function SubscriptionPage() {
                     <p className="text-sm text-on-surface-variant">
                       Your subscription was canceled
                       {subscription.canceledAt ? ` on ${formatDate(subscription.canceledAt)}` : ''}.
-                      You're on the Free plan. Upgrade anytime to restore paid features.
+                      Your workspace does not currently have paid access. Subscribe again to restore features.
                     </p>
                     <Button
                       className="mt-2"
@@ -345,8 +345,7 @@ export function SubscriptionPage() {
       {/* Cancel Subscription */}
       {subscription &&
         subscription.status === 'active' &&
-        !subscription.isCanceling &&
-        subscription.plan !== 'free' && (
+        !subscription.isCanceling && (
           <Card>
             <CardHeader>
               <CardTitle className="text-error">Cancel Subscription</CardTitle>

@@ -58,7 +58,7 @@ export function ExportControls({ entity, queryParams }: ExportControlsProps) {
       {!canExport && (
         <span className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-primary bg-primary/10 rounded-full">
           <Lock className="h-3 w-3" />
-          Performance Plan
+          Active Paid Plan
         </span>
       )}
       {error && <span className="text-sm font-medium text-error">{error}</span>}
