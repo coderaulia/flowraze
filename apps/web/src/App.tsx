@@ -68,7 +68,7 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/solutions" element={<SolutionsPage />} />
+        <Route path="/solutions" element={<Navigate to="/" replace />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
@@ -77,10 +77,10 @@ function App() {
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/blog" element={<BlogPage />} />
-        <Route path="/careers" element={<CareersPage />} />
+        <Route path="/blog" element={<Navigate to="/" replace />} />
+        <Route path="/careers" element={<Navigate to="/" replace />} />
         <Route path="/help" element={<HelpPage />} />
-        <Route path="/resources" element={<ResourcesPage />} />
+        <Route path="/resources" element={<Navigate to="/" replace />} />
 
         {/* Legacy company app paths */}
         <Route path="/dashboard" element={<RedirectWithSearch to={COMPANY_ROUTES.dashboard} />} />

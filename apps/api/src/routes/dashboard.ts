@@ -85,6 +85,8 @@ router.get('/', async (req: AuthRequest, res, next) => {
       campaignId: { not: null },
     });
 
+    const activeDealsWhere = await dealScope(req, { isWon: false, isLost: false });
+
     const [
       totalLeads,
       totalDeals,
@@ -94,6 +96,10 @@ router.get('/', async (req: AuthRequest, res, next) => {
       campaignCost,
       campaignsByChannel,
       campaignLeads,
+      proposalDeals,
+      wonDealsForCycle,
+      wonDealsForServiceType,
+      repeatClientGroups,
     ] = await Promise.all([
       prisma.lead.count({ where: leadWhere }),
       prisma.deal.count({ where: dealWhere }),
@@ -114,7 +120,69 @@ router.get('/', async (req: AuthRequest, res, next) => {
         _count: { id: true },
       }),
       prisma.lead.count({ where: campaignLeadWhere }),
+      // Proposal pipeline: active deals in stages named Proposal or Negotiation
+      prisma.deal.findMany({
+        where: activeDealsWhere,
+        select: { value: true, pipelineStageId: true },
+        take: 5000,
+      }),
+      // Won deals for cycle time calculation
+      prisma.deal.findMany({
+        where: wonWhere,
+        select: { createdAt: true, closedAt: true },
+        take: 5000,
+      }),
+      // Won deals with lead serviceType for revenue breakdown
+      prisma.deal.findMany({
+        where: wonWhere,
+        select: { value: true, lead: { select: { serviceType: true } } },
+        take: 5000,
+      }),
+      // Repeat clients: companyNames with more than one lead
+      prisma.lead.groupBy({
+        by: ['companyName'],
+        where: { ...leadWhere, companyName: { not: null } },
+        _count: { id: true },
+        having: { id: { _count: { gt: 1 } } },
+      }),
     ]);
+
+    // --- Agency metrics ---
+    // Proposal pipeline value: deals in stages named "proposal" or "negotiation"
+    const proposalStageIds = proposalDeals.map((d) => d.pipelineStageId);
+    const proposalStageRecords = proposalStageIds.length > 0
+      ? await prisma.pipelineStage.findMany({
+          where: { id: { in: [...new Set(proposalStageIds)] } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const proposalStageSet = new Set(
+      proposalStageRecords
+        .filter((s) => /proposal|negotiation/i.test(s.name))
+        .map((s) => s.id)
+    );
+    const proposalPipelineValue = proposalDeals
+      .filter((d) => proposalStageSet.has(d.pipelineStageId))
+      .reduce((sum, d) => sum + d.value, 0);
+
+    // Avg deal cycle in days
+    const cycleDeals = wonDealsForCycle.filter((d) => d.closedAt != null);
+    const avgDealCycleDays = cycleDeals.length > 0
+      ? cycleDeals.reduce((sum, d) => {
+          const ms = (d.closedAt as Date).getTime() - d.createdAt.getTime();
+          return sum + ms / (1000 * 60 * 60 * 24);
+        }, 0) / cycleDeals.length
+      : 0;
+
+    // Revenue by service type
+    const revenueByServiceType: Record<string, number> = {};
+    for (const deal of wonDealsForServiceType) {
+      const type = deal.lead?.serviceType ?? 'Other';
+      revenueByServiceType[type] = (revenueByServiceType[type] ?? 0) + deal.value;
+    }
+
+    // Repeat client count
+    const repeatClientCount = repeatClientGroups.length;
 
     // Use groupBy for leads over time instead of loading all leads
     const leadsGrouped = await prisma.lead.groupBy({
@@ -225,6 +293,12 @@ router.get('/', async (req: AuthRequest, res, next) => {
           totalCost: campaignCost._sum.cost ?? 0,
           leadsGenerated: campaignLeads,
           topChannel: topCampaignChannel,
+        },
+        agencyMetrics: {
+          proposalPipelineValue,
+          avgDealCycleDays: Math.round(avgDealCycleDays),
+          revenueByServiceType,
+          repeatClientCount,
         },
       },
     });

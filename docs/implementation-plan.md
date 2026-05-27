@@ -1,6 +1,6 @@
 # Implementation Plan: Growth Pivot
 
-**Last updated:** 2026-05-24
+**Last updated:** 2026-05-27
 
 **Context:** This plan replaces the previous multi-tenant rework status document. The engineering foundation is solid — multi-tenant isolation, role model, billing, pipelines, analytics, and automations are all shipped. The risk is now **positioning**, not engineering. FlowRaze is a Pipedrive clone in a WhatsApp-CRM market. This plan pivots the product toward a sellable shape for Indonesian SMB sales teams.
 
@@ -341,6 +341,8 @@ The marketing site is premature for manual sales. Options:
 
 **Recommendation:** Keep landing + pricing + login. Hide the rest until there are 5+ paying customers.
 
+**Status (2026-05-27):** `/solutions`, `/blog`, `/careers`, `/resources` now redirect to `/` (landing page). `/about`, `/help`, `/privacy`, `/terms` remain accessible. `/pricing` kept.
+
 ---
 
 ### Phase 4: Vertical Wedge — B2B Service Agency Focus
@@ -376,9 +378,9 @@ For agencies, a "deal" is really a "project proposal." Adjust language:
 #### 2.4.4 Acceptance Criteria
 
 - [ ] Onboarding asks vertical and pre-configures pipeline stages
-- [ ] Lead form has agency-relevant source/serviceType defaults
-- [ ] Dashboard shows agency-relevant metrics
-- [ ] UI language can be "Projects" instead of "Deals" (workspace setting)
+- [x] Lead form has agency-relevant source/serviceType defaults (fallback defaults when DB empty: Referral, WhatsApp, LinkedIn, Website form, Event; Web Development, Digital Marketing, SEO, Branding, IT Consulting, Custom Software)
+- [x] Dashboard shows agency-relevant metrics (proposal pipeline value, avg deal cycle days, repeat client count, revenue by service type chart)
+- [x] UI language can be "Projects" instead of "Deals" (workspace setting in Settings > Workspace; propagates to nav and Deals page header)
 
 ---
 

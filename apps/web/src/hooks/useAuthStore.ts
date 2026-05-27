@@ -8,6 +8,7 @@ export interface Entitlements {
   status: string;
   isActive: boolean;
   seats: number;
+  dealLabel?: string;
   features: {
     analytics: boolean;
     apiKeys: boolean;

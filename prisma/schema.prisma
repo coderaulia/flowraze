@@ -15,6 +15,7 @@ model Company {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
+  dealLabel String   @default("Deals")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

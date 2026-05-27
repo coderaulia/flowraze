@@ -430,4 +430,31 @@ router.post('/:id/resend-invite', requireRole('superadmin', 'admin'), async (req
   }
 });
 
+router.put('/company', requireRole('admin'), async (req: AuthRequest, res, next) => {
+  try {
+    const companyId = req.companyId;
+    if (!companyId) {
+      throw new AppError(400, 'No company associated with this account');
+    }
+
+    const body = requireObjectBody(req.body);
+    const updateData: Record<string, unknown> = {};
+    setIfPresent(updateData, body, 'dealLabel', optionalNonEmptyString);
+
+    if (Object.keys(updateData).length === 0) {
+      throw new AppError(400, 'No valid fields to update');
+    }
+
+    const company = await prisma.company.update({
+      where: { id: companyId },
+      data: updateData,
+      select: { id: true, name: true, slug: true, dealLabel: true },
+    });
+
+    res.json({ success: true, data: company });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

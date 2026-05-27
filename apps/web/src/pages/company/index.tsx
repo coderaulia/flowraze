@@ -14,6 +14,9 @@ import {
   BadgePercent,
   Megaphone,
   Target,
+  Clock,
+  Repeat,
+  Layers,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -53,6 +56,12 @@ interface DashboardStats {
     totalCost: number;
     leadsGenerated: number;
     topChannel: string | null;
+  };
+  agencyMetrics?: {
+    proposalPipelineValue: number;
+    avgDealCycleDays: number;
+    revenueByServiceType: Record<string, number>;
+    repeatClientCount: number;
   };
 }
 
@@ -244,6 +253,17 @@ export function DashboardPage() {
   const hasSourceData = leadsBySourceData.some((item) => item.value > 0);
   const hasStageData = dealsByStageData.some((item) => item.value > 0);
   const hasLeadsOverTime = Boolean(stats?.leadsOverTime.some((item) => item.leads > 0));
+
+  const revenueByServiceTypeData = useMemo<ChartDatum[]>(
+    () =>
+      stats?.agencyMetrics
+        ? Object.entries(stats.agencyMetrics.revenueByServiceType)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+        : [],
+    [stats]
+  );
+  const hasServiceTypeData = revenueByServiceTypeData.some((item) => item.value > 0);
 
   if (isLoading) {
     return (
@@ -565,6 +585,65 @@ export function DashboardPage() {
               </ResponsiveContainer>
             ) : (
               <ChartEmptyState label="Leads created in the selected range will appear here month by month." />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          icon={Layers}
+          label="Proposal Pipeline"
+          value={formatCurrency(stats?.agencyMetrics?.proposalPipelineValue ?? 0)}
+          detail="Value of deals in Proposal / Negotiation stages"
+          tone="primary"
+        />
+        <StatCard
+          icon={Clock}
+          label="Avg Deal Cycle"
+          value={`${stats?.agencyMetrics?.avgDealCycleDays ?? 0} days`}
+          detail="Average days from deal created to closed-won"
+          tone="secondary"
+        />
+        <StatCard
+          icon={Repeat}
+          label="Repeat Clients"
+          value={(stats?.agencyMetrics?.repeatClientCount ?? 0).toLocaleString('id-ID')}
+          detail="Companies with more than one lead"
+          tone="tertiary"
+        />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-secondary" />
+            Revenue by Service Type
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64 sm:h-72">
+            {hasServiceTypeData ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={revenueByServiceTypeData} margin={{ left: 0, right: 8, top: 12 }}>
+                  <CartesianGrid stroke="#dfe3ea" vertical={false} />
+                  <XAxis dataKey="name" stroke="#464555" fontSize={12} tickLine={false} />
+                  <YAxis
+                    stroke="#464555"
+                    fontSize={12}
+                    tickFormatter={(value: number) => formatCompactCurrency(value)}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<DashboardTooltip />} cursor={{ fill: '#e6e8ea' }} />
+                  <Bar dataKey="value" name="Revenue" radius={[6, 6, 0, 0]}>
+                    {revenueByServiceTypeData.map((entry, index) => (
+                      <Cell key={entry.name} fill={SOURCE_COLORS[index % SOURCE_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <ChartEmptyState label="Win deals linked to leads with service types to see revenue breakdown." />
             )}
           </div>
         </CardContent>

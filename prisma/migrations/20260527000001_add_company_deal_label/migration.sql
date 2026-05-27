@@ -1,0 +1,1 @@
+ALTER TABLE "Company" ADD COLUMN "dealLabel" TEXT NOT NULL DEFAULT 'Deals';

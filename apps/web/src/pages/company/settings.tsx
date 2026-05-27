@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, GitBranch, KeyRound, Plus, ShieldCheck, Trash2, Webhook } from 'lucide-react';
+import { CreditCard, GitBranch, KeyRound, Plus, Settings2, ShieldCheck, Trash2, Webhook } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -90,6 +90,9 @@ export function SettingsPage() {
   const [pipelineMessage, setPipelineMessage] = useState<Message | null>(null);
   const [newStageName, setNewStageName] = useState<Record<string, string>>({});
   const [newStageColor, setNewStageColor] = useState<Record<string, string>>({});
+  const [dealLabel, setDealLabel] = useState(user?.entitlements?.dealLabel ?? 'Deals');
+  const [workspaceMessage, setWorkspaceMessage] = useState<Message | null>(null);
+  const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
 
   const fetchAdminTools = useCallback(async () => {
     const billingResponse = await get<BillingAccount>('/billing');
@@ -319,12 +322,56 @@ export function SettingsPage() {
     }
   };
 
+  const handleSaveWorkspace = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSavingWorkspace(true);
+    setWorkspaceMessage(null);
+    const response = await put<{ dealLabel: string }>('/users/company', { dealLabel });
+    setIsSavingWorkspace(false);
+    if (response.success && response.data) {
+      updateUser({ entitlements: { ...user?.entitlements, plan: user?.entitlements?.plan ?? 'starter', status: user?.entitlements?.status ?? 'active', isActive: user?.entitlements?.isActive ?? true, seats: user?.entitlements?.seats ?? 5, features: user?.entitlements?.features ?? { analytics: false, apiKeys: false, automation: false, campaigns: false, exports: true, targets: false, teamPerformance: false, webhooks: false }, limits: user?.entitlements?.limits ?? { apiKeys: 0, webhooks: 0 }, dealLabel: response.data.dealLabel } });
+      setWorkspaceMessage({ type: 'success', text: 'Workspace settings saved.' });
+    } else {
+      setWorkspaceMessage({ type: 'error', text: response.error || 'Unable to save workspace settings.' });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-primary">Settings</h1>
         <p className="mt-1 text-on-surface-variant">Manage account access, integrations, and subscription state</p>
       </div>
+
+      {isAdmin() && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings2 className="h-5 w-5 text-secondary" />
+              Workspace
+            </CardTitle>
+            <CardDescription>Customize how your workspace looks and feels</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveWorkspace} className="space-y-4">
+              {workspaceMessage && <AlertMessage message={workspaceMessage} />}
+              <div className="max-w-xs space-y-2">
+                <Label htmlFor="dealLabel">Deal label</Label>
+                <Input
+                  id="dealLabel"
+                  value={dealLabel}
+                  onChange={(event) => setDealLabel(event.target.value)}
+                  placeholder="Deals"
+                />
+                <p className="text-xs text-on-surface-variant">Rename "Deals" across the workspace (e.g. "Projects").</p>
+              </div>
+              <Button type="submit" disabled={isSavingWorkspace}>
+                {isSavingWorkspace ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

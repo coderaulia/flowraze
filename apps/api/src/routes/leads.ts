@@ -114,12 +114,20 @@ router.get('/lookups', async (req: AuthRequest, res, next) => {
       }),
     ]);
 
+    const DEFAULT_SOURCES = ['Referral', 'WhatsApp', 'LinkedIn', 'Website form', 'Event'];
+    const DEFAULT_SERVICE_TYPES = [
+      'Web Development', 'Digital Marketing', 'SEO', 'Branding', 'IT Consulting', 'Custom Software',
+    ];
+
+    const dbSources = sources.map((s) => s.source);
+    const dbServiceTypes = serviceTypes.map((s) => s.serviceType).filter(Boolean) as string[];
+
     res.json({
       success: true,
       data: {
-        sources: sources.map((s) => s.source),
+        sources: dbSources.length > 0 ? dbSources : DEFAULT_SOURCES,
         companies: companies.map((c) => c.companyName).filter(Boolean),
-        serviceTypes: serviceTypes.map((s) => s.serviceType).filter(Boolean),
+        serviceTypes: dbServiceTypes.length > 0 ? dbServiceTypes : DEFAULT_SERVICE_TYPES,
       },
     });
   } catch (error) {

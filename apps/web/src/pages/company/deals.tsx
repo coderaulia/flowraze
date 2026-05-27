@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FieldError } from '@/components/ui/field-error';
 import { ExportControls } from '@/components/export-controls';
 import { get, post, put, del } from '@/lib/api';
+import { useAuthStore } from '@/hooks/useAuthStore';
 import {
   hasFormErrors,
   isPositiveNumber,
@@ -47,6 +48,8 @@ function validateDealForm(data: DealFormData): FormErrors {
 }
 
 export function DealsPage() {
+  const { user } = useAuthStore();
+  const dealLabel = user?.entitlements?.dealLabel ?? 'Deals';
   const [searchParams, setSearchParams] = useSearchParams();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -219,7 +222,7 @@ export function DealsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Deals</h1>
+          <h1 className="text-2xl font-bold text-primary">{dealLabel}</h1>
           <p className="text-on-surface-variant mt-1">
             {pipeline ? pipeline.name : 'Track your sales pipeline'}
           </p>

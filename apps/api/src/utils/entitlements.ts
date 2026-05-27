@@ -69,10 +69,16 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, EntitlementConfig> = {
 };
 
 export async function getCompanyEntitlements(companyId: string) {
-  let billingAccount = await prisma.billingAccount.findUnique({
-    where: { companyId },
-    select: { id: true, plan: true, status: true, seats: true, trialEndsAt: true },
-  });
+  let [billingAccount, company] = await Promise.all([
+    prisma.billingAccount.findUnique({
+      where: { companyId },
+      select: { id: true, plan: true, status: true, seats: true, trialEndsAt: true },
+    }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { dealLabel: true },
+    }),
+  ]);
 
   if (billingAccount?.status === 'trialing' && billingAccount.trialEndsAt && billingAccount.trialEndsAt < new Date()) {
     billingAccount = await prisma.billingAccount.update({
@@ -91,6 +97,7 @@ export async function getCompanyEntitlements(companyId: string) {
     plan,
     status: billingAccount?.status ?? 'trialing',
     isActive,
+    dealLabel: company?.dealLabel ?? 'Deals',
     seats: config.seats ?? billingAccount?.seats ?? Number.POSITIVE_INFINITY,
     features: {
       analytics: isActive && config.analytics,

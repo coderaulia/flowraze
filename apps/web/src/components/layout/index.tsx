@@ -210,7 +210,7 @@ export function Layout() {
     ...(admin && hasFeature('automation') ? [{ to: COMPANY_ROUTES.automations, icon: Workflow, label: 'Automations' }] : []),
     ...(hasFeature('targets') ? [{ to: COMPANY_ROUTES.targets, icon: Target, label: 'Targets' }] : []),
     { to: COMPANY_ROUTES.leads, icon: Users, label: 'Leads' },
-    { to: COMPANY_ROUTES.deals, icon: Briefcase, label: 'Deals' },
+    { to: COMPANY_ROUTES.deals, icon: Briefcase, label: user?.entitlements?.dealLabel ?? 'Deals' },
     ...(hasFeature('campaigns') ? [{ to: COMPANY_ROUTES.campaigns, icon: Megaphone, label: 'Campaigns' }] : []),
     { to: COMPANY_ROUTES.activities, icon: Activity, label: 'Activities' },
     { to: COMPANY_ROUTES.team, icon: UserCircle, label: 'Team' },

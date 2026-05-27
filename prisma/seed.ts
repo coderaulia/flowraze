@@ -115,6 +115,23 @@ type SeedCompany = {
 type UserMap = Map<string, { id: string; name: string }>;
 type CampaignMap = Map<string, { id: string }>;
 type LeadMap = Map<string, { id: string }>;
+type PipelineStageMap = Map<DealStage, { id: string; isWon: boolean; isLost: boolean }>;
+
+const DEFAULT_PIPELINE_STAGES: Array<{
+  key: DealStage;
+  name: string;
+  order: number;
+  color: string;
+  isWon: boolean;
+  isLost: boolean;
+}> = [
+  { key: 'new', name: 'New', order: 1, color: '#bcc3ff', isWon: false, isLost: false },
+  { key: 'qualified', name: 'Qualified', order: 2, color: '#4ae176', isWon: false, isLost: false },
+  { key: 'proposal', name: 'Proposal', order: 3, color: '#ffb595', isWon: false, isLost: false },
+  { key: 'negotiation', name: 'Negotiation', order: 4, color: '#ff6b6b', isWon: false, isLost: false },
+  { key: 'won', name: 'Won', order: 5, color: '#4ae176', isWon: true, isLost: false },
+  { key: 'lost', name: 'Lost', order: 6, color: '#ffb4ab', isWon: false, isLost: true },
+];
 
 function monthsAgo(n: number, dayOfMonth = 15): Date {
   const d = new Date();
@@ -247,6 +264,43 @@ async function seedCompany(company: SeedCompany, passwordHash: string) {
     update: { name: company.name, slug: company.slug, isActive: company.isActive },
     create: { id: company.id, name: company.name, slug: company.slug, isActive: company.isActive },
   });
+
+  const pipeline = await prisma.pipeline.upsert({
+    where: { companyId_name: { companyId: company.id, name: 'Sales Pipeline' } },
+    update: { isDefault: true },
+    create: {
+      id: `${SEED_ID_PREFIX}pipeline-${company.slug}-sales`,
+      companyId: company.id,
+      name: 'Sales Pipeline',
+      isDefault: true,
+    },
+  });
+  const pipelineStages: PipelineStageMap = new Map();
+  for (const stage of DEFAULT_PIPELINE_STAGES) {
+    const created = await prisma.pipelineStage.upsert({
+      where: { pipelineId_name: { pipelineId: pipeline.id, name: stage.name } },
+      update: {
+        order: stage.order,
+        color: stage.color,
+        isWon: stage.isWon,
+        isLost: stage.isLost,
+      },
+      create: {
+        id: `${SEED_ID_PREFIX}pipeline-stage-${company.slug}-${stage.key}`,
+        pipelineId: pipeline.id,
+        name: stage.name,
+        order: stage.order,
+        color: stage.color,
+        isWon: stage.isWon,
+        isLost: stage.isLost,
+      },
+    });
+    pipelineStages.set(stage.key, {
+      id: created.id,
+      isWon: created.isWon,
+      isLost: created.isLost,
+    });
+  }
 
   const users: UserMap = new Map();
   for (const user of company.users) {
@@ -423,6 +477,7 @@ async function seedCompany(company: SeedCompany, passwordHash: string) {
   for (const deal of company.deals) {
     const lead = requiredFromMap(leads, deal.leadKey, 'deal lead');
     const owner = requiredFromMap(users, deal.ownerKey, 'deal owner');
+    const stage = requiredFromMap(pipelineStages, deal.stage, 'deal stage');
     await prisma.deal.upsert({
       where: { id: deal.id },
       update: {
@@ -430,12 +485,15 @@ async function seedCompany(company: SeedCompany, passwordHash: string) {
         leadId: lead.id,
         title: deal.title,
         value: deal.value,
-        stage: deal.stage,
+        pipelineId: pipeline.id,
+        pipelineStageId: stage.id,
+        isWon: stage.isWon,
+        isLost: stage.isLost,
         ownerId: owner.id,
         expectedCloseDate: deal.expectedCloseDate,
         createdAt: deal.createdAt,
         closedAt: deal.closedAt,
-        status: deal.stage === 'won' || deal.stage === 'lost' ? 'closed' : 'active',
+        status: stage.isWon || stage.isLost ? 'closed' : 'active',
       },
       create: {
         id: deal.id,
@@ -443,12 +501,15 @@ async function seedCompany(company: SeedCompany, passwordHash: string) {
         leadId: lead.id,
         title: deal.title,
         value: deal.value,
-        stage: deal.stage,
+        pipelineId: pipeline.id,
+        pipelineStageId: stage.id,
+        isWon: stage.isWon,
+        isLost: stage.isLost,
         ownerId: owner.id,
         expectedCloseDate: deal.expectedCloseDate,
         createdAt: deal.createdAt,
         closedAt: deal.closedAt,
-        status: deal.stage === 'won' || deal.stage === 'lost' ? 'closed' : 'active',
+        status: stage.isWon || stage.isLost ? 'closed' : 'active',
       },
     });
   }
