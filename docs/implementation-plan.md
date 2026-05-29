@@ -1,6 +1,6 @@
 # Implementation Plan: Growth Pivot
 
-**Last updated:** 2026-05-27
+**Last updated:** 2026-05-29
 
 **Context:** This plan replaces the previous multi-tenant rework status document. The engineering foundation is solid — multi-tenant isolation, role model, billing, pipelines, analytics, and automations are all shipped. The risk is now **positioning**, not engineering. FlowRaze is a Pipedrive clone in a WhatsApp-CRM market. This plan pivots the product toward a sellable shape for Indonesian SMB sales teams.
 
@@ -343,6 +343,8 @@ The marketing site is premature for manual sales. Options:
 
 **Status (2026-05-27):** `/solutions`, `/blog`, `/careers`, `/resources` now redirect to `/` (landing page). `/about`, `/help`, `/privacy`, `/terms` remain accessible. `/pricing` kept.
 
+**Delivered 2026-05-27.** Phase 3.3 is complete.
+
 ---
 
 ### Phase 4: Vertical Wedge — B2B Service Agency Focus
@@ -379,8 +381,8 @@ For agencies, a "deal" is really a "project proposal." Adjust language:
 
 - [ ] Onboarding asks vertical and pre-configures pipeline stages
 - [x] Lead form has agency-relevant source/serviceType defaults (fallback defaults when DB empty: Referral, WhatsApp, LinkedIn, Website form, Event; Web Development, Digital Marketing, SEO, Branding, IT Consulting, Custom Software)
-- [x] Dashboard shows agency-relevant metrics (proposal pipeline value, avg deal cycle days, repeat client count, revenue by service type chart)
-- [x] UI language can be "Projects" instead of "Deals" (workspace setting in Settings > Workspace; propagates to nav and Deals page header)
+- [x] Dashboard shows agency-relevant metrics (proposal pipeline value, avg deal cycle days, repeat client count, revenue by service type chart) — **Delivered 2026-05-27**
+- [x] UI language can be "Projects" instead of "Deals" (`Company.dealLabel` field, admin workspace setting in Settings > Workspace; propagates to sidebar nav and Deals page header) — **Delivered 2026-05-27**
 
 ---
 
@@ -466,10 +468,11 @@ These features exist in the codebase but should NOT be prioritized, marketed, or
 | 1 | Phase 1 (frontend) | Delivered: lead `wa.me` button. Deferred: conversation inbox, chat view, template picker |
 | Delivered 2026-05-24 | Phase 2 (backend) | Flat pricing logic, Growth trial defaults, plan migration, and checkout changes |
 | Delivered 2026-05-24 | Phase 2 (frontend) | Flat pricing page, updated checkout/subscription UI, and consistent tier copy |
-| 3 | Phase 3 | Hide features from nav, simplify onboarding |
-| 3 | Phase 5.2 | Onboard design partner |
-| 4 | Phase 4 | Vertical customization (agency defaults, pipeline presets) |
-| 4-8 | Phase 5.3 | Manual sales, iterate based on feedback |
+| Delivered 2026-05-27 | Phase 3.3 | `/solutions`, `/blog`, `/careers`, `/resources` redirect to `/`; landing + pricing + login remain |
+| Delivered 2026-05-27 | Phase 4.1–4.3 | Agency-relevant lead defaults, `Company.dealLabel` workspace setting, agency dashboard widgets |
+| Ongoing | Phase 3.1–3.2 | Feature gating from nav (Starter/Growth/Custom visibility), onboarding vertical selection step |
+| Ongoing | Phase 5.2 | Onboard design partner |
+| Ongoing | Phase 5.3 | Manual sales, iterate based on feedback |
 
 ---
 

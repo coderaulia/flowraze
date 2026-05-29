@@ -79,6 +79,7 @@ All routes below require `superadmin`.
 | DELETE | `/api/users/:id` | Superadmin/Admin | Delete user, preserving last superadmin |
 | POST | `/api/users/invite` | Superadmin/Admin | Invite user |
 | POST | `/api/users/:id/resend-invite` | Superadmin/Admin | Resend invite |
+| PUT | `/api/users/company` | Admin | Update workspace settings (e.g. `dealLabel`) |
 
 ## Leads
 
@@ -226,7 +227,7 @@ Supported entities: `leads`, `deals`, `campaigns`, `activities`, `team-performan
 | POST | `/api/webhooks/:id/deliveries/:deliveryId/replay` | Admin | Replay a delivery |
 | DELETE | `/api/webhooks/:id` | Admin | Delete webhook |
 
-Webhook events currently dispatched: `lead_created`, `deal_created`, `deal_won`, `activity_created`.
+Webhook events currently dispatched: `lead_created`, `lead_updated`, `deal_created`, `deal_won`, `deal_lost`, `deal_stage_changed`, `activity_created`.
 
 ## Automations
 

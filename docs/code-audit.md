@@ -1,6 +1,6 @@
 # FlowRaze Security Audit
 
-**Last updated:** 2026-05-16
+**Last updated:** 2026-05-29
 
 **Scope:** `apps/api`, `apps/web`, `prisma/schema.prisma`, `shared/types`
 
