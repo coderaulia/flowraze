@@ -30,7 +30,8 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
   try {
     const body = requireObjectBody(req.body);
     const companyName = requireString(body, 'name', 'Company name');
-    
+    const industry = typeof body.industry === 'string' ? body.industry.trim() || null : null;
+
     const user = await prisma.user.findUnique({
       where: { id: req.userId }
     });
@@ -63,6 +64,7 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
         data: {
           name: companyName,
           slug,
+          industry,
           isActive: true,
         }
       });

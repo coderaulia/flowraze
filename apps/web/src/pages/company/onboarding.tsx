@@ -128,15 +128,15 @@ export function OnboardingPage() {
             {step === 'details' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold">A bit more context</h2>
-                  <p className="text-on-surface-variant/70">Help us tailor the dashboard to your team size.</p>
+                  <h2 className="text-2xl font-bold">What does your team sell?</h2>
+                  <p className="text-on-surface-variant/70">We'll tailor your pipeline and dashboard to your workflow.</p>
                 </div>
 
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <Label className="text-base">Industry</Label>
                     <div className="grid grid-cols-2 gap-3">
-                      {['Technology', 'Agencies', 'SaaS', 'E-commerce', 'Consulting', 'Other'].map((ind) => (
+                      {['Agency Services', 'Property', 'Insurance / Financial Sales', 'Other'].map((ind) => (
                         <button
                           key={ind}
                           className={`p-3 rounded-round-eight border text-left transition-all ${industry === ind ? 'bg-primary/10 border-primary text-primary' : 'bg-surface/50 border-surface-container-high hover:border-on-surface-variant/30'}`}
@@ -205,15 +205,15 @@ export function OnboardingPage() {
                   <ul className="space-y-3">
                     <li className="flex gap-3 text-sm">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-[10px] font-bold">1</span>
-                      Connect your first lead source in Settings
+                      Add your first leads — import a CSV or enter them manually
                     </li>
                     <li className="flex gap-3 text-sm">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-[10px] font-bold">2</span>
-                      Invite your sales reps to join the workspace
+                      Start chatting via WhatsApp directly from your lead list
                     </li>
                     <li className="flex gap-3 text-sm">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-[10px] font-bold">3</span>
-                      Set your first quarterly revenue target
+                      Invite your sales team to collaborate
                     </li>
                   </ul>
                 </div>
