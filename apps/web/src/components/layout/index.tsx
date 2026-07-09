@@ -213,7 +213,7 @@ export function Layout() {
     { to: COMPANY_ROUTES.deals, icon: Briefcase, label: user?.entitlements?.dealLabel ?? 'Deals' },
     ...(hasFeature('campaigns') ? [{ to: COMPANY_ROUTES.campaigns, icon: Megaphone, label: 'Campaigns' }] : []),
     { to: COMPANY_ROUTES.activities, icon: Activity, label: 'Activities' },
-    { to: COMPANY_ROUTES.team, icon: UserCircle, label: 'Team' },
+    ...(hasFeature('teamPerformance') ? [{ to: COMPANY_ROUTES.team, icon: UserCircle, label: 'Team' }] : []),
     ...(admin ? [{ to: COMPANY_ROUTES.users, icon: Shield, label: 'Users' }] : []),
   ];
 
