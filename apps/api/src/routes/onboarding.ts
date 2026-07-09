@@ -5,14 +5,60 @@ import { AppError } from '../middleware/errorHandler.js';
 import { requireObjectBody, requireString } from '../utils/request.js';
 
 const router = Router();
-const DEFAULT_PIPELINE_STAGES = [
-  { name: 'New', order: 1, color: '#bcc3ff', isWon: false, isLost: false },
-  { name: 'Qualified', order: 2, color: '#4ae176', isWon: false, isLost: false },
-  { name: 'Proposal', order: 3, color: '#ffb595', isWon: false, isLost: false },
-  { name: 'Negotiation', order: 4, color: '#ff6b6b', isWon: false, isLost: false },
-  { name: 'Won', order: 5, color: '#4ae176', isWon: true, isLost: false },
-  { name: 'Lost', order: 6, color: '#ffb4ab', isWon: false, isLost: true },
-] as const;
+
+type StagePreset = { name: string; order: number; color: string; isWon: boolean; isLost: boolean };
+
+const PIPELINE_PRESETS: Record<string, { dealLabel: string; pipelineName: string; stages: StagePreset[] }> = {
+  'Agency Services': {
+    dealLabel: 'Projects',
+    pipelineName: 'Project Pipeline',
+    stages: [
+      { name: 'Inquiry', order: 1, color: '#bcc3ff', isWon: false, isLost: false },
+      { name: 'Discovery', order: 2, color: '#93c5fd', isWon: false, isLost: false },
+      { name: 'Proposal Sent', order: 3, color: '#ffb595', isWon: false, isLost: false },
+      { name: 'Negotiation', order: 4, color: '#ff6b6b', isWon: false, isLost: false },
+      { name: 'Won', order: 5, color: '#4ae176', isWon: true, isLost: false },
+      { name: 'Lost', order: 6, color: '#ffb4ab', isWon: false, isLost: true },
+    ],
+  },
+  'Property': {
+    dealLabel: 'Properties',
+    pipelineName: 'Property Pipeline',
+    stages: [
+      { name: 'Lead', order: 1, color: '#bcc3ff', isWon: false, isLost: false },
+      { name: 'Contacted', order: 2, color: '#93c5fd', isWon: false, isLost: false },
+      { name: 'Showing', order: 3, color: '#ffb595', isWon: false, isLost: false },
+      { name: 'Offer', order: 4, color: '#fbbf24', isWon: false, isLost: false },
+      { name: 'Under Contract', order: 5, color: '#ff6b6b', isWon: false, isLost: false },
+      { name: 'Closed', order: 6, color: '#4ae176', isWon: true, isLost: false },
+    ],
+  },
+  'Insurance / Financial Sales': {
+    dealLabel: 'Policies',
+    pipelineName: 'Policy Pipeline',
+    stages: [
+      { name: 'Lead', order: 1, color: '#bcc3ff', isWon: false, isLost: false },
+      { name: 'Contacted', order: 2, color: '#93c5fd', isWon: false, isLost: false },
+      { name: 'Needs Analysis', order: 3, color: '#ffb595', isWon: false, isLost: false },
+      { name: 'Quote', order: 4, color: '#fbbf24', isWon: false, isLost: false },
+      { name: 'Underwriting', order: 5, color: '#ff6b6b', isWon: false, isLost: false },
+      { name: 'Active', order: 6, color: '#4ae176', isWon: true, isLost: false },
+    ],
+  },
+};
+
+const DEFAULT_PRESET = {
+  dealLabel: 'Deals',
+  pipelineName: 'Sales Pipeline',
+  stages: [
+    { name: 'New', order: 1, color: '#bcc3ff', isWon: false, isLost: false },
+    { name: 'Qualified', order: 2, color: '#4ae176', isWon: false, isLost: false },
+    { name: 'Proposal', order: 3, color: '#ffb595', isWon: false, isLost: false },
+    { name: 'Negotiation', order: 4, color: '#ff6b6b', isWon: false, isLost: false },
+    { name: 'Won', order: 5, color: '#4ae176', isWon: true, isLost: false },
+    { name: 'Lost', order: 6, color: '#ffb4ab', isWon: false, isLost: true },
+  ],
+};
 
 router.use(authenticate);
 
@@ -60,11 +106,14 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
         if (counter > 100) throw new AppError(409, 'Unable to generate unique slug');
       }
 
+      const preset = (industry && PIPELINE_PRESETS[industry]) || DEFAULT_PRESET;
+
       const company = await tx.company.create({
         data: {
           name: companyName,
           slug,
           industry,
+          dealLabel: preset.dealLabel,
           isActive: true,
         }
       });
@@ -86,10 +135,10 @@ router.post('/setup-company', async (req: AuthRequest, res, next) => {
       await tx.pipeline.create({
         data: {
           companyId: company.id,
-          name: 'Sales Pipeline',
+          name: preset.pipelineName,
           isDefault: true,
           stages: {
-            create: DEFAULT_PIPELINE_STAGES.map((stage) => ({ ...stage })),
+            create: preset.stages.map((stage) => ({ ...stage })),
           },
         },
       });
