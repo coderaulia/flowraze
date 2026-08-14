@@ -61,7 +61,7 @@ flowraze/
 - **Package Manager:** npm ONLY (workspaces)
 
 ### Database Models (22 models)
-`Company`, `User`, `Lead`, `Deal`, `Pipeline`, `PipelineStage`, `Campaign`, `Activity`, `ApiKey`, `WebhookEndpoint`, `WebhookDelivery`, `AutomationRule`, `AutomationRun`, `SupportTicket`, `BillingAccount`, `BillingInvoice`, `BillingPayment`, `SalesTeam`, `SalesTeamMember`, `SalesTarget`, `Notification`
+`Company`, `User`, `Lead`, `Deal`, `Pipeline`, `PipelineStage`, `Campaign`, `Activity`, `ApiKey`, `WebhookEndpoint`, `WebhookDelivery`, `AutomationRule`, `AutomationRun`, `SupportTicket`, `BillingAccount`, `BillingInvoice`, `BillingPayment`, `SalesTeam`, `SalesTeamMember`, `SalesTarget`, `Notification`, `AuditLog`
 
 ### API Routes (24 endpoints)
 `/api/admin`, `/api/auth`, `/api/leads`, `/api/deals`, `/api/campaigns`, `/api/activities`, `/api/dashboard`, `/api/team`, `/api/users`, `/api/search`, `/api/api-keys`, `/api/billing`, `/api/exports`, `/api/webhooks`, `/api/targets`, `/api/onboarding`, `/api/analytics`, `/api/checkout`, `/api/subscription`, `/api/automations`, `/api/support`, `/api/pipelines`, `/api/notifications`, `/api/health`
@@ -240,15 +240,14 @@ The UI follows the "Kinetic Architect" design system:
 - Route guards: `requireSuperadmin`, `requireAdmin`, `requireManager`, `requireAdminOrManager`, `requireCompanyMember`
 - Frontend guards: `SuperadminRoute`, `AdminRoute`, `CompanyMemberRoute`, `FeatureRoute`
 
-### Plan Entitlements
+### Plan Entitlements (Flat-Rate Pricing)
 | Tier | Price | Seats | Key Features |
 |------|-------|-------|--------------|
-| Free (Starter) | Rp 0 | 3 | Leads, basic deals (1 pipeline, fixed stages), simple dashboard |
-| Growth | Rp 149k/user/mo | Unlimited | Campaigns, revenue dashboard, team performance, webhooks (3), custom stages |
-| Pro (Performance) | Rp 299k/user/mo | Unlimited | Advanced analytics, automation, API access, multi-pipeline, unlimited webhooks |
-| Custom (Enterprise) | Custom | Unlimited | Full integrations, dedicated support, custom limits |
+| Starter | Rp 300k/mo | 5 | Leads, 1 deal pipeline, CSV/PDF exports, basic dashboard |
+| Growth | Rp 800k/mo | Unlimited | 14-day trial, 3 pipelines, campaigns, targets, team performance, analytics, 3 webhooks |
+| Custom (Enterprise) | Custom | Unlimited | Unlimited pipelines, API access, workflow automation, unlimited webhooks, dedicated support |
 
-Entitlements are centralized in `apps/api/src/utils/entitlements.ts` and enforced at the route level.
+Entitlements are centralized in `apps/api/src/utils/entitlements.ts` and enforced at the route and UI level.
 
 ---
 
@@ -284,9 +283,13 @@ MIDTRANS_IS_PRODUCTION=false
 - [x] Project scaffolding & npm workspace setup
 - [x] Database schema (Prisma) with 22 models & seed data (multi-company)
 - [x] JWT authentication (login/register) with email verification and password reset
+- [x] Consent tracking in registration flow with comprehensive ToS and privacy policy
 - [x] API key authentication for programmatic access
 - [x] Multi-company schema with `Company`, `companyId`, role enum, and tenant isolation
 - [x] Company onboarding creates workspace, billing account, and first admin
+- [x] Vertical-specific onboarding: Industry selection (Agency Services, Property, Insurance/Financial Sales, Other)
+- [x] Industry-matched pipeline presets & dynamic `Company.dealLabel` ('Project', 'Property', 'Policy', 'Deal') auto-configuration
+- [x] WhatsApp click-to-chat integration (`wa.me`) with Indonesian mobile phone normalization (`lib/whatsapp.ts`)
 - [x] Four-role model: superadmin, admin, manager, employee
 - [x] Shared data-scope helpers for company/team/owner visibility
 - [x] CRUD APIs: leads, deals, campaigns, activities, pipelines, targets, automations, support
@@ -295,7 +298,7 @@ MIDTRANS_IS_PRODUCTION=false
 - [x] Dashboard with revenue, conversion, leads, campaign overview, range filters
 - [x] Growth analytics: funnel analytics, single-touch attribution, linear forecast, lead velocity
 - [x] Sales Targets: company, team, and individual achievement with leaderboard
-- [x] Team performance tracking with tenant/role scoping
+- [x] Team performance tracking with tenant/role scoping, with sidebar nav gated by `teamPerformance` entitlement
 - [x] Campaign management with admin/manager role restriction and tenant-aware owner checks
 - [x] Workflow automation: tenant-scoped rules, manual runs, retry history, assignment, notification, webhook actions
 - [x] In-app support tickets: bug reports, SLA due dates, admin triage, assignment, resolution
@@ -316,7 +319,7 @@ MIDTRANS_IS_PRODUCTION=false
 - [x] Subscription lifecycle: renewal cron, cancellation, downgrade, reactivation, self-service portal
 - [x] SMTP-backed email delivery (verification, invite, password reset) with dev fallback
 - [x] Route-level isolation regression tests for critical permission paths
-- [x] Comprehensive test suite: auth routes, leads CRUD, data-scope, entitlements, pagination (backend); auth store, routes, form validation (frontend) — 80 tests total
+- [x] Comprehensive test suite: auth routes, leads CRUD, data-scope, entitlements, pagination (backend); auth store, routes, form validation, WhatsApp helper (frontend) — 80+ tests total
 - [x] Layout shell with mobile navigation and responsive table scrolling
 - [x] Core design system implementation (Kinetic Architect)
 - [x] Marketing pages: landing, solutions, pricing, about, privacy, terms, blog, careers, help, resources
@@ -337,6 +340,7 @@ MIDTRANS_IS_PRODUCTION=false
 - [x] Subscription renewal batch processing with updateMany
 
 ### Placeholder/Todo
+- [ ] WhatsApp conversation capture gateway: Inbound webhooks, provider account credentials (Fonnte/Wablas or Cloud API), and message logging
 - [ ] Workflow automation expansion: conditional branches, templates, deeper observability
 - [ ] Live support chat, onboarding playbooks, and success-manager routing
 - [ ] Broaden route-level isolation tests across admin, billing, target, and checkout edge cases
@@ -345,7 +349,6 @@ MIDTRANS_IS_PRODUCTION=false
 - [ ] Multi-touch attribution and cohort analytics
 - [ ] Custom roles and permissions (beyond fixed enum)
 - [ ] SSO/SAML authentication
-- [ ] CRM communication integrations (WhatsApp, email inbox)
 - [ ] Native mobile strategy (PWA or native apps)
 - [ ] Future betterauth migration decision
 
@@ -355,12 +358,10 @@ MIDTRANS_IS_PRODUCTION=false
 
 | Priority | Issue | Location |
 |----------|-------|----------|
+| HIGH | WhatsApp conversation capture gateway integration (provider selection & message logging) | `apps/api/src/routes/`, `apps/web/src/` |
 | HIGH | Billing renewal retries and provider renewal reconciliation | `apps/api/src/utils/subscription.ts`, `apps/api/src/utils/payment-provider.ts`, `apps/api/src/routes/checkout.ts` |
-| HIGH | Public pricing/trial copy misalignment: trial plan entitlements vs. copy, stale payment-method wording, pipeline-stage packaging text | `apps/web/src/pages/marketing/pricing.tsx`, `apps/web/src/pages/marketing/help.tsx` |
 | MEDIUM | Route-level isolation tests should expand to admin, billing, target, and checkout edge cases | `apps/api/src/routes/*.test.ts` |
-| MEDIUM | Shared types drift: `AutomationTriggerEvent` and `AutomationActionType` in `shared/types` are narrower than the Prisma enum (missing `lead_updated`, `deal_lost`, `deal_stage_changed`, `assign_owner`, `send_notification`, `fire_webhook`) | `shared/types/index.ts` |
 | MEDIUM | Expand audit logging coverage to API keys, webhooks, role changes, company deactivation | `apps/api/src/routes/admin.ts`, `apps/api/src/routes/api-keys.ts`, `apps/api/src/routes/webhooks.ts` |
-| MEDIUM | Run `prisma migrate dev --name add-performance-indexes` to apply new database indexes | `prisma/schema.prisma` |
 | LOW | Advanced PDF templates/charts remain future polish | `apps/api/src/utils/export.ts` |
 | LOW | Add `?connection_limit=10&pool_timeout=10` to production DATABASE_URL for connection pooling | `apps/api/.env` |
 

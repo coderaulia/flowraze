@@ -40,4 +40,7 @@ This document tracks active product gaps only. Completed historical items belong
 - Multi-pipeline/custom deal stages are no longer missing; pipeline and stage models/routes/UI exist.
 - Workflow automation has moved beyond the foundation; assignment, notification, and webhook actions are implemented.
 - Rich PDF export is no longer a missing feature; exports now produce branded multi-page PDFs without a new runtime dependency.
-- Webhook event coverage is no longer limited; `lead_updated`, `deal_stage_changed`, and `deal_lost` events are dispatched to customer webhooks and automations (resolved 2026-05-24).
+- Webhook event coverage is no longer limited; `lead_updated`, `deal_stage_changed`, and `deal_lost` events are dispatched to customer webhooks and automations.
+- Vertical onboarding & pipeline presets shipped; onboarding auto-configures pipeline stages and `Company.dealLabel` per selected vertical.
+- WhatsApp click-to-chat MVP shipped; lead phone normalization and `wa.me` quick chat links are active.
+
