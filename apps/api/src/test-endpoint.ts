@@ -1,31 +1,36 @@
-import axios from 'axios';
-
 async function test() {
   try {
     // We need a token. Let's try to login as admin.
-    const login = await axios.post('http://localhost:3002/api/auth/login', {
-      email: 'admin@flowraze.com',
-      password: 'admin123'
+    const loginRes = await fetch('http://localhost:3002/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@flowraze.com',
+        password: 'admin123'
+      })
     });
+    const login = (await loginRes.json()) as { data: { token: string } };
     
-    const token = login.data.data.token;
+    const token = login.data.token;
     console.log('Login success');
     
-    const response = await axios.get('http://localhost:3002/api/dashboard/targets?year=2026', {
+    const responseRes = await fetch('http://localhost:3002/api/dashboard/targets?year=2026', {
       headers: { Authorization: `Bearer ${token}` }
     });
+    const response = (await responseRes.json()) as { success: boolean; data: Record<string, unknown> };
     
-    console.log('Response success:', response.data.success);
-    console.log('Data keys:', Object.keys(response.data.data));
+    console.log('Response success:', response.success);
+    console.log('Data keys:', Object.keys(response.data));
 
     console.log('Testing dashboard targets (team scope)...');
-    const teamResponse = await axios.get('http://localhost:3002/api/dashboard/targets?year=2026&scope=team&teamId=team-alpha', {
+    const teamRes = await fetch('http://localhost:3002/api/dashboard/targets?year=2026&scope=team&teamId=team-alpha', {
       headers: { Authorization: `Bearer ${token}` }
     });
-    console.log('Team dashboard success:', teamResponse.data.success);
+    const teamResponse = (await teamRes.json()) as { success: boolean };
+    console.log('Team dashboard success:', teamResponse.success);
   } catch (err: unknown) {
-    const error = err as { response?: { status?: number; data?: unknown }; message?: string };
-    console.error('Error:', error.response?.status, error.response?.data || error.message);
+    const error = err as { message?: string };
+    console.error('Error:', error.message);
   }
 }
 

@@ -58,7 +58,7 @@ flowraze/
 - **Backend:** Node.js, Express, TypeScript, Prisma, PostgreSQL, nodemailer, express-rate-limit, slugify
 - **Auth:** Email/password with bcryptjs + JWT; API key authentication for programmatic access
 - **Payments:** Midtrans Snap checkout with webhook verification
-- **Package Manager:** npm ONLY (workspaces)
+- **Package Manager:** pnpm (workspaces via `pnpm-workspace.yaml`)
 
 ### Database Models (22 models)
 `Company`, `User`, `Lead`, `Deal`, `Pipeline`, `PipelineStage`, `Campaign`, `Activity`, `ApiKey`, `WebhookEndpoint`, `WebhookDelivery`, `AutomationRule`, `AutomationRun`, `SupportTicket`, `BillingAccount`, `BillingInvoice`, `BillingPayment`, `SalesTeam`, `SalesTeamMember`, `SalesTarget`, `Notification`, `AuditLog`
@@ -72,42 +72,42 @@ flowraze/
 
 ### Root Commands
 ```bash
-npm install              # Install all dependencies
-npm run build            # Build all apps
-npm run dev              # Dev mode (all apps)
-npm run lint             # ESLint all packages
-npm run lint:fix         # Auto-fix lint
-npm test                 # Run API/web/shared tests
-npm run typecheck        # TypeScript check all
-npm run db:setup         # Generate + migrate + seed
+pnpm install             # Install all dependencies
+pnpm run build           # Build all apps
+pnpm run dev             # Dev mode (all apps)
+pnpm run lint            # ESLint all packages
+pnpm run lint:fix        # Auto-fix lint
+pnpm test                # Run API/web/shared tests
+pnpm run typecheck       # TypeScript check all
+pnpm run db:setup        # Generate + migrate + seed
 ```
 
 ### Frontend (apps/web)
 ```bash
 cd apps/web
-npm run dev              # Vite dev server (localhost:5173)
-npm run build            # Production build (tsc + vite build)
-npm run preview          # Preview build
-npm run lint             # ESLint
-npm run lint:fix         # Fix lint
-npm test                 # Node test runner via tsx
-npm run typecheck        # TSC check
+pnpm run dev             # Vite dev server (localhost:5173)
+pnpm run build           # Production build (tsc + vite build)
+pnpm run preview         # Preview build
+pnpm run lint            # ESLint
+pnpm run lint:fix        # Fix lint
+pnpm test                # Node test runner via tsx
+pnpm run typecheck       # TSC check
 ```
 
 ### Backend (apps/api)
 ```bash
 cd apps/api
-npm run dev              # Express dev via tsx watch (localhost:3000)
-npm run build            # Compile TS to dist/
-npm run start            # Production server (node dist/index.js)
-npm run lint             # ESLint
-npm run lint:fix         # Fix lint
-npm test                 # Node test runner via tsx
-npm run typecheck        # TSC check
-npm run prisma:generate  # Generate Prisma client
-npm run prisma:migrate   # Run migrations (dev)
-npm run prisma:deploy    # Run migrations (production)
-npm run prisma:seed      # Seed database
+pnpm run dev             # Express dev via tsx watch (localhost:3000)
+pnpm run build           # Compile TS to dist/
+pnpm run start           # Production server (node dist/index.js)
+pnpm run lint            # ESLint
+pnpm run lint:fix        # Fix lint
+pnpm test                # Node test runner via tsx
+pnpm run typecheck       # TSC check
+pnpm run prisma:generate # Generate Prisma client
+pnpm run prisma:migrate  # Run migrations (dev)
+pnpm run prisma:deploy   # Run migrations (production)
+pnpm run prisma:seed     # Seed database
 npx prisma studio        # DB GUI
 ```
 

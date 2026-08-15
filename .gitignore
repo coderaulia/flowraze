@@ -1,13 +1,19 @@
 # Dependencies
+node_modules
 node_modules/
+.pnpm-store
 .pnp/
 .pnp.js
 .yarn/cache
 .yarn/unplugged
 
+# Keep the lockfile checked into Git!
+!pnpm-lock.yaml
+
 # Build outputs & caches
 dist/
 build/
+.next/
 out/
 .vite/
 *.tsbuildinfo
